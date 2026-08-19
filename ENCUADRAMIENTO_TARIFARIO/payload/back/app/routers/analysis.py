@@ -1,5 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal, ROUND_UP
+from statistics import median
 from fastapi import APIRouter,Depends
 from ..auth import CurrentUser,current_user,require_org
 from ..db import admin_db
@@ -35,10 +36,43 @@ def _expected_tariff(capacity,consumption,current=""):
     if capacity < 300:return "T3"
     return "T3A"
 
+def _tariff_key(code):
+    return (code or "").upper().replace("-","")
+
+def _simulate_tariff(ratebook,period,tariff,voltage,active,capacity,measurements):
+    rates=ratebook.get((period,_tariff_key(tariff),voltage or ""))
+    if not rates:return None
+    cost=Decimal(0)
+    for fixed in ("CFI",):
+        if fixed in rates:cost+=rates[fixed]
+    power_code="DEP" if _tariff_key(tariff) in ("T3","T3A") else "DEM"
+    if power_code in rates:cost+=rates[power_code]*capacity
+    bands={"peak":Decimal(0),"remaining":Decimal(0),"valley":Decimal(0)}
+    for m in measurements:
+        band=m.get("time_band") or "all";bands[band]=bands.get(band,Decimal(0))+_num(m.get("active_energy_kwh"))
+    if _tariff_key(tariff) in ("T3","T3A") and any(x in rates for x in ("EPI","ERE","EVA")):
+        band_total=sum(bands.values())
+        if band_total>0:
+            cost+=bands.get("peak",0)*rates.get("EPI",Decimal(0))+bands.get("remaining",0)*rates.get("ERE",Decimal(0))+bands.get("valley",0)*rates.get("EVA",Decimal(0))
+        else:
+            energy_rates=[rates[x] for x in ("EPI","ERE","EVA") if x in rates]
+            if energy_rates:cost+=active*(sum(energy_rates)/len(energy_rates))
+    elif "ECO" in rates:cost+=active*rates["ECO"]
+    if "CAV" in rates:cost+=active*rates["CAV"]
+    return cost
+
 @router.get("/organizations/{organization_id}/tariff-assessments")
 def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user)):
     require_org(user.id,organization_id);db=admin_db()
-    rows=db.table("invoices").select("id,meter_id,invoice_number,billing_period,period_start,total_amount,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,meters(id,meter_number,tracking_code,supply_number,contract_number,service_name,current_tariff_code,voltage_level),invoice_measurements(*),invoice_lines(concept_code,quantity,unit_price,net_amount)").eq("organization_id",organization_id).execute().data
+    rows=db.table("invoices").select("id,meter_id,invoice_number,billing_period,period_start,total_amount,net_taxable,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,meters(id,meter_number,tracking_code,supply_number,contract_number,service_name,current_tariff_code,voltage_level),invoice_measurements(*),invoice_lines(concept_code,quantity,unit_price,net_amount)").eq("organization_id",organization_id).execute().data
+    observed=defaultdict(lambda:defaultdict(list))
+    for row in rows:
+        key=(row.get("billing_period") or row.get("period_start"),_tariff_key(row.get("current_tariff_code")),row.get("voltage_level") or "")
+        for line in row.get("invoice_lines") or []:
+            code=line.get("concept_code");price=_num(line.get("unit_price"))
+            if code=="CFI" and price<=0:price=_num(line.get("net_amount"))
+            if code and price>0:observed[key][code].append(price)
+    ratebook={key:{code:Decimal(str(median(values))) for code,values in concepts.items()} for key,concepts in observed.items()}
     grouped=defaultdict(list)
     for row in rows:grouped[row["meter_id"]].append(row)
     result=[]
@@ -47,7 +81,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         latest=history[0];meter=latest.get("meters") or {};active,demand,pf=_metrics(latest)
         history_demands=[_metrics(x)[1] for x in history];max_demand=max(history_demands or [Decimal(0)])
         contracted=_num(latest.get("contracted_kw_peak"));capacity=contracted or max_demand
-        current=(latest.get("current_tariff_code") or meter.get("current_tariff_code") or "").upper().replace("-","")
+        current=_tariff_key(latest.get("current_tariff_code") or meter.get("current_tariff_code"))
         expected=_expected_tariff(capacity,active,current)
         correctly_framed=current==expected
         safe=(max_demand*Decimal("1.15")).quantize(Decimal("1"),rounding=ROUND_UP) if max_demand else contracted
@@ -56,6 +90,12 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         power_rate=max([_num(x.get("unit_price")) for x in (latest.get("invoice_lines") or []) if x.get("concept_code") in ("DEM","DEP") and _num(x.get("unit_price"))>0] or [Decimal(0)])
         reducible=max(Decimal(0),contracted-recommended)
         monthly_power_saving=(reducible*power_rate).quantize(Decimal("0.01"))
+        reactive_saving=sum(_num(x.get("net_amount")) for x in (latest.get("invoice_lines") or []) if x.get("concept_code")=="COS").quantize(Decimal("0.01"))
+        period=latest.get("billing_period") or latest.get("period_start")
+        simulated=_simulate_tariff(ratebook,period,expected,latest.get("voltage_level"),active,contracted,latest.get("invoice_measurements") or []) if not correctly_framed else None
+        current_base=max(Decimal(0),_num(latest.get("net_taxable"))-reactive_saving)
+        monthly_tariff_saving=max(Decimal(0),current_base-simulated).quantize(Decimal("0.01")) if simulated is not None else Decimal(0)
+        monthly_total=monthly_power_saving+reactive_saving+monthly_tariff_saving
         reasons=[]
         if not correctly_framed:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}")
         if reducible>0:reasons.append(f"La demanda máxima observada fue {max_demand} kW frente a {contracted} kW contratados")
@@ -63,7 +103,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         confidence=90 if len(history)>=6 else 75 if len(history)>=3 else 45
         status="change_candidate" if not correctly_framed else "power_review" if reducible>0 else "correct"
         if len(history)<3 and status!="correct":status="provisional"
-        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or ["El encuadramiento coincide con la capacidad declarada"],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"estimated_monthly_saving":float(monthly_power_saving),"estimated_annual_saving":float(monthly_power_saving*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0})
+        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or ["El encuadramiento coincide con la capacidad declarada"],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":simulated is not None or correctly_framed,"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0})
     return sorted(result,key=lambda x:(x["status"]=="correct",-x["estimated_annual_saving"]))
 
 @router.post("/organizations/{organization_id}/analysis/run")

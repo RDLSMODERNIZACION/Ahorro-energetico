@@ -18,6 +18,10 @@ Funciones:
 - Muestra confianza según cantidad de meses disponibles.
 - Marca como provisoria una recomendación basada en menos de 3 meses.
 - Permite abrir el detalle del medidor desde el diagnóstico.
+- Separa ahorro por potencia contratada.
+- Separa ahorro por factor de potencia usando el recargo COS real.
+- Separa ahorro por cambio tarifario.
+- Muestra el total mensual y anual de todas las propuestas.
 
 IMPORTANTE:
 El frontend funciona localmente después de aplicar.
