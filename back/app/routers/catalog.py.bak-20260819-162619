@@ -1,16 +1,10 @@
 from datetime import datetime, timezone
-from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
 from ..models import SiteCreate, MeterCreate, LocationUpdate
 
 router = APIRouter(tags=["Catálogo"])
-
-class BillingStatusUpdate(BaseModel):
-    status: Literal["active", "inactive", "removed"]
-    note: str | None = None
 
 @router.get("/organizations")
 def organizations(user: CurrentUser = Depends(current_user)):
@@ -31,30 +25,6 @@ def create_site(body: SiteCreate, user: CurrentUser = Depends(current_user)):
 def list_meters(organization_id: str, user: CurrentUser = Depends(current_user)):
     require_org(user.id, organization_id)
     return admin_db().table("meters").select("*,sites(name,address)").eq("organization_id",organization_id).order("meter_number").execute().data
-
-@router.put("/meters/{meter_id}/billing-status")
-def update_billing_status(meter_id: str, body: BillingStatusUpdate, user: CurrentUser = Depends(current_user)):
-    db = admin_db()
-    rows = db.table("meters").select("organization_id,meter_number").eq("id",meter_id).limit(1).execute().data
-    if not rows:
-        raise HTTPException(404,"Medidor inexistente")
-    require_org(user.id,rows[0]["organization_id"],write=True)
-    now = datetime.now(timezone.utc)
-    labels = {"active":"Continúa activo", "inactive":"Sin facturación reciente - posible baja", "removed":"Baja confirmada"}
-    payload = {
-        "status": body.status,
-        "expected_monthly": body.status == "active",
-        "removed_at": now.date().isoformat() if body.status == "removed" else None,
-        "notes": body.note or labels[body.status],
-        "updated_at": now.isoformat(),
-    }
-    updated = db.table("meters").update(payload).eq("id",meter_id).execute().data[0]
-    if body.status != "active":
-        db.table("missing_invoice_alerts").update({
-            "status":"resolved", "resolved_at":now.isoformat(),
-            "resolution_note":labels[body.status]
-        }).eq("meter_id",meter_id).eq("status","open").execute()
-    return updated
 
 @router.post("/meters", status_code=201)
 def create_meter(body: MeterCreate, user: CurrentUser = Depends(current_user)):
