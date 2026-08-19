@@ -684,7 +684,12 @@ td small {
   white-space: nowrap;
   font-size: 9px;
   font-weight: 750;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-5px);
+  transition: .15s ease;
 }
+.marker:hover,.marker.selected{z-index:12}.marker:hover label,.marker.selected label{opacity:1;transform:none}
 .marker label small {
   display: block;
   color: #85928b;
@@ -696,6 +701,7 @@ td small {
   color: #fff;
   transform: rotate(-45deg) scale(1.18);
 }
+.map-search{display:flex;align-items:center;gap:13px;padding:10px 18px;border-bottom:1px solid var(--line);background:#f8faf9}.map-search input{width:min(430px,60%);height:35px;border:1px solid #d7e3dc;border-radius:8px;background:white;padding:0 11px;font:inherit;font-size:10px}.map-search small{color:#7d8b84;font-size:8px}.map-panel .map{height:690px}.map-panel .marker>i{width:25px;height:25px;font-size:10px}.map-panel .marker label{left:31px;top:-6px;max-width:290px;overflow:hidden;text-overflow:ellipsis}
 .meter-list > button {
   width: 100%;
   border: 0;

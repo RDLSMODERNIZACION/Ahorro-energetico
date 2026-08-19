@@ -22,6 +22,10 @@ Funciones:
 - Separa ahorro por factor de potencia usando el recargo COS real.
 - Separa ahorro por cambio tarifario.
 - Muestra el total mensual y anual de todas las propuestas.
+- Ordena los medidores aproximadamente por Oeste, Centro y Este.
+- Oculta etiquetas del mapa hasta seleccionar o pasar el mouse.
+- Agrega búsqueda por servicio, calle, suministro o medidor.
+- Identifica las ubicaciones como aproximadas hasta confirmar GPS.
 
 IMPORTANTE:
 El frontend funciona localmente después de aplicar.
