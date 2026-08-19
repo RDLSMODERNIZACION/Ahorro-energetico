@@ -143,16 +143,17 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         monthly_power_saving=excess_saving if excess_saving>0 else (reducible*power_rate).quantize(Decimal("0.01"))
         reactive_saving=sum(_num(x.get("net_amount")) for x in (latest.get("invoice_lines") or []) if x.get("concept_code")=="COS").quantize(Decimal("0.01"))
         period=latest.get("billing_period") or latest.get("period_start")
-        official_current,current_schedule=_official_simulation(official_rates,period,current,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [])
         official_simulated,schedule=_official_simulation(official_rates,period,expected,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [])
-        official_available=official_current is not None and official_simulated is not None
-        price_source="official" if official_available else None
-        monthly_tariff_saving=max(Decimal(0),official_current-official_simulated).quantize(Decimal("0.01")) if not correctly_framed and official_available else Decimal(0)
+        simulated=None if correctly_framed else official_simulated
+        price_source="official" if schedule else "observed"
+        if simulated is None and not correctly_framed:simulated=_simulate_tariff(ratebook,period,expected,latest.get("voltage_level"),active,contracted,latest.get("invoice_measurements") or [])
+        current_base=max(Decimal(0),_num(latest.get("net_taxable"))-reactive_saving)
+        monthly_tariff_saving=max(Decimal(0),current_base-simulated).quantize(Decimal("0.01")) if simulated is not None else Decimal(0)
         monthly_total=monthly_power_saving+reactive_saving+monthly_tariff_saving
         reasons=[]
         if not correctly_framed:
-            if official_available:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}; costo actual ${official_current} frente a ${official_simulated}")
-            else:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}; falta el cuadro oficial vigente de una de las categorias para valorizar el cambio")
+            if schedule:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}")
+            else:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}; falta un cuadro oficial vigente para valorizar el cambio")
         if excess_saving>0:reasons.append(f"La factura cobra {excess_units} kW de exceso a ${excess_rate} por kW: ahorro potencial ${excess_saving}")
         elif reducible>0:reasons.append(f"La demanda máxima observada fue {max_demand} kW frente a {contracted} kW contratados")
         if pf is not None and pf<Decimal("0.95"):reasons.append(f"Factor de potencia bajo: {pf}")
@@ -160,7 +161,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         status="change_candidate" if not correctly_framed else "power_review" if reducible>0 or excess_saving>0 else "correct"
         if len(history)<3 and status!="correct":status="provisional"
         correct_reason=f"Tarifa {current} correcta segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo" if schedule else "El encuadramiento coincide con la capacidad declarada; falta el cuadro oficial de ese periodo para validar precios"
-        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or [correct_reason],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_excess_kw":float(excess_units),"power_unit_price":float(excess_rate or power_rate),"power_saving_source":"invoice_excess" if excess_saving>0 else "contracted_reduction" if monthly_power_saving>0 else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_current_simulated":float(official_current) if official_current is not None else None,"tariff_recommended_simulated":float(official_simulated) if official_simulated is not None else None,"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":official_available,"tariff_price_source":price_source,"official_schedule":schedule or current_schedule,"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0 or excess_saving>0})
+        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or [correct_reason],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_excess_kw":float(excess_units),"power_unit_price":float(excess_rate or power_rate),"power_saving_source":"invoice_excess" if excess_saving>0 else "contracted_reduction" if monthly_power_saving>0 else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":official_simulated is not None or simulated is not None,"tariff_price_source":price_source,"official_schedule":schedule,"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0 or excess_saving>0})
     return sorted(result,key=lambda x:(x["status"]=="correct",-x["estimated_annual_saving"]))
 
 @router.post("/organizations/{organization_id}/analysis/run")
