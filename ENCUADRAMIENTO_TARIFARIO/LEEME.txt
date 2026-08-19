@@ -26,6 +26,8 @@ Funciones:
 - Oculta etiquetas del mapa hasta seleccionar o pasar el mouse.
 - Agrega búsqueda por servicio, calle, suministro o medidor.
 - Identifica las ubicaciones como aproximadas hasta confirmar GPS.
+- Permite ordenar tocando Potencia contratada, Factor de potencia y Tarifa.
+- El segundo toque invierte el orden de menor a mayor / mayor a menor.
 
 IMPORTANTE:
 El frontend funciona localmente después de aplicar.
