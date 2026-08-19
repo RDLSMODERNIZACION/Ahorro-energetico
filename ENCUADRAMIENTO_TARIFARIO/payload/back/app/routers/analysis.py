@@ -53,7 +53,7 @@ def _voltage_key(value):
     if value in ("AT","ALTA","ALTA TENSION","ALTA TENSIÓN"):return "AT"
     return "NA"
 
-def _official_simulation(rows,period,tariff,voltage,active,capacity_peak,capacity_off_peak,measurements):
+def _official_simulation(rows,period,tariff,voltage,active,capacity_peak,capacity_off_peak,measurements,enforce_limits=True):
     period=str(period or "")[:10];tariff=_tariff_key(tariff);voltage=_voltage_key(voltage)
     applicable=[];schedule=None
     for row in rows:
@@ -66,8 +66,8 @@ def _official_simulation(rows,period,tariff,voltage,active,capacity_peak,capacit
         if row_voltage not in ("NA",voltage):continue
         min_kw=_num(row.get("min_capacity_kw"));max_kw=row.get("max_capacity_kw")
         min_kwh=_num(row.get("min_consumption_kwh"));max_kwh=row.get("max_consumption_kwh")
-        if capacity_peak<min_kw or (max_kw is not None and capacity_peak>=_num(max_kw)):continue
-        if active<min_kwh or (max_kwh is not None and active>_num(max_kwh)):continue
+        if enforce_limits and (capacity_peak<min_kw or (max_kw is not None and capacity_peak>=_num(max_kw))):continue
+        if enforce_limits and (active<min_kwh or (max_kwh is not None and active>_num(max_kwh))):continue
         applicable.append(row);schedule=calendar
     if not applicable:return None,None
     rates={x.get("charge_code"):_num(x.get("unit_price")) for x in applicable}
@@ -143,7 +143,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         monthly_power_saving=excess_saving if excess_saving>0 else (reducible*power_rate).quantize(Decimal("0.01"))
         reactive_saving=sum(_num(x.get("net_amount")) for x in (latest.get("invoice_lines") or []) if x.get("concept_code")=="COS").quantize(Decimal("0.01"))
         period=latest.get("billing_period") or latest.get("period_start")
-        official_current,current_schedule=_official_simulation(official_rates,period,current,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [])
+        official_current,current_schedule=_official_simulation(official_rates,period,current,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [],enforce_limits=False)
         official_simulated,schedule=_official_simulation(official_rates,period,expected,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [])
         official_available=official_current is not None and official_simulated is not None
         price_source="official" if official_available else None
