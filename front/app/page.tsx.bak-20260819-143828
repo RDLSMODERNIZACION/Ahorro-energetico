@@ -18,20 +18,9 @@ type TariffSaving = {meter_id:string;meter_number:string;supply_number?:string;s
 type TariffSavingResponse = {candidates:TariffSaving[];candidate_count:number;positive_candidate_count:number;monthly_saving_with_vat:number;annual_saving_with_vat:number;vat_percent:number};
 
 async function api<T>(path:string, session:Session, init?:RequestInit):Promise<T>{
-  const retryable=!init?.method||init.method.toUpperCase()==="GET";
-  let lastError:Error|undefined;
-  for(let attempt=0;attempt<(retryable?3:1);attempt++){
-    try{
-      const response=await fetch(`${API}${path}`,{...init,cache:"no-store",headers:{Authorization:`Bearer ${session.access_token}`,...(init?.body instanceof FormData?{}:{"Content-Type":"application/json"}),...(init?.headers||{})}});
-      if(response.ok){if(response.status===204)return undefined as T;return response.json()}
-      const body=await response.text();
-      const error=new Error(body||`Error ${response.status}`);
-      if(!retryable||![500,502,503,504].includes(response.status))throw error;
-      lastError=error;
-    }catch(error){lastError=error instanceof Error?error:new Error("Error de conexión");if(!retryable)throw lastError}
-    if(attempt<2)await new Promise(resolve=>setTimeout(resolve,350*(attempt+1)));
-  }
-  throw lastError||new Error("No se pudo consultar la API");
+  const response=await fetch(`${API}${path}`,{...init,cache:"no-store",headers:{Authorization:`Bearer ${session.access_token}`,...(init?.body instanceof FormData?{}:{"Content-Type":"application/json"}),...(init?.headers||{})}});
+  if(!response.ok){const body=await response.text();throw new Error(body||`Error ${response.status}`)}
+  if(response.status===204)return undefined as T;return response.json();
 }
 
 export default function Home(){
@@ -49,10 +38,10 @@ export default function Home(){
       let target=org;
       if(!target){const orgs=await api<Organization[]>("/api/organizations",s);if(!orgs.length)throw new Error("Tu usuario todavía no está asociado a la Municipalidad");setOrganization(orgs[0]);target=orgs[0].organization_id}
       const [m,i,o]=await Promise.all([api<Meter[]>(`/api/organizations/${target}/meters`,s),api<Invoice[]>(`/api/organizations/${target}/invoices?limit=500`,s),api<Opportunity[]>(`/api/organizations/${target}/opportunities`,s).catch(()=>[])]);
-      setMeters(m);setInvoices(i);setOpportunities(o);setSelectedMeter(current=>current||m[0]?.id||"");if(!invoiceFiltersInitialized.current&&i.length){const latest=[...new Set(i.map(x=>(x.billing_period||x.period_start).slice(0,7)))].sort().reverse()[0];if(latest){setYearFilter(latest.slice(0,4));setMonthFilter(latest.slice(5,7));invoiceFiltersInitialized.current=true}}
+      setMeters(m);setInvoices(i);setOpportunities(o);if(!selectedMeter&&m[0])setSelectedMeter(m[0].id);if(!invoiceFiltersInitialized.current&&i.length){const latest=[...new Set(i.map(x=>(x.billing_period||x.period_start).slice(0,7)))].sort().reverse()[0];if(latest){setYearFilter(latest.slice(0,4));setMonthFilter(latest.slice(5,7));invoiceFiltersInitialized.current=true}}
       const [miss,frames,tariffResult]=await Promise.all([api<Missing[]>(`/api/organizations/${target}/missing-invoices`,s).catch(()=>[]),api<TariffAssessment[]>(`/api/organizations/${target}/tariff-assessments?v=14`,s).catch(()=>[]),api<TariffSavingResponse>(`/api/organizations/${target}/tariff-savings?v=1`,s).catch(e=>{setToast(`No se pudo cargar el ahorro tarifario: ${e instanceof Error?e.message:"Error desconocido"}`);return null})]);setMissing(miss);setAssessments(frames);setTariffSavings(tariffResult?.candidates||[]);
     }catch(e){setToast(e instanceof Error?e.message:"No se pudieron cargar los datos")}
-  },[]);
+  },[selectedMeter]);
   useEffect(()=>{if(session)load(session,orgId)},[session,orgId,load]);
 
   async function login(e:FormEvent){e.preventDefault();setLoginBusy(true);setLoginError("");const{error}=await supabase.auth.signInWithPassword({email,password});if(error)setLoginError(error.message);setLoginBusy(false)}

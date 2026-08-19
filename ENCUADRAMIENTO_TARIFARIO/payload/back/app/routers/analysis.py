@@ -39,7 +39,12 @@ def _power_excess_saving(lines):
     excess=[x for x in (lines or []) if x.get("concept_code")=="EXC"]
     units=sum(_num(x.get("quantity")) for x in excess)
     rate=max([_num(x.get("unit_price")) for x in excess if _num(x.get("unit_price"))>0] or [Decimal(0)])
-    saving=sum((_num(x.get("quantity"))*_num(x.get("unit_price")) if _num(x.get("quantity"))>0 and _num(x.get("unit_price"))>0 else _num(x.get("net_amount"))) for x in excess).quantize(Decimal("0.01"))
+    saving=sum((
+        _num(x.get("quantity"))*_num(x.get("unit_price"))
+        if _num(x.get("quantity"))>0 and _num(x.get("unit_price"))>0
+        else _num(x.get("net_amount"))
+        for x in excess
+    ), Decimal(0)).quantize(Decimal("0.01"))
     return units,rate,saving
 
 def _expected_tariff(capacity,consumption,current=""):
