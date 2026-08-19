@@ -1,0 +1,11 @@
+COMO APLICAR EL CAMBIO
+
+1. Copia el ZIP dentro de la carpeta del proyecto Ahorro-energetico.
+2. Extrae el contenido del ZIP en esa carpeta.
+3. Hace clic derecho sobre APLICAR_CAMBIO.ps1.
+4. Selecciona "Ejecutar con PowerShell".
+
+El ejecutable reemplaza app\page.tsx y crea una copia de seguridad llamada
+app\page.tsx.backup.
+
+No es necesario ejecutar npm install nuevamente.
