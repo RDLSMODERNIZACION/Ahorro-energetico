@@ -19,6 +19,7 @@ if (-not (Test-Path (Join-Path $back "app\routers\analysis.py"))) {
 $targets = @(
     @{ Source="payload\front\app\page.tsx"; Target=(Join-Path $front "app\page.tsx") },
     @{ Source="payload\front\app\globals.css"; Target=(Join-Path $front "app\globals.css") },
+    @{ Source="payload\front\app\analysis-charts.tsx"; Target=(Join-Path $front "app\analysis-charts.tsx") },
     @{ Source="payload\back\app\routers\invoices.py"; Target=(Join-Path $back "app\routers\invoices.py") },
     @{ Source="payload\back\app\routers\analysis.py"; Target=(Join-Path $back "app\routers\analysis.py") },
     @{ Source="payload\back\app\main.py"; Target=(Join-Path $back "app\main.py") },
@@ -28,8 +29,11 @@ $targets = @(
 )
 foreach ($item in $targets) {
     $source=Join-Path $package $item.Source
-    if (-not (Test-Path $item.Target)) { throw "No encontre: $($item.Target)" }
-    Copy-Item $item.Target "$($item.Target).bak-$stamp" -Force
+    if (Test-Path $item.Target) {
+        Copy-Item $item.Target "$($item.Target).bak-$stamp" -Force
+    } else {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $item.Target) -Force | Out-Null
+    }
     Copy-Item $source $item.Target -Force
     Write-Host "Actualizado: $($item.Target)" -ForegroundColor Green
 }
