@@ -22,6 +22,8 @@ Funciones:
 - Compara facturas recibidas contra el total de medidores esperados.
 - Lista arriba los medidores sin factura para el mes seleccionado.
 - Muestra cada factura faltante como una fila gris pendiente.
+- Calcula potencia y factor de potencia directamente desde las facturas si el análisis tarifario no responde.
+- Mantiene visible el ahorro disponible aunque falle una consulta secundaria del backend.
 - Muestra confianza según cantidad de meses disponibles.
 - Marca como provisoria una recomendación basada en menos de 3 meses.
 - Permite abrir el detalle del medidor desde el diagnóstico.
