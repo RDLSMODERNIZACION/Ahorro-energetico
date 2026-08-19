@@ -6,7 +6,7 @@ router=APIRouter(tags=["Facturas"])
 
 @router.get("/organizations/{organization_id}/invoices")
 def invoices(organization_id:str,meter_id:str|None=None,limit:int=Query(100,ge=1,le=500),user:CurrentUser=Depends(current_user)):
-    require_org(user.id,organization_id);q=admin_db().table("invoices").select("*,meters(id,meter_number,nis,tracking_code,supply_number,contract_number,service_code,service_name,cadastral_number,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,sites(name,address)),invoice_measurements(*)").eq("organization_id",organization_id)
+    require_org(user.id,organization_id);q=admin_db().table("invoices").select("*,meters(meter_number,nis,sites(name)),invoice_measurements(*)").eq("organization_id",organization_id)
     if meter_id:q=q.eq("meter_id",meter_id)
     return q.order("period_start",desc=True).limit(limit).execute().data
 

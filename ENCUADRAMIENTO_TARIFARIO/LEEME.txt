@@ -1,0 +1,24 @@
+MODULO DE ENCUADRAMIENTO TARIFARIO EPEN
+
+Extraer esta carpeta dentro de:
+C:\Users\administrador\Documents\Ahorro-energetico
+
+Ejecutar desde PowerShell:
+cd C:\Users\administrador\Documents\Ahorro-energetico
+powershell -ExecutionPolicy Bypass -File .\ENCUADRAMIENTO_TARIFARIO\APLICAR_ENCUADRAMIENTO_TARIFARIO.ps1
+
+Incluye también todos los cambios del administrador mensual anterior.
+
+Funciones:
+- Compara tarifa actual y recomendada.
+- Reglas T1, T2, T3 y segmento de 300 kW.
+- Considera categorías residenciales RN.
+- Detecta potencia contratada sobredimensionada.
+- Estima ahorro usando el cargo de potencia de la factura.
+- Muestra confianza según cantidad de meses disponibles.
+- Marca como provisoria una recomendación basada en menos de 3 meses.
+- Permite abrir el detalle del medidor desde el diagnóstico.
+
+IMPORTANTE:
+El frontend funciona localmente después de aplicar.
+Para que el nuevo análisis funcione, subir la carpeta back a GitHub y esperar el despliegue de Render.

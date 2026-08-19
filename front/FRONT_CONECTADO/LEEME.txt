@@ -1,0 +1,23 @@
+1. Copiar FRONT_CONECTADO.zip dentro de:
+   C:\Users\administrador\Documents\Ahorro-energetico
+
+2. Extraer el ZIP en esa carpeta.
+
+3. Desde PowerShell, ubicado en Ahorro-energetico, ejecutar:
+
+powershell -ExecutionPolicy Bypass -File .\FRONT_CONECTADO\APLICAR_FRONT_CONECTADO.ps1
+
+4. Cuando termine, iniciar el frontend:
+
+npm run dev
+
+El instalador configura automáticamente:
+- Backend: https://ahorro-energetico.onrender.com
+- Supabase: AhorroEnergeticoEpen
+- Clave pública de Supabase
+- Dependencia @supabase/supabase-js
+
+No contiene ni utiliza la Secret Key del backend.
+
+Antes de ingresar, debe existir un usuario en Supabase Authentication y estar
+asociado a organization_members.
