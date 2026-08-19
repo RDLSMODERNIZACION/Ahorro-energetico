@@ -39,6 +39,47 @@ def _expected_tariff(capacity,consumption,current=""):
 def _tariff_key(code):
     return (code or "").upper().replace("-","")
 
+def _voltage_key(value):
+    value=(value or "").upper()
+    if value in ("BT","BAJA","BAJA TENSION","BAJA TENSIÓN"):return "BT"
+    if value in ("MT","MEDIA","MEDIA TENSION","MEDIA TENSIÓN"):return "MT"
+    if value in ("AT","ALTA","ALTA TENSION","ALTA TENSIÓN"):return "AT"
+    return "NA"
+
+def _official_simulation(rows,period,tariff,voltage,active,capacity_peak,capacity_off_peak,measurements):
+    period=str(period or "")[:10];tariff=_tariff_key(tariff);voltage=_voltage_key(voltage)
+    applicable=[];schedule=None
+    for row in rows:
+        category=row.get("tariff_categories") or {};calendar=row.get("tariff_schedules") or {}
+        if _tariff_key(category.get("code"))!=tariff:continue
+        valid_from=str(calendar.get("valid_from") or calendar.get("consumption_month") or "")[:10]
+        valid_to=str(calendar.get("valid_to") or valid_from)[:10]
+        if not period or not valid_from or not (valid_from<=period<=valid_to):continue
+        row_voltage=_voltage_key(row.get("voltage_level"))
+        if row_voltage not in ("NA",voltage):continue
+        min_kw=_num(row.get("min_capacity_kw"));max_kw=row.get("max_capacity_kw")
+        min_kwh=_num(row.get("min_consumption_kwh"));max_kwh=row.get("max_consumption_kwh")
+        if capacity_peak<min_kw or (max_kw is not None and capacity_peak>=_num(max_kw)):continue
+        if active<min_kwh or (max_kwh is not None and active>_num(max_kwh)):continue
+        applicable.append(row);schedule=calendar
+    if not applicable:return None,None
+    rates={x.get("charge_code"):_num(x.get("unit_price")) for x in applicable}
+    cost=rates.get("CFI",Decimal(0))
+    cost+=rates.get("DEM",Decimal(0))*capacity_peak
+    cost+=rates.get("DEP",Decimal(0))*capacity_peak
+    cost+=rates.get("DFP",Decimal(0))*(capacity_off_peak or capacity_peak)
+    bands=defaultdict(Decimal)
+    for m in measurements:bands[m.get("time_band") or "all"]+=_num(m.get("active_energy_kwh"))
+    if any(code in rates for code in ("EPI","ERE","EVA")):
+        band_total=bands["peak"]+bands["remaining"]+bands["valley"]
+        if band_total:
+            cost+=bands["peak"]*rates.get("EPI",Decimal(0))+bands["remaining"]*rates.get("ERE",Decimal(0))+bands["valley"]*rates.get("EVA",Decimal(0))
+        else:
+            energy=[rates[x] for x in ("EPI","ERE","EVA") if x in rates]
+            if energy:cost+=active*(sum(energy)/len(energy))
+    else:cost+=active*rates.get("ECO",Decimal(0))
+    return cost.quantize(Decimal("0.01")),schedule
+
 def _simulate_tariff(ratebook,period,tariff,voltage,active,capacity,measurements):
     rates=ratebook.get((period,_tariff_key(tariff),voltage or ""))
     if not rates:return None
@@ -64,6 +105,7 @@ def _simulate_tariff(ratebook,period,tariff,voltage,active,capacity,measurements
 @router.get("/organizations/{organization_id}/tariff-assessments")
 def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user)):
     require_org(user.id,organization_id);db=admin_db()
+    official_rates=db.table("tariff_rates").select("unit_price,voltage_level,customer_segment,min_capacity_kw,max_capacity_kw,min_consumption_kwh,max_consumption_kwh,charge_code,time_band,tariff_categories(code),tariff_schedules(resolution_number,consumption_month,billing_month,valid_from,valid_to,excludes_taxes)").execute().data
     rows=db.table("invoices").select("id,meter_id,invoice_number,billing_period,period_start,total_amount,net_taxable,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,meters(id,meter_number,tracking_code,supply_number,contract_number,service_name,current_tariff_code,voltage_level),invoice_measurements(*),invoice_lines(concept_code,quantity,unit_price,net_amount)").eq("organization_id",organization_id).execute().data
     observed=defaultdict(lambda:defaultdict(list))
     for row in rows:
@@ -80,7 +122,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         history.sort(key=lambda x:x.get("billing_period") or x.get("period_start") or "",reverse=True)
         latest=history[0];meter=latest.get("meters") or {};active,demand,pf=_metrics(latest)
         history_demands=[_metrics(x)[1] for x in history];max_demand=max(history_demands or [Decimal(0)])
-        contracted=_num(latest.get("contracted_kw_peak"));capacity=contracted or max_demand
+        contracted=_num(latest.get("contracted_kw_peak"));contracted_off_peak=_num(latest.get("contracted_kw_off_peak"));capacity=contracted or max_demand
         current=_tariff_key(latest.get("current_tariff_code") or meter.get("current_tariff_code"))
         expected=_expected_tariff(capacity,active,current)
         correctly_framed=current==expected
@@ -92,18 +134,24 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         monthly_power_saving=(reducible*power_rate).quantize(Decimal("0.01"))
         reactive_saving=sum(_num(x.get("net_amount")) for x in (latest.get("invoice_lines") or []) if x.get("concept_code")=="COS").quantize(Decimal("0.01"))
         period=latest.get("billing_period") or latest.get("period_start")
-        simulated=_simulate_tariff(ratebook,period,expected,latest.get("voltage_level"),active,contracted,latest.get("invoice_measurements") or []) if not correctly_framed else None
+        official_simulated,schedule=_official_simulation(official_rates,period,expected,latest.get("voltage_level"),active,contracted,contracted_off_peak,latest.get("invoice_measurements") or [])
+        simulated=None if correctly_framed else official_simulated
+        price_source="official" if schedule else "observed"
+        if simulated is None and not correctly_framed:simulated=_simulate_tariff(ratebook,period,expected,latest.get("voltage_level"),active,contracted,latest.get("invoice_measurements") or [])
         current_base=max(Decimal(0),_num(latest.get("net_taxable"))-reactive_saving)
         monthly_tariff_saving=max(Decimal(0),current_base-simulated).quantize(Decimal("0.01")) if simulated is not None else Decimal(0)
         monthly_total=monthly_power_saving+reactive_saving+monthly_tariff_saving
         reasons=[]
-        if not correctly_framed:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}")
+        if not correctly_framed:
+            if schedule:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}")
+            else:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}; falta un cuadro oficial vigente para valorizar el cambio")
         if reducible>0:reasons.append(f"La demanda máxima observada fue {max_demand} kW frente a {contracted} kW contratados")
         if pf is not None and pf<Decimal("0.95"):reasons.append(f"Factor de potencia bajo: {pf}")
         confidence=90 if len(history)>=6 else 75 if len(history)>=3 else 45
         status="change_candidate" if not correctly_framed else "power_review" if reducible>0 else "correct"
         if len(history)<3 and status!="correct":status="provisional"
-        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or ["El encuadramiento coincide con la capacidad declarada"],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":simulated is not None or correctly_framed,"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0})
+        correct_reason=f"Tarifa {current} correcta segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo" if schedule else "El encuadramiento coincide con la capacidad declarada; falta el cuadro oficial de ese periodo para validar precios"
+        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or [correct_reason],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(contracted),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":official_simulated is not None or simulated is not None,"tariff_price_source":price_source,"official_schedule":schedule,"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0})
     return sorted(result,key=lambda x:(x["status"]=="correct",-x["estimated_annual_saving"]))
 
 @router.post("/organizations/{organization_id}/analysis/run")

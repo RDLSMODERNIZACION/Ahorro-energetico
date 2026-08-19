@@ -29,6 +29,10 @@ foreach ($item in $targets) {
     Copy-Item $source $item.Target -Force
     Write-Host "Actualizado: $($item.Target)" -ForegroundColor Green
 }
+$seedDir=Join-Path $back "supabase"
+New-Item -ItemType Directory -Path $seedDir -Force | Out-Null
+Copy-Item (Join-Path $package "payload\back\supabase\seed_tariff_2026_07.sql") (Join-Path $seedDir "seed_tariff_2026_07.sql") -Force
+Write-Host "Incluido: cuadro tarifario EPEN 041/2026" -ForegroundColor Green
 Write-Host ""
 Write-Host "Modulo aplicado. Proba el frontend y luego subi front/back a GitHub." -ForegroundColor Green
 Read-Host "Presiona ENTER para cerrar"
