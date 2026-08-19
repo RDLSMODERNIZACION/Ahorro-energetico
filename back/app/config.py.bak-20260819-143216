@@ -10,9 +10,7 @@ class Settings(BaseSettings):
 
     @property
     def origins(self) -> list[str]:
-        configured={x.strip() for x in self.frontend_origins.split(",") if x.strip()}
-        configured.add("https://ahorro-energetico-municipal.modernizacion-mrdls.chatgpt.site")
-        return sorted(configured)
+        return [x.strip() for x in self.frontend_origins.split(",") if x.strip()]
 
 @lru_cache
 def get_settings() -> Settings:
