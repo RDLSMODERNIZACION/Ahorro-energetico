@@ -26,10 +26,3 @@ async def upload_document(organization_id:str=Form(...),folder:str=Form("invoice
 def batches(organization_id:str,user:CurrentUser=Depends(current_user)):
     require_org(user.id,organization_id)
     return admin_db().table("import_batches").select("*").eq("organization_id",organization_id).order("created_at",desc=True).execute().data
-
-@router.get("/organizations/{organization_id}/missing-invoices")
-def missing_invoices(organization_id:str,status:str="open",user:CurrentUser=Depends(current_user)):
-    require_org(user.id,organization_id)
-    query=admin_db().table("missing_invoice_alerts").select("*,meters(tracking_code,meter_number,nis,sites(name))").eq("organization_id",organization_id)
-    if status != "all": query=query.eq("status",status)
-    return query.order("expected_period",desc=True).execute().data
