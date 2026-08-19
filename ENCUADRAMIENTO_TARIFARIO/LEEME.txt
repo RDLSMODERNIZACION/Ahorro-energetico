@@ -14,7 +14,10 @@ Funciones:
 - Reglas T1, T2, T3 y segmento de 300 kW.
 - Considera categorías residenciales RN.
 - Detecta potencia contratada sobredimensionada.
-- Estima ahorro usando el cargo de potencia de la factura.
+- Recomienda la potencia máxima realmente registrada, sin margen adicional.
+- Estima el ahorro como (potencia contratada - potencia registrada) por el precio unitario de potencia.
+- Agrega 30% de IVA a los ahorros de potencia, factor de potencia y cambio tarifario.
+- Muestra los ahorros anualizados con IVA incluido.
 - Muestra confianza según cantidad de meses disponibles.
 - Marca como provisoria una recomendación basada en menos de 3 meses.
 - Permite abrir el detalle del medidor desde el diagnóstico.
