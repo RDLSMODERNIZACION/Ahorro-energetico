@@ -1,0 +1,12 @@
+BUSCADOR DE MEDIDORES Y SUMINISTROS
+
+1. Extrae la carpeta BUSCADOR_MEDIDORES dentro de:
+   C:\Users\administrador\Documents\Ahorro-energetico
+
+2. Desde PowerShell, ubicado en esa carpeta principal, ejecuta:
+   powershell -ExecutionPolicy Bypass -File .\BUSCADOR_MEDIDORES\APLICAR_BUSCADOR_MEDIDORES.ps1
+
+3. Inicia el frontend como siempre.
+
+El buscador permite escribir numero de medidor, suministro, ID de seguimiento
+o nombre del servicio. Muestra hasta 10 coincidencias mientras escribis.
