@@ -8,6 +8,22 @@ from ..db import admin_db
 router=APIRouter(tags=["Análisis"])
 VAT_FACTOR=Decimal("1.30")
 
+@router.get("/organizations/{organization_id}/tariff-savings")
+def tariff_savings(organization_id:str,user:CurrentUser=Depends(current_user)):
+    """Resultado tarifario calculado en PostgreSQL con los cuadros vigentes."""
+    require_org(user.id,organization_id)
+    rows=admin_db().rpc("tariff_savings",{"p_organization_id":organization_id}).execute().data or []
+    monthly=sum(_num(x.get("monthly_saving_with_vat")) for x in rows)
+    annual=sum(_num(x.get("annual_saving_with_vat")) for x in rows)
+    return {
+        "candidates":rows,
+        "candidate_count":len(rows),
+        "positive_candidate_count":len([x for x in rows if _num(x.get("monthly_saving_with_vat"))>0]),
+        "monthly_saving_with_vat":float(monthly),
+        "annual_saving_with_vat":float(annual),
+        "vat_percent":30,
+    }
+
 def _num(value):
     try:return Decimal(str(value or 0))
     except:return Decimal(0)

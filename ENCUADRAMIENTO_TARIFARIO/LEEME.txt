@@ -24,6 +24,8 @@ Funciones:
 - Muestra cada factura faltante como una fila gris pendiente.
 - Calcula potencia y factor de potencia directamente desde las facturas si el análisis tarifario no responde.
 - Mantiene visible el ahorro disponible aunque falle una consulta secundaria del backend.
+- Consume el ahorro tarifario desde una función SQL validada en Supabase.
+- Muestra los candidatos tarifarios con costo actual, recomendado y ahorro mensual/anual.
 - Muestra confianza según cantidad de meses disponibles.
 - Marca como provisoria una recomendación basada en menos de 3 meses.
 - Permite abrir el detalle del medidor desde el diagnóstico.
