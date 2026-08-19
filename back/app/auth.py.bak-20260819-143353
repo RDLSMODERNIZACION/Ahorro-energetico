@@ -7,7 +7,7 @@ class CurrentUser:
     id: str
     email: str | None
 
-def current_user(authorization: str | None = Header(default=None)) -> CurrentUser:
+async def current_user(authorization: str | None = Header(default=None)) -> CurrentUser:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Falta el token de acceso")
     token = authorization.split(" ", 1)[1].strip()

@@ -22,7 +22,9 @@ $targets = @(
     @{ Source="payload\back\app\routers\invoices.py"; Target=(Join-Path $back "app\routers\invoices.py") },
     @{ Source="payload\back\app\routers\analysis.py"; Target=(Join-Path $back "app\routers\analysis.py") },
     @{ Source="payload\back\app\main.py"; Target=(Join-Path $back "app\main.py") },
-    @{ Source="payload\back\app\config.py"; Target=(Join-Path $back "app\config.py") }
+    @{ Source="payload\back\app\config.py"; Target=(Join-Path $back "app\config.py") },
+    @{ Source="payload\back\app\db.py"; Target=(Join-Path $back "app\db.py") },
+    @{ Source="payload\back\app\auth.py"; Target=(Join-Path $back "app\auth.py") }
 )
 foreach ($item in $targets) {
     $source=Join-Path $package $item.Source
