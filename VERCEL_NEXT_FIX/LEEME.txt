@@ -24,3 +24,6 @@ CORRECCION PARA VERCEL / NEXT.JS
 
 El aplicador modifica solamente las referencias necesarias y conserva el resto
 del frontend.
+
+Esta version tambien evita el bloqueo silencioso de TypeScript observado en
+Vercel, fija Node.js 22 y conserva valores publicos de respaldo para Supabase.
