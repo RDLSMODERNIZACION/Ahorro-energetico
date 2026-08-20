@@ -1,0 +1,24 @@
+CORRECCION DE GRAFICOS HISTORICOS - 24 MESES
+
+Esta actualizacion:
+- elimina el corte de 500 facturas;
+- pagina las consultas desde el backend;
+- evita duplicar consumo y demanda por reliquidaciones;
+- mantiene notas de credito y reliquidaciones en el importe neto;
+- muestra la cobertura mensual de medidores.
+
+COMO APLICAR
+
+1. Extraer la carpeta CORRECCION_GRAFICOS_24_MESES dentro de:
+   C:\Users\administrador\Documents\Ahorro-energetico
+
+2. Abrir PowerShell en esa carpeta principal.
+
+3. Ejecutar:
+   powershell -ExecutionPolicy Bypass -File .\CORRECCION_GRAFICOS_24_MESES\APLICAR_CORRECCION_GRAFICOS.ps1
+
+4. Subir los cambios con GitHub Desktop.
+
+5. Esperar los despliegues de Render y Vercel y recargar con Ctrl+F5.
+
+El instalador crea un respaldo antes de reemplazar los tres archivos.

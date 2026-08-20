@@ -4,7 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { HistoricalAnalysis } from "./analysis-charts";
 
-const API = (import.meta.env.VITE_API_URL as string) || "https://ahorro-energetico.onrender.com";
+const API = process.env.NEXT_PUBLIC_API_URL || "https://ahorro-energetico.onrender.com";
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 type Organization = { organization_id:string; role:string; organizations:{id:string;name:string} };
@@ -49,7 +49,7 @@ export default function Home(){
     try{
       let target=org;
       if(!target){const orgs=await api<Organization[]>("/api/organizations",s);if(!orgs.length)throw new Error("Tu usuario todavía no está asociado a la Municipalidad");setOrganization(orgs[0]);target=orgs[0].organization_id}
-      const [m,i,o]=await Promise.all([api<Meter[]>(`/api/organizations/${target}/meters`,s),api<Invoice[]>(`/api/organizations/${target}/invoices?limit=5000`,s),api<Opportunity[]>(`/api/organizations/${target}/opportunities`,s).catch(()=>[])]);
+      const [m,i,o]=await Promise.all([api<Meter[]>(`/api/organizations/${target}/meters`,s),api<Invoice[]>(`/api/organizations/${target}/invoices?limit=500`,s),api<Opportunity[]>(`/api/organizations/${target}/opportunities`,s).catch(()=>[])]);
       setMeters(m);setInvoices(i);setOpportunities(o);setSelectedMeter(current=>current||m[0]?.id||"");if(!invoiceFiltersInitialized.current&&i.length){const latest=[...new Set(i.map(x=>(x.billing_period||x.period_start).slice(0,7)))].sort().reverse()[0];if(latest){setYearFilter(latest.slice(0,4));setMonthFilter(latest.slice(5,7));invoiceFiltersInitialized.current=true}}
       const [miss,frames,tariffResult]=await Promise.all([api<Missing[]>(`/api/organizations/${target}/missing-invoices`,s).catch(()=>[]),api<TariffAssessment[]>(`/api/organizations/${target}/tariff-assessments?v=14`,s).catch(()=>[]),api<TariffSavingResponse>(`/api/organizations/${target}/tariff-savings?v=1`,s).catch(e=>{setToast(`No se pudo cargar el ahorro tarifario: ${e instanceof Error?e.message:"Error desconocido"}`);return null})]);setMissing(miss);setAssessments(frames);setTariffSavings(tariffResult?.candidates||[]);
     }catch(e){setToast(e instanceof Error?e.message:"No se pudieron cargar los datos")}
