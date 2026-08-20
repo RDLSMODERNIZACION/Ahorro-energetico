@@ -4,7 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { HistoricalAnalysis } from "./analysis-charts";
 
-const API = (import.meta.env.VITE_API_URL as string) || "https://ahorro-energetico.onrender.com";
+const API = process.env.NEXT_PUBLIC_API_URL || "https://ahorro-energetico.onrender.com";
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 type Organization = { organization_id:string; role:string; organizations:{id:string;name:string} };
