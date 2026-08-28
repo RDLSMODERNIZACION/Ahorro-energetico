@@ -1200,29 +1200,3 @@ td small {
 @media(max-width:700px){.ai-rich-item{grid-template-columns:24px minmax(0,1fr);padding:9px}.ai-rich-number,.ai-rich-bullet{width:22px;height:22px}}
 /* === IA RESPUESTA PRO V16 END === */
 
-/* === ALERTAS CLICK V17 START === */
-.ai-alert-clickable{
-  cursor:pointer !important;
-  position:relative;
-}
-.ai-alert-clickable:after{
-  content:"›";
-  position:absolute;
-  right:8px;
-  top:50%;
-  transform:translateY(-50%);
-  font-size:18px;
-  color:#93a39b;
-  opacity:0;
-  transition:.15s;
-}
-.ai-alert-clickable:hover{
-  background:#f4faf6 !important;
-  box-shadow:inset 3px 0 0 #188b5b;
-}
-.ai-alert-clickable:hover:after{opacity:1}
-.ai-alert-clickable em{
-  margin-right:12px;
-}
-/* === ALERTAS CLICK V17 END === */
-
