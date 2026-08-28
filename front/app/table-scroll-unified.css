@@ -1,0 +1,113 @@
+/* FIX V2 - unifica facturas cargadas y pendientes en un mismo scroll horizontal */
+
+.invoice-unified-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto !important;
+  position: relative;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.invoice-unified-scroll > .invoice-admin-scroll,
+.invoice-unified-scroll > .missing-table {
+  overflow: visible !important;
+  max-height: none !important;
+  width: max-content;
+  min-width: 100%;
+}
+
+.invoice-unified-scroll .invoice-admin {
+  width: max-content;
+  min-width: 1700px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.invoice-unified-scroll .missing-table {
+  border-top: 8px solid #f1f3f2;
+}
+
+.invoice-unified-scroll .missing-table-title {
+  position: sticky;
+  left: 0;
+  min-width: 100%;
+}
+
+/* encabezado sticky de la tabla principal */
+.invoice-unified-scroll .invoice-admin-scroll .invoice-admin thead th {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: #f8faf9;
+  box-shadow: 0 1px 0 #e5ebe7;
+}
+
+/* columnas fijas compartidas */
+.invoice-unified-scroll .invoice-admin th:nth-child(1),
+.invoice-unified-scroll .invoice-admin td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  min-width: 170px;
+  width: 170px;
+  z-index: 6;
+  background: #fff;
+}
+
+.invoice-unified-scroll .invoice-admin th:nth-child(2),
+.invoice-unified-scroll .invoice-admin td:nth-child(2) {
+  position: sticky;
+  left: 170px;
+  min-width: 260px;
+  width: 260px;
+  z-index: 6;
+  background: #fff;
+  box-shadow: 8px 0 12px -12px rgba(23,33,29,.55);
+}
+
+.invoice-unified-scroll .invoice-admin thead th:nth-child(1),
+.invoice-unified-scroll .invoice-admin thead th:nth-child(2) {
+  z-index: 12;
+  background: #f8faf9;
+}
+
+.invoice-unified-scroll .missing-invoice-row td:nth-child(1),
+.invoice-unified-scroll .missing-invoice-row td:nth-child(2) {
+  background: #eef0ef !important;
+}
+
+.invoice-unified-scroll .invoice-admin tr:hover td:nth-child(1),
+.invoice-unified-scroll .invoice-admin tr:hover td:nth-child(2) {
+  background: #f2faf6;
+}
+
+/* una sola barra horizontal abajo de ambas partes */
+.invoice-unified-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 14px;
+}
+
+.invoice-unified-scroll::-webkit-scrollbar-track {
+  background: #eef3f0;
+}
+
+.invoice-unified-scroll::-webkit-scrollbar-thumb {
+  background: #8ca79a;
+  border: 3px solid #eef3f0;
+  border-radius: 999px;
+}
+
+.invoice-unified-scroll::-webkit-scrollbar-thumb:hover {
+  background: #607c6f;
+}
+
+@media (max-width: 900px) {
+  .invoice-unified-scroll .invoice-admin th:nth-child(2),
+  .invoice-unified-scroll .invoice-admin td:nth-child(2) {
+    position: static;
+    min-width: 230px;
+    width: 230px;
+    box-shadow: none;
+  }
+}
