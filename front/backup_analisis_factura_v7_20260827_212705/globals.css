@@ -1052,24 +1052,117 @@ td small {
 
 /* === SCROLL REAL V5 END === */
 
+/* === DIAGNOSTICO V6 START === */
 
+/* Marca visual inequívoca: si no aparece, NO estás viendo este front. */
+body::after{
+  content:"V6 ACTIVO";
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:999999;
+  background:#b91c1c;
+  color:#fff;
+  font:800 12px/1 ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.08em;
+  padding:10px 13px;
+  border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+  pointer-events:none;
+}
 
-/* === ANALISIS INDIVIDUAL FACTURA V7 START === */
-.invoice-analysis-backdrop{position:fixed;inset:0;z-index:80;background:#f4f7f5;overflow:auto}
-.invoice-analysis-page{min-height:100vh;padding:26px 30px 50px;max-width:1600px;margin:auto}
-.invoice-analysis-top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;background:#153f31;color:white;border-radius:14px;padding:24px 28px;margin-bottom:15px}
-.invoice-analysis-top small{font-size:8px;letter-spacing:.14em;color:#9fd4bd}.invoice-analysis-top h2{font-size:25px;margin:8px 0 6px}.invoice-analysis-top p{margin:0;color:#b8d9ca;font-size:10px}
-.invoice-analysis-back{display:block;border:0;background:#ffffff18;color:white;border-radius:8px;padding:8px 11px;margin-bottom:18px;font-weight:750;cursor:pointer}
-.invoice-analysis-period{text-align:right;background:#ffffff12;border:1px solid #ffffff18;border-radius:10px;padding:13px 16px;min-width:190px}.invoice-analysis-period span,.invoice-analysis-period small{display:block}.invoice-analysis-period span{font-size:8px;color:#a9cdbd}.invoice-analysis-period b{display:block;font-size:19px;margin:5px 0}
-.invoice-analysis-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:15px}.invoice-analysis-kpis article{background:white;border:1px solid #e0e8e3;border-radius:11px;padding:15px}.invoice-analysis-kpis span{display:block;color:#73847b;font-size:8px;text-transform:uppercase;font-weight:750}.invoice-analysis-kpis b{display:block;font-size:18px;margin:8px 0 4px}.invoice-analysis-kpis small{font-size:8px;color:#819089}.invoice-analysis-kpis .warn{background:#fff4f1;border-color:#efc7bd}.invoice-analysis-kpis .warn b{color:#c4513d}.invoice-analysis-kpis .saving{background:#eaf7f0;border-color:#bddfce}.invoice-analysis-kpis .saving b{color:#147b50}
-.invoice-analysis-panel{background:white;border:1px solid #e0e8e3;border-radius:12px;overflow:hidden;margin-bottom:15px}.invoice-analysis-panel>h3{font-size:12px;margin:0;padding:15px 18px;border-bottom:1px solid #e7ece9}
-.invoice-analysis-chart-head{padding:17px 19px 8px;display:flex;justify-content:space-between;align-items:center;gap:20px}.invoice-analysis-chart-head h3{font-size:14px;margin:0}.invoice-analysis-chart-head p{font-size:9px;color:#7c8b83;margin:4px 0 0}.invoice-analysis-metrics{display:flex;gap:6px;background:#f4f8f6;border:1px solid #dfe8e3;padding:5px;border-radius:9px}.invoice-analysis-metrics button{border:0;background:transparent;padding:8px 11px;border-radius:7px;font-size:9px;font-weight:750;color:#60736a;cursor:pointer}.invoice-analysis-metrics button.active{background:#178b5b;color:white}
-.invoice-analysis-chart-wrap{padding:4px 16px 12px;overflow-x:auto}.invoice-analysis-chart{width:100%;min-width:900px}.invoice-analysis-chart line{stroke:#e3e9e5;stroke-width:1}.invoice-analysis-chart text{font-size:9px;fill:#708078}.invoice-analysis-bar rect{fill:#2b9a6e;cursor:pointer;transition:.15s}.invoice-analysis-bar:hover rect,.invoice-analysis-bar.selected rect{fill:#146b49}.invoice-contract-line{stroke:#d47055!important;stroke-width:2!important;stroke-dasharray:5 4}
-.invoice-analysis-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:15px}.invoice-analysis-details{display:grid;grid-template-columns:repeat(2,1fr)}.invoice-analysis-details>div{padding:13px 16px;border-bottom:1px solid #edf1ee}.invoice-analysis-details>div:nth-child(odd){border-right:1px solid #edf1ee}.invoice-analysis-details span{display:block;color:#7b8a82;font-size:8px;text-transform:uppercase}.invoice-analysis-details b{display:block;font-size:10px;margin-top:5px;overflow-wrap:anywhere}
-.invoice-analysis-saving-list>div{padding:13px 16px;border-bottom:1px solid #edf1ee;display:grid;grid-template-columns:1fr auto;gap:5px 15px}.invoice-analysis-saving-list span{font-size:9px;color:#60736a}.invoice-analysis-saving-list b{font-size:13px;color:#16875a}.invoice-analysis-saving-list small{grid-column:1/-1;font-size:8px;color:#849189}.invoice-analysis-saving-list .total{background:#edf8f2}.invoice-analysis-saving-list .total b{font-size:17px}
-.invoice-analysis-table-wrap{overflow:auto}.invoice-analysis-table{width:100%;min-width:850px;border-collapse:collapse}.invoice-analysis-table th{text-align:left;font-size:8px;text-transform:uppercase;color:#74837b;background:#f8faf9;padding:11px 14px;border-bottom:1px solid #e3e9e5}.invoice-analysis-table td{font-size:9px;padding:11px 14px;border-bottom:1px solid #edf1ee}.invoice-analysis-table td:last-child,.invoice-analysis-table th:last-child{text-align:right}
-@media(max-width:1100px){.invoice-analysis-kpis{grid-template-columns:repeat(3,1fr)}.invoice-analysis-grid{grid-template-columns:1fr}}@media(max-width:700px){.invoice-analysis-page{padding:12px}.invoice-analysis-top{display:block}.invoice-analysis-period{text-align:left;margin-top:15px}.invoice-analysis-kpis{grid-template-columns:repeat(2,1fr)}.invoice-analysis-chart-head{align-items:flex-start;flex-direction:column}.invoice-analysis-metrics{overflow:auto;max-width:100%}}
-/* === ANALISIS INDIVIDUAL FACTURA V7 END === */
+/* Un único viewport real para la tabla. */
+.invoice-unified-scroll{
+  display:block !important;
+  width:100% !important;
+  max-width:100% !important;
+  height:560px !important;
+  max-height:560px !important;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  position:relative !important;
+  border-top:3px solid #b91c1c !important;
+  border-bottom:3px solid #b91c1c !important;
+  scrollbar-gutter:stable both-edges;
+}
 
+/* Nada adentro crea su propio scroll. */
+.invoice-unified-scroll .invoice-admin-scroll,
+.invoice-unified-scroll .missing-table{
+  overflow:visible !important;
+  max-height:none !important;
+  width:max-content !important;
+  min-width:1800px !important;
+}
 
+/* Fuerza ancho mayor al viewport para que SIEMPRE exista scroll horizontal. */
+.invoice-unified-scroll .invoice-admin{
+  width:1800px !important;
+  min-width:1800px !important;
+  max-width:1800px !important;
+}
+
+/* Barra grande y contrastada */
+.invoice-unified-scroll::-webkit-scrollbar{
+  width:16px !important;
+  height:20px !important;
+}
+.invoice-unified-scroll::-webkit-scrollbar-track{
+  background:#dbe4df !important;
+}
+.invoice-unified-scroll::-webkit-scrollbar-thumb{
+  background:#14532d !important;
+  border:3px solid #dbe4df !important;
+  border-radius:999px !important;
+}
+.invoice-unified-scroll{
+  scrollbar-width:auto !important;
+  scrollbar-color:#14532d #dbe4df !important;
+}
+
+/* Cabecera fija */
+.invoice-unified-scroll thead th{
+  position:sticky !important;
+  top:0 !important;
+  z-index:20 !important;
+  background:#f8faf9 !important;
+}
+
+/* Medidor fijo */
+.invoice-unified-scroll .invoice-admin th:nth-child(1),
+.invoice-unified-scroll .invoice-admin td:nth-child(1){
+  position:sticky !important;
+  left:0 !important;
+  z-index:12 !important;
+  width:190px !important;
+  min-width:190px !important;
+  background:#fff !important;
+}
+
+/* Servicio fijo */
+.invoice-unified-scroll .invoice-admin th:nth-child(2),
+.invoice-unified-scroll .invoice-admin td:nth-child(2){
+  position:sticky !important;
+  left:190px !important;
+  z-index:12 !important;
+  width:300px !important;
+  min-width:300px !important;
+  background:#fff !important;
+  box-shadow:8px 0 12px -12px rgba(23,33,29,.65);
+}
+
+.invoice-unified-scroll thead th:nth-child(1),
+.invoice-unified-scroll thead th:nth-child(2){
+  z-index:30 !important;
+  background:#f8faf9 !important;
+}
+
+.invoice-unified-scroll .pending-invoice-row td:nth-child(1),
+.invoice-unified-scroll .pending-invoice-row td:nth-child(2),
+.invoice-unified-scroll .missing-invoice-row td:nth-child(1),
+.invoice-unified-scroll .missing-invoice-row td:nth-child(2){
+  background:#eef0ef !important;
+}
+
+/* === DIAGNOSTICO V6 END === */
 

@@ -1,0 +1,40 @@
+﻿DIAGNOSTICO V6
+
+Este V6 no intenta adivinar si "se ve parecido".
+Agrega una marca roja fija que dice:
+
+V6 ACTIVO
+
+Si luego de arrancar npm run dev NO aparece esa marca,
+el navegador NO está mostrando el front que acabamos de modificar.
+
+IMPORTANTE:
+El package.json de este proyecto usa VITE para "npm run dev",
+por eso los fixes anteriores que limpiaban solo .next no eran suficientes.
+
+PASOS
+
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+ejecutar:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_DIAGNOSTICO_V6\APLICAR_DIAGNOSTICO_V6.ps1
+
+Luego:
+
+cd front
+npm run dev
+
+NO abras una URL vieja de memoria.
+Usa EXACTAMENTE la URL que aparezca como:
+Local: http://localhost:....
+
+Luego Ctrl+F5.
+
+RESULTADO ESPERADO:
+- borde rojo arriba/abajo de la tabla
+- cartel rojo "V6 ACTIVO" abajo a la derecha
+- tabla con altura fija y scrollbar vertical
+- scrollbar horizontal visible dentro del mismo bloque

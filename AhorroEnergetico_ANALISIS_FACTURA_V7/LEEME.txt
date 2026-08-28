@@ -1,0 +1,33 @@
+﻿ANALISIS INDIVIDUAL DE FACTURA V7
+
+OBJETIVO
+Al tocar una fila de factura ya no se abre el cuadro lateral.
+Se abre una pantalla completa de análisis del medidor/factura.
+
+Incluye:
+- factura seleccionada
+- consumo
+- demanda máxima
+- potencia contratada y sobrante
+- factor de potencia
+- importe
+- ahorro potencial
+- gráfico histórico de hasta 24 meses
+- selector gráfico: consumo / importe / demanda / factor de potencia
+- tocar una barra cambia la factura analizada
+- conceptos completos de factura
+- mediciones completas
+- ahorro de potencia, reactiva y tarifa
+
+APLICAR
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_ANALISIS_FACTURA_V7\APLICAR_ANALISIS_FACTURA_V7.ps1
+
+Luego:
+cd front
+npm run dev
+
+Ctrl+F5
