@@ -1,0 +1,37 @@
+﻿MAPA DE MEDIDORES REAL V43
+
+Reemplaza el mapa ilustrativo por un mapa Leaflet/OpenStreetMap real,
+igual al usado en la edición individual.
+
+NUEVO:
+- usa coordenadas guardadas en meter_locations
+- rojo = crítico (FP bajo / posible baja)
+- amarillo = oportunidad (potencia sobrante)
+- verde = correcto
+- contador de medidores sin ubicación
+- búsqueda
+- filtros por estado
+- panel lateral con datos
+- tarjeta inferior del medidor seleccionado
+- botón "Abrir análisis individual"
+
+BACKEND:
+GET /api/organizations/{organization_id}/meter-locations
+
+ARCHIVOS:
+- front/app/meters-map.tsx (nuevo)
+- front/app/page.tsx
+- front/app/globals.css
+- back/app/routers/catalog.py
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_MAPA_MEDIDORES_REAL_V43\APLICAR_MAPA_MEDIDORES_REAL_V43.ps1
+
+Luego:
+git add .
+git commit -m "Mapa real de medidores"
+git push
+
+Render debe desplegar el backend.
+Vercel debe desplegar el front.

@@ -78,28 +78,6 @@ def create_meter(body: MeterCreate, user: CurrentUser = Depends(current_user)):
     return admin_db().table("meters").insert(body.model_dump(mode="json", exclude_none=True)).execute().data[0]
 
 
-
-@router.get("/organizations/{organization_id}/meter-locations")
-def list_meter_locations(organization_id: str, user: CurrentUser = Depends(current_user)):
-    require_org(user.id, organization_id)
-    db = admin_db()
-    meters = db.table("meters").select("id").eq("organization_id", organization_id).execute().data
-    meter_ids = [row["id"] for row in meters]
-    if not meter_ids:
-        return []
-    rows = (
-        db.table("meter_locations")
-        .select("meter_id,latitude,longitude,valid_from,source")
-        .in_("meter_id", meter_ids)
-        .is_("valid_to", "null")
-        .order("valid_from", desc=True)
-        .execute()
-        .data
-    )
-    latest = {}
-    for row in rows:
-        latest.setdefault(row["meter_id"], row)
-    return list(latest.values())
 @router.get("/meters/{meter_id}/location")
 def get_location(meter_id: str, user: CurrentUser = Depends(current_user)):
     db = admin_db()
@@ -128,6 +106,5 @@ def update_location(meter_id: str, body: LocationUpdate, user: CurrentUser = Dep
     admin_db().table("meter_locations").update({"valid_to":datetime.now(timezone.utc).isoformat()}).eq("meter_id",meter_id).is_("valid_to","null").execute()
     row={"meter_id":meter_id,"latitude":str(body.latitude),"longitude":str(body.longitude),"source":"manual_map","created_by":user.id}
     return admin_db().table("meter_locations").insert(row).execute().data[0]
-
 
 
