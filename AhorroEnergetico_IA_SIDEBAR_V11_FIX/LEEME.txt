@@ -1,0 +1,21 @@
+﻿FIX V11
+
+Corrige el error de PowerShell:
+"No se puede convertir el argumento matchTimeout ... Singleline"
+
+El problema estaba en el overload de [regex]::Replace.
+Este script usa una instancia Regex con RegexOptions.Singleline,
+que funciona correctamente en Windows PowerShell.
+
+APLICAR
+
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_IA_SIDEBAR_V11_FIX\APLICAR_IA_SIDEBAR_V11_FIX.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

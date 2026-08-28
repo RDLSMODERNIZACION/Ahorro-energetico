@@ -40,8 +40,7 @@ export default function Home(){
   const[session,setSession]=useState<Session|null>(null),[authReady,setAuthReady]=useState(false);
   const[email,setEmail]=useState(""),[password,setPassword]=useState(""),[loginError,setLoginError]=useState(""),[loginBusy,setLoginBusy]=useState(false);
   const[organization,setOrganization]=useState<Organization|null>(null),[meters,setMeters]=useState<Meter[]>([]),[invoices,setInvoices]=useState<Invoice[]>([]),[missing,setMissing]=useState<Missing[]>([]),[opportunities,setOpportunities]=useState<Opportunity[]>([]),[assessments,setAssessments]=useState<TariffAssessment[]>([]),[tariffSavings,setTariffSavings]=useState<TariffSaving[]>([]);
-  const[tab,setTab]=useState<"dashboard"|"invoices"|"framing"|"tariffs"|"map"|"ai">("dashboard"),[busy,setBusy]=useState(false),[toast,setToast]=useState(""),[selectedMeter,setSelectedMeter]=useState(""),[selectedInvoice,setSelectedInvoice]=useState<Invoice|null>(null),[yearFilter,setYearFilter]=useState("all"),[monthFilter,setMonthFilter]=useState("all"),[search,setSearch]=useState(""),[framingFilter,setFramingFilter]=useState("all"),[mapSearch,setMapSearch]=useState("");
-  const[aiQuery,setAiQuery]=useState(""),[aiAnswer,setAiAnswer]=useState("Seleccioná una consulta sugerida o escribí qué querés analizar."),[aiBusy,setAiBusy]=useState(false);
+  const[tab,setTab]=useState<"dashboard"|"invoices"|"framing"|"tariffs"|"map">("dashboard"),[busy,setBusy]=useState(false),[toast,setToast]=useState(""),[selectedMeter,setSelectedMeter]=useState(""),[selectedInvoice,setSelectedInvoice]=useState<Invoice|null>(null),[yearFilter,setYearFilter]=useState("all"),[monthFilter,setMonthFilter]=useState("all"),[search,setSearch]=useState(""),[framingFilter,setFramingFilter]=useState("all"),[mapSearch,setMapSearch]=useState("");
   const fileRef=useRef<HTMLInputElement>(null);
   const invoiceFiltersInitialized=useRef(false);
 
@@ -61,47 +60,7 @@ export default function Home(){
   async function login(e:FormEvent){e.preventDefault();setLoginBusy(true);setLoginError("");const{error}=await supabase.auth.signInWithPassword({email,password});if(error)setLoginError(error.message);setLoginBusy(false)}
   async function upload(file?:File){if(!file||!session||!orgId)return;setBusy(true);try{const form=new FormData();form.append("organization_id",orgId);form.append("file",file);const result=await api<{imported:number;missing_count:number;duplicate:boolean}>("/api/imports/invoices",session,{method:"POST",body:form});setToast(result.duplicate?"Este archivo ya había sido cargado":`${result.imported} facturas importadas · ${result.missing_count} faltantes`);await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo importar") }finally{setBusy(false);setTimeout(()=>setToast(""),5000)}}
   async function analyze(){if(!session||!orgId)return;setBusy(true);try{const r=await api<{opportunities_created:number}>(`/api/organizations/${orgId}/analysis/run`,session,{method:"POST"});setToast(`${r.opportunities_created} oportunidades detectadas`);await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo analizar")}finally{setBusy(false)}}
-    function runAiQuery(text?:string){
-    const q=(text??aiQuery).trim().toLowerCase();
-    if(!q){setAiAnswer("Escribí una consulta.");return}
-    setAiBusy(true);
-    try{
-      const latest=periods[0]||"";
-      const latestRows=invoices.filter(i=>invoiceMonth(i)===latest);
-      const lowPf=latestRows.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).sort((a,b)=>metrics(a).pf-metrics(b).pf);
-      const powerExcess=latestRows.filter(i=>metrics(i).excess>0).sort((a,b)=>metrics(b).excess-metrics(a).excess);
-      const topSaving=latestRows.map(i=>{
-        const p=invoicePowerSaving(i).amount;
-        const r=invoiceReactiveSaving(i);
-        const t=tariffSavings.find(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===latest);
-        return{i,saving:p+r+Number(t?.monthly_saving_with_vat||0)};
-      }).filter(x=>x.saving>0).sort((a,b)=>b.saving-a.saving);
-
-      let answer="";
-      if(q.includes("cos")||q.includes("factor")||q.includes("reactiva")){
-        answer=`Encontré ${lowPf.length} medidor(es) con cos φ menor a 0,95 en ${latest}. `+
-          (lowPf.slice(0,5).map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${metrics(i).pf.toFixed(3)}`).join(" · ")||"No hay casos críticos.");
-      }else if(q.includes("potencia")||q.includes("contratada")||q.includes("sobrante")){
-        answer=`Hay ${powerExcess.length} medidor(es) con potencia contratada por encima de la demanda en ${latest}. `+
-          (powerExcess.slice(0,5).map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${number.format(metrics(i).excess)} kW sobrantes`).join(" · ")||"No hay sobrantes.");
-      }else if(q.includes("falt")||q.includes("sin factura")){
-        answer=`Para ${controlPeriod||latest} hay ${missingPeriodMeters.length} factura(s) faltante(s). `+
-          (missingPeriodMeters.slice(0,8).map(m=>`${m.service_name||m.meter_number}`).join(" · ")||"No faltan facturas.");
-      }else if(q.includes("ahorro")||q.includes("prioridad")||q.includes("conviene")){
-        answer=`Los principales ahorros mensuales detectados en ${latest} son: `+
-          (topSaving.slice(0,5).map(x=>`${x.i.meters?.service_name||x.i.meters?.meter_number}: ${money.format(x.saving)}/mes`).join(" · ")||"No hay ahorros valorizados.");
-      }else if(q.includes("consumo")||q.includes("mayor")){
-        const top=[...latestRows].sort((a,b)=>metrics(b).kwh-metrics(a).kwh).slice(0,5);
-        answer=`Los mayores consumos de ${latest}: `+top.map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${number.format(metrics(i).kwh)} kWh`).join(" · ");
-      }else{
-        answer=`Resumen de ${latest}: ${latestRows.length} facturas cargadas, ${missingPeriodMeters.length} faltantes, ${lowPf.length} con cos φ bajo, ${powerExcess.length} con potencia sobrante y ${topSaving.length} con ahorro valorizado.`;
-      }
-      setAiAnswer(answer);
-    }finally{
-      setAiBusy(false);
-    }
-  }
-async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"removed"){if(!session||!orgId)return;setBusy(true);try{await api(`/api/meters/${meterId}/billing-status`,session,{method:"PUT",body:JSON.stringify({status})});setToast(status==="active"?"El medidor vuelve al seguimiento mensual":status==="removed"?"Baja confirmada: ya no se esperarán facturas":"Medidor marcado como posible baja");await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo actualizar el medidor")}finally{setBusy(false);setTimeout(()=>setToast(""),4000)}}
+  async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"removed"){if(!session||!orgId)return;setBusy(true);try{await api(`/api/meters/${meterId}/billing-status`,session,{method:"PUT",body:JSON.stringify({status})});setToast(status==="active"?"El medidor vuelve al seguimiento mensual":status==="removed"?"Baja confirmada: ya no se esperarán facturas":"Medidor marcado como posible baja");await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo actualizar el medidor")}finally{setBusy(false);setTimeout(()=>setToast(""),4000)}}
 
   const total=invoices.reduce((s,x)=>s+Number(x.total_amount||0),0),kwh=invoices.reduce((s,x)=>s+(x.invoice_measurements||[]).reduce((a,m)=>a+Number(m.active_energy_kwh||0),0),0),annualSaving=assessments.length?assessments.reduce((s,x)=>s+Number(x.estimated_annual_saving||0),0):opportunities.filter(x=>x.status!=="dismissed").reduce((s,x)=>s+Number(x.estimated_annual_saving||0),0);
   const invoiceMonth=(x:Invoice)=>(x.billing_period||x.period_start).slice(0,7);
@@ -132,7 +91,7 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
   if(!authReady)return <main className="loading-page">Cargando…</main>;
   if(!session)return <main className="login-page"><section className="login-card"><div className="login-brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><h1>Ingresar al sistema</h1><p>Facturación EPEN y oportunidades de ahorro</p><form onSubmit={login}><label>Correo electrónico<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{loginError&&<div className="login-error">{loginError}</div>}<button disabled={loginBusy}>{loginBusy?"Ingresando…":"Ingresar"}</button></form><small>El usuario debe estar creado en Supabase Authentication.</small></section></main>;
 
-  return <main className="shell"><aside className="side"><div className="brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><nav><button className={tab==="dashboard"?"active":""} onClick={()=>setTab("dashboard")}>⌁ <span>Resumen</span></button><button className={tab==="invoices"?"active":""} onClick={()=>setTab("invoices")}>▤ <span>Facturas</span></button><button className={tab==="framing"?"active":""} onClick={()=>setTab("framing")}>⇄ <span>Encuadramiento</span></button><button className={tab==="tariffs"?"active":""} onClick={()=>setTab("tariffs")}>↗ <span>Ahorros</span></button><button className={tab==="map"?"active":""} onClick={()=>setTab("map")}>⌖ <span>Medidores</span></button><button className={tab==="ai"?"active":""} onClick={()=>setTab("ai")}><i>✦</i><span>IA</span></button></nav><div className="user-box"><b>{session.user.email}</b><small>{organization?.organizations.name}</small><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></div></aside>
+  return <main className="shell"><aside className="side"><div className="brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><nav><button className={tab==="dashboard"?"active":""} onClick={()=>setTab("dashboard")}>⌁ <span>Resumen</span></button><button className={tab==="invoices"?"active":""} onClick={()=>setTab("invoices")}>▤ <span>Facturas</span></button><button className={tab==="framing"?"active":""} onClick={()=>setTab("framing")}>⇄ <span>Encuadramiento</span></button><button className={tab==="tariffs"?"active":""} onClick={()=>setTab("tariffs")}>↗ <span>Ahorros</span></button><button className={tab==="map"?"active":""} onClick={()=>setTab("map")}>⌖ <span>Medidores</span></button></nav><div className="user-box"><b>{session.user.email}</b><small>{organization?.organizations.name}</small><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></div></aside>
   <section className="work"><header><div><p>MUNICIPALIDAD DE RINCÓN DE LOS SAUCES</p><h1>{tab==="dashboard"?"Inteligencia energética":tab==="invoices"?"Seguimiento de facturas":tab==="framing"?"Encuadramiento tarifario":tab==="tariffs"?"Oportunidades de ahorro":"Mapa de medidores"}</h1></div><div className="head-actions"><button className="secondary" onClick={analyze} disabled={busy}>Analizar ahora</button><button onClick={()=>fileRef.current?.click()} disabled={busy}>{busy?"Procesando…":"＋ Cargar ZIP / CSV"}</button><input hidden ref={fileRef} type="file" accept=".zip,.csv" onChange={e=>upload(e.target.files?.[0])}/></div></header>
 
   {tab==="dashboard"&&<><div className="kpis"><article><span>Gasto histórico</span><strong>{money.format(total)}</strong><small>{invoices.length} facturas cargadas</small></article>
@@ -149,50 +108,7 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
 <article><span>Factor de potencia</span><b>{money.format(reactiveAnnual)}</b><small>recargos evitables</small></article>
 <article><span>Cambio tarifario</span><b>{money.format(rateAnnual)}</b><small>ahorro anual simulado</small></article><article className="total"><span>Total de propuestas</span><b>{money.format(tariffAnnual)}</b><small>{money.format(tariffAnnual/12)} por mes</small></article></div><div className="framing-meta"><span>{assessments.length} suministros analizados</span><span>{reviewCount} requieren revisión</span><span>{assessments.filter(x=>x.status==="correct").length} correctamente encuadrados</span></div><TariffSavingsTable rows={tariffSavings}/><section className="panel"><Title title="Diagnóstico y ahorros separados" sub="Potencia · Energía reactiva · Categoría tarifaria"/><div className="framing-tabs"><button className={framingFilter==="all"?"active":""} onClick={()=>setFramingFilter("all")}>Todos</button><button className={framingFilter==="change_candidate"?"active":""} onClick={()=>setFramingFilter("change_candidate")}>Posible cambio</button><button className={framingFilter==="power_review"?"active":""} onClick={()=>setFramingFilter("power_review")}>Revisar potencia</button><button className={framingFilter==="provisional"?"active":""} onClick={()=>setFramingFilter("provisional")}>Provisorios</button><button className={framingFilter==="correct"?"active":""} onClick={()=>setFramingFilter("correct")}>Correctos</button></div><TariffTable rows={visibleAssessments} onMeter={id=>{const i=invoices.find(x=>x.meter_id===id);if(i)openMeter(i)}}/></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</>}
   {tab==="tariffs"&&<HistoricalAnalysis invoices={invoices} meters={meters} tariffSavings={tariffSavings}/>}
-    {tab==="ai"&&<div className="ai-module">
-    <section className="panel ai-hero">
-      <div>
-        <span className="ai-kicker">ASISTENTE DE GESTIÓN ENERGÉTICA</span>
-        <h2>IA para analizar la base municipal</h2>
-        <p>Consultá facturas, consumo, potencia, factor de potencia, faltantes y oportunidades de ahorro.</p>
-      </div>
-      <div className="ai-badge">✦ IA</div>
-    </section>
-
-    <div className="ai-alert-grid">
-      <article><span>Facturas faltantes</span><b>{missingPeriodMeters.length}</b><small>{controlPeriod||periods[0]||"Sin período"}</small></article>
-      <article><span>Cos φ bajo</span><b>{latestInvoiceByMeter.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).length}</b><small>requieren revisión</small></article>
-      <article><span>Potencia sobrante</span><b>{latestInvoiceByMeter.filter(i=>metrics(i).excess>0).length}</b><small>medidores detectados</small></article>
-      <article className="green"><span>Ahorro anual potencial</span><b>{money.format(tariffAnnual)}</b><small>estimación actual</small></article>
-    </div>
-
-    <section className="panel ai-chat">
-      <div className="ai-chat-head">
-        <div><h2>Preguntale a la base</h2><p>Primera versión: consultas inteligentes sobre los datos ya cargados.</p></div>
-      </div>
-
-      <div className="ai-suggestions">
-        {[
-          "¿Qué medidores tienen cos φ bajo?",
-          "¿Dónde sobra más potencia contratada?",
-          "¿Qué facturas faltan este mes?",
-          "¿Cuáles son los mayores ahorros?",
-          "¿Cuáles son los mayores consumos?"
-        ].map(q=><button key={q} onClick={()=>{setAiQuery(q);runAiQuery(q)}}>{q}</button>)}
-      </div>
-
-      <div className="ai-answer">
-        <div className="ai-avatar">✦</div>
-        <div><b>Asistente energético</b><p>{aiBusy?"Analizando la base…":aiAnswer}</p></div>
-      </div>
-
-      <div className="ai-input-row">
-        <input value={aiQuery} onChange={e=>setAiQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")runAiQuery()}} placeholder="Ej.: ¿Qué medidores conviene revisar primero?"/>
-        <button onClick={()=>runAiQuery()} disabled={aiBusy}>{aiBusy?"Analizando…":"Consultar"}</button>
-      </div>
-    </section>
-  </div>}
-{tab==="map"&&<div className="map-layout"><section className="panel map-panel"><div className="map-head"><div><h2>Ubicación aproximada de suministros</h2><p>Distribución orientativa por Oeste, Centro y Este · pendiente de confirmación GPS</p></div><span>{visibleMarkers.length} de {meters.length}</span></div><div className="map-search"><input value={mapSearch} onChange={e=>setMapSearch(e.target.value)} placeholder="Buscar servicio, medidor, calle o suministro"/><small>Los puntos sin coordenadas se ubican aproximadamente según su descripción.</small></div><div className="map"><div className="river"/><b className="zone west">OESTE</b><b className="zone center">CENTRO</b><b className="zone east">ESTE</b>{visibleMarkers.map(m=><div key={m.id} className={`marker ${selectedMeter===m.id?"selected":""}`} style={{left:`${m.x}%`,top:`${m.y}%`}} onClick={()=>setSelectedMeter(m.id)}><i>⚡</i><label>{m.service_name||m.sites?.name||"Servicio sin nombre"}<small>{m.zone.toUpperCase()} · {m.tracking_code} · {m.meter_number}</small></label></div>)}</div></section>
+  {tab==="map"&&<div className="map-layout"><section className="panel map-panel"><div className="map-head"><div><h2>Ubicación aproximada de suministros</h2><p>Distribución orientativa por Oeste, Centro y Este · pendiente de confirmación GPS</p></div><span>{visibleMarkers.length} de {meters.length}</span></div><div className="map-search"><input value={mapSearch} onChange={e=>setMapSearch(e.target.value)} placeholder="Buscar servicio, medidor, calle o suministro"/><small>Los puntos sin coordenadas se ubican aproximadamente según su descripción.</small></div><div className="map"><div className="river"/><b className="zone west">OESTE</b><b className="zone center">CENTRO</b><b className="zone east">ESTE</b>{visibleMarkers.map(m=><div key={m.id} className={`marker ${selectedMeter===m.id?"selected":""}`} style={{left:`${m.x}%`,top:`${m.y}%`}} onClick={()=>setSelectedMeter(m.id)}><i>⚡</i><label>{m.service_name||m.sites?.name||"Servicio sin nombre"}<small>{m.zone.toUpperCase()} · {m.tracking_code} · {m.meter_number}</small></label></div>)}</div></section>
 <aside className="panel meter-list"><Title title="Medidores" sub="Seleccioná un punto para ver sus datos"/>{visibleMarkers.map(m=><button className={selectedMeter===m.id?"active":""} key={m.id} onClick={()=>{setSelectedMeter(m.id);const i=invoices.find(x=>x.meter_id===m.id);if(i)setSelectedInvoice(i)}}><i>●</i><div><b>{m.service_name||m.sites?.name||"Servicio sin nombre"}</b><small>{m.zone.toUpperCase()} · {m.tracking_code} · Medidor {m.meter_number}</small></div><em>{m.current_tariff_code||"Sin tarifa"}</em></button>)}</aside>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</div>}
   </section>{toast&&<div className="toast">{toast}</div>}</main>;
 }
@@ -219,7 +135,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 

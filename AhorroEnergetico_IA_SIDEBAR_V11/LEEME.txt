@@ -1,0 +1,27 @@
+﻿MODULO IA V11
+
+Agrega un nuevo item "IA" en la sidebar.
+
+La primera version ya permite consultar sobre los datos cargados:
+- cos φ bajo
+- potencia contratada sobrante
+- facturas faltantes
+- mayores ahorros
+- mayores consumos
+- resumen del ultimo periodo
+
+No usa todavia una API externa de IA:
+es una primera capa inteligente sobre la base ya cargada en el front.
+
+APLICAR
+
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_IA_SIDEBAR_V11\APLICAR_IA_SIDEBAR_V11.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5
