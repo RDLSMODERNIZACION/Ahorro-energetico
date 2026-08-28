@@ -1175,13 +1175,3 @@ td small {
 @media(max-width:1100px){.ai-alert-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.ai-alert-grid{grid-template-columns:1fr}.ai-hero{align-items:flex-start}.ai-badge{width:52px;height:52px}.ai-input-row{grid-template-columns:1fr}.ai-input-row button{height:40px}}
 /* === MODULO IA V11 END === */
 
-/* === IA ALERTAS V15 START === */
-.ai-smart-sections{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.ai-smart-card{overflow:hidden}.ai-smart-head{display:flex;justify-content:space-between;align-items:center;padding:16px 17px;border-bottom:1px solid var(--line)}.ai-smart-head span{display:block;font-size:7px;letter-spacing:.1em;font-weight:850;color:#7a8982}.ai-smart-head h3{font-size:12px;margin:4px 0 0}.ai-smart-head>b{font-size:23px;color:#33463d}
-.ai-smart-card.critical .ai-smart-head{background:#fff5f2}.ai-smart-card.critical .ai-smart-head>b{color:#c94837}.ai-smart-card.opportunities .ai-smart-head{background:#eef8f3}.ai-smart-card.opportunities .ai-smart-head>b{color:#158255}.ai-smart-card.changes .ai-smart-head{background:#f5f8fa}.ai-smart-card.changes .ai-smart-head>b{color:#376b8b}
-.ai-smart-list{max-height:370px;overflow:auto}.ai-smart-list>button{width:100%;border:0;border-bottom:1px solid #edf1ee;background:white;display:grid;grid-template-columns:29px 1fr auto;gap:10px;align-items:center;text-align:left;padding:12px 13px;cursor:pointer}.ai-smart-list>button:hover{background:#f8fbf9}.ai-smart-list>button>i{width:27px;height:27px;border-radius:8px;display:grid;place-items:center;font-style:normal;font-weight:900;background:#eef3f0;color:#44655a}.critical .ai-smart-list>button>i{background:#fff0ed;color:#c94b3a}.opportunities .ai-smart-list>button>i{background:#e7f6ee;color:#168659}.changes .ai-smart-list>button>i{background:#edf3f7;color:#477996}
-.ai-smart-list>button div b,.ai-smart-list>button div span{display:block}.ai-smart-list>button div b{font-size:9px}.ai-smart-list>button div span{margin-top:4px;color:#72827a;font-size:8px;line-height:1.35}.ai-smart-list>button em{font-style:normal;font-size:8px;font-weight:850;color:#a94a3c;white-space:nowrap}.opportunities .ai-smart-list>button em{color:#168659}.changes .ai-smart-list>button em{color:#477996}.changes .ai-smart-list>button em.positive{color:#168659}
-.ai-smart-empty{padding:24px 15px;text-align:center;color:#839189;font-size:9px}
-@media(max-width:1200px){.ai-smart-sections{grid-template-columns:1fr}} 
-/* === IA ALERTAS V15 END === */
-

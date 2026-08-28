@@ -1,0 +1,31 @@
+﻿IA ALERTAS V15
+
+Agrega a la sección IA tres módulos:
+
+1. ALERTAS CRITICAS
+- cos phi < 0,95
+- consumo >30% vs promedio de los últimos meses disponibles
+- importe >35% vs promedio
+- facturas faltantes
+
+2. TOP OPORTUNIDADES
+- potencia contratada sobrante
+- penalización reactiva
+- cambio tarifario valorizado
+
+3. QUE CAMBIO ESTE MES
+- variaciones >20% de consumo
+- demanda
+- importe
+- marca mejoras cuando consumo e importe bajan
+
+Cada fila con factura se puede tocar para abrir el análisis individual.
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_IA_ALERTAS_V15\APLICAR_IA_ALERTAS_V15.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

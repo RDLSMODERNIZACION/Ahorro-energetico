@@ -103,88 +103,7 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
   const reviewCount=assessments.length?assessments.filter(x=>x.status!=="correct").length:latestInvoiceByMeter.filter(i=>invoicePowerSaving(i).amount>0||invoiceReactiveSaving(i)>0).length;
   const powerSavingCount=assessments.length?assessments.filter(x=>x.power_monthly_saving>0).length:latestInvoiceByMeter.filter(i=>invoicePowerSaving(i).amount>0).length;
   const reactiveSavingCount=assessments.length?assessments.filter(x=>x.reactive_monthly_saving>0).length:latestInvoiceByMeter.filter(i=>invoiceReactiveSaving(i)>0).length;
-    const aiAlertData=useMemo(()=>{
-    const latest=periods[0]||"";
-    const previous=periods[1]||"";
-    const last6=periods.slice(0,6);
-    const latestRows=invoices.filter(i=>invoiceMonth(i)===latest);
-    const previousRows=invoices.filter(i=>invoiceMonth(i)===previous);
-    const byMeter6=new Map<string,Invoice[]>();
-    for(const i of invoices){
-      if(!last6.includes(invoiceMonth(i)))continue;
-      const arr=byMeter6.get(i.meter_id)||[];
-      arr.push(i);byMeter6.set(i.meter_id,arr);
-    }
-
-    const critical:any[]=[];
-    const opportunities:any[]=[];
-    const changes:any[]=[];
-
-    for(const i of latestRows){
-      const x=metrics(i),m=i.meters;
-      const history=byMeter6.get(i.meter_id)||[];
-      const past=history.filter(h=>invoiceMonth(h)!==latest);
-      const avgKwh=past.length?past.reduce((s,h)=>s+metrics(h).kwh,0)/past.length:0;
-      const avgAmount=past.length?past.reduce((s,h)=>s+Number(h.total_amount||0),0)/past.length:0;
-      const prev=previousRows.find(p=>p.meter_id===i.meter_id);
-      const prevM=prev?metrics(prev):null;
-      const currentAmount=Number(i.total_amount||0);
-
-      if(x.pf>0&&x.pf<.95){
-        critical.push({kind:"pf",score:(.95-x.pf)*100,label:m?.service_name||m?.meter_number||"Medidor",detail:`Cos φ ${x.pf.toFixed(3)} · revisar compensación reactiva`,invoice:i});
-      }
-      if(avgKwh>0&&x.kwh>avgKwh*1.3){
-        critical.push({kind:"consumption",score:(x.kwh/avgKwh-1)*100,label:m?.service_name||m?.meter_number||"Medidor",detail:`Consumo +${((x.kwh/avgKwh-1)*100).toFixed(0)}% vs promedio 6 meses`,invoice:i});
-      }
-      if(avgAmount>0&&currentAmount>avgAmount*1.35){
-        critical.push({kind:"amount",score:(currentAmount/avgAmount-1)*100,label:m?.service_name||m?.meter_number||"Medidor",detail:`Importe +${((currentAmount/avgAmount-1)*100).toFixed(0)}% vs promedio`,invoice:i});
-      }
-
-      if(x.excess>0){
-        const monthly=invoicePowerSaving(i).amount;
-        opportunities.push({kind:"power",value:monthly,label:m?.service_name||m?.meter_number||"Medidor",detail:`${number.format(x.excess)} kW sobrantes · ${money.format(monthly)}/mes`,invoice:i});
-      }
-      const reactive=invoiceReactiveSaving(i);
-      if(reactive>0){
-        opportunities.push({kind:"reactive",value:reactive,label:m?.service_name||m?.meter_number||"Medidor",detail:`Penalización reactiva evitable · ${money.format(reactive)}/mes`,invoice:i});
-      }
-      const tariff=tariffSavings.find(t=>t.meter_id===i.meter_id&&String(t.billing_period).slice(0,7)===latest);
-      if(Number(tariff?.monthly_saving_with_vat||0)>0){
-        opportunities.push({kind:"tariff",value:Number(tariff?.monthly_saving_with_vat||0),label:m?.service_name||m?.meter_number||"Medidor",detail:`Cambio tarifario · ${money.format(Number(tariff?.monthly_saving_with_vat||0))}/mes`,invoice:i});
-      }
-
-      if(prev&&prevM){
-        const consumptionDelta=prevM.kwh?((x.kwh-prevM.kwh)/prevM.kwh)*100:0;
-        const demandDelta=prevM.demand?((x.demand-prevM.demand)/prevM.demand)*100:0;
-        const amountDelta=Number(prev.total_amount||0)?((currentAmount-Number(prev.total_amount||0))/Number(prev.total_amount||0))*100:0;
-        if(Math.abs(consumptionDelta)>=20||Math.abs(demandDelta)>=20||Math.abs(amountDelta)>=20){
-          const bits=[
-            Math.abs(consumptionDelta)>=20?`consumo ${consumptionDelta>=0?"+":""}${consumptionDelta.toFixed(0)}%`:"",
-            Math.abs(demandDelta)>=20?`demanda ${demandDelta>=0?"+":""}${demandDelta.toFixed(0)}%`:"",
-            Math.abs(amountDelta)>=20?`importe ${amountDelta>=0?"+":""}${amountDelta.toFixed(0)}%`:""
-          ].filter(Boolean);
-          changes.push({label:m?.service_name||m?.meter_number||"Medidor",detail:bits.join(" · "),positive:consumptionDelta<0&&amountDelta<0,invoice:i});
-        }
-      }
-    }
-
-    for(const m of missingPeriodMeters){
-      critical.push({kind:"missing",score:60,label:m.service_name||m.meter_number||"Medidor",detail:`Factura faltante en ${controlPeriod||latest}`,invoice:null});
-    }
-
-    critical.sort((a,b)=>b.score-a.score);
-    opportunities.sort((a,b)=>b.value-a.value);
-
-    return{
-      latest,
-      critical:critical.slice(0,8),
-      opportunities:opportunities.slice(0,8),
-      changes:changes.slice(0,8),
-      criticalCount:critical.length,
-      opportunityCount:opportunities.length
-    };
-  },[invoices,periods,missingPeriodMeters,controlPeriod,tariffSavings]);
-const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)};
+  const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)};
   const markerData=useMemo(()=>{const counters={west:0,center:0,east:0};return meters.map(m=>{const text=`${m.service_name||""} ${m.sites?.name||""} ${m.sites?.address||""}`.toLowerCase();const zone=text.includes("oeste")?"west":text.includes("este")?"east":text.match(/centro|municipalidad|san martin|belgrano|plaza|radio|biblioteca|deportiva|social/)?"center":text.match(/costa|pozo|bomba|agua|cloac|planta|vivero/)?(hashText(text)%2?"west":"east"):["west","center","east"][hashText(text)%3] as "west"|"center"|"east";const index=counters[zone]++,bounds=zone==="west"?[9,34]:zone==="center"?[37,62]:[65,91],width=bounds[1]-bounds[0],col=index%5,row=Math.floor(index/5);return{...m,zone,x:bounds[0]+4+col*(width-8)/4+(hashText(m.id)%3-1)*.8,y:14+(row*11)%70+(hashText(m.meter_number)%3-1)*.7}})},[meters]);
   const visibleMarkers=markerData.filter(m=>{const q=mapSearch.trim().toLowerCase();return!q||[m.service_name,m.sites?.name,m.sites?.address,m.meter_number,m.tracking_code,m.supply_number].some(v=>v?.toLowerCase().includes(q))});
 
@@ -225,35 +144,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
       <article className="green"><span>Ahorro anual potencial</span><b>{money.format(tariffAnnual)}</b><small>estimación actual</small></article>
     </div>
 
-        <div className="ai-smart-sections">
-      <section className="panel ai-smart-card critical">
-        <div className="ai-smart-head"><div><span>ALERTAS CRÍTICAS</span><h3>Qué revisar ahora</h3></div><b>{aiAlertData.criticalCount}</b></div>
-        <div className="ai-smart-list">
-          {aiAlertData.critical.length?aiAlertData.critical.map((a,index)=><button key={`${a.kind}-${index}`} onClick={()=>a.invoice&&openMeter(a.invoice)}>
-            <i>!</i><div><b>{a.label}</b><span>{a.detail}</span></div><em>Revisar</em>
-          </button>):<div className="ai-smart-empty">No hay alertas críticas para el último período.</div>}
-        </div>
-      </section>
-
-      <section className="panel ai-smart-card opportunities">
-        <div className="ai-smart-head"><div><span>TOP OPORTUNIDADES</span><h3>Dónde hay más ahorro</h3></div><b>{aiAlertData.opportunityCount}</b></div>
-        <div className="ai-smart-list">
-          {aiAlertData.opportunities.length?aiAlertData.opportunities.map((a,index)=><button key={`${a.kind}-${index}`} onClick={()=>a.invoice&&openMeter(a.invoice)}>
-            <i>$</i><div><b>{a.label}</b><span>{a.detail}</span></div><em>{money.format(a.value)}</em>
-          </button>):<div className="ai-smart-empty">No hay oportunidades valorizadas en el último período.</div>}
-        </div>
-      </section>
-
-      <section className="panel ai-smart-card changes">
-        <div className="ai-smart-head"><div><span>QUÉ CAMBIÓ ESTE MES</span><h3>Variaciones relevantes</h3></div><b>{aiAlertData.changes.length}</b></div>
-        <div className="ai-smart-list">
-          {aiAlertData.changes.length?aiAlertData.changes.map((a,index)=><button key={index} onClick={()=>a.invoice&&openMeter(a.invoice)}>
-            <i>{a.positive?"↓":"↕"}</i><div><b>{a.label}</b><span>{a.detail}</span></div><em className={a.positive?"positive":""}>{a.positive?"Mejora":"Cambio"}</em>
-          </button>):<div className="ai-smart-empty">No se detectaron cambios superiores al 20% contra el mes anterior.</div>}
-        </div>
-      </section>
-    </div>
-<section className="panel ai-chat">
+    <section className="panel ai-chat">
       <div className="ai-chat-head">
         <div><h2>Preguntale a la base</h2><p>Conectado al backend, Supabase y OpenAI.</p></div>
       </div>
@@ -306,7 +197,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
