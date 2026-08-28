@@ -36,48 +36,6 @@ async function api<T>(path:string, session:Session, init?:RequestInit):Promise<T
   throw lastError||new Error("No se pudo consultar la API");
 }
 
-
-function renderAiRichText(text:string){
-  const normalized=text
-    .replace(/\r/g,"")
-    .replace(/\s+(?=\d+\.\s+\*\*)/g,"\n")
-    .replace(/\s+(?=•\s+)/g,"\n")
-    .replace(/\s+(?=-\s+\*\*)/g,"\n")
-    .trim();
-
-  const renderInline=(line:string,keyPrefix:string)=>{
-    const parts=line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
-    return parts.map((part,index)=>{
-      if(part.startsWith("**")&&part.endsWith("**")){
-        return <strong key={`${keyPrefix}-b-${index}`}>{part.slice(2,-2)}</strong>;
-      }
-      return <span key={`${keyPrefix}-t-${index}`}>{part}</span>;
-    });
-  };
-
-  return normalized.split("\n").filter(Boolean).map((raw,index)=>{
-    const line=raw.trim();
-    const numbered=line.match(/^(\d+)\.\s+(.*)$/);
-    const bullet=line.match(/^(?:•|-)\s+(.*)$/);
-
-    if(numbered){
-      return <div className="ai-rich-item" key={`n-${index}`}>
-        <span className="ai-rich-number">{numbered[1]}</span>
-        <div>{renderInline(numbered[2],`n-${index}`)}</div>
-      </div>;
-    }
-    if(bullet){
-      return <div className="ai-rich-item" key={`u-${index}`}>
-        <span className="ai-rich-bullet">•</span>
-        <div>{renderInline(bullet[1],`u-${index}`)}</div>
-      </div>;
-    }
-    if(line.startsWith("## ")){
-      return <h4 className="ai-rich-heading" key={`h-${index}`}>{line.slice(3)}</h4>;
-    }
-    return <p className="ai-rich-paragraph" key={`p-${index}`}>{renderInline(line,`p-${index}`)}</p>;
-  });
-}
 export default function Home(){
   const[session,setSession]=useState<Session|null>(null),[authReady,setAuthReady]=useState(false);
   const[email,setEmail]=useState(""),[password,setPassword]=useState(""),[loginError,setLoginError]=useState(""),[loginBusy,setLoginBusy]=useState(false);
@@ -312,7 +270,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
 
       <div className="ai-answer">
         <div className="ai-avatar">✦</div>
-        <div className="ai-answer-content"><b>Asistente energético</b><div className="ai-rich-response">{aiBusy?<p className="ai-rich-paragraph">Analizando Supabase con OpenAI…</p>:renderAiRichText(aiAnswer)}</div></div>
+        <div><b>Asistente energético</b><p>{aiBusy?"Analizando la base…":aiAnswer}</p></div>
       </div>
 
       <div className="ai-input-row">
@@ -348,7 +306,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 

@@ -237,15 +237,7 @@ Para cos φ, considerá que menor a 0,95 requiere revisión.
 Para potencia, diferenciá demanda máxima, potencia contratada y sobrante.
 Los ahorros son estimaciones; aclará eso cuando corresponda.
 Si la información no alcanza para responder algo, decilo explícitamente. Para tendencias y evolución, priorizá los últimos 6 meses de monthly_history y detectá subas, bajas, anomalías y mejoras.
-Priorizá respuestas accionables y breves, pero incluí números concretos.
-FORMATO DE RESPUESTA:
-- Usá párrafos cortos.
-- Para rankings o múltiples hallazgos, usá una lista numerada, una línea por elemento.
-- En cada elemento poné primero el nombre del servicio o medidor en negrita usando **texto**.
-- Luego indicá los valores principales y una recomendación breve.
-- No escribas todo en un solo párrafo.
-- No uses tablas Markdown salvo que el usuario las pida.
-- Cerrá con una conclusión de 1 o 2 líneas cuando aporte valor."""
+Priorizá respuestas accionables y breves, pero incluí números concretos."""
 
     request_payload = {
         "model": model,
@@ -288,6 +280,5 @@ FORMATO DE RESPUESTA:
         "latest_period": context.get("latest_period"),
         "summary": context.get("summary"),
     }
-
 
 
