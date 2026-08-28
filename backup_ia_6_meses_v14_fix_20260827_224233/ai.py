@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -162,7 +162,7 @@ def _build_context(organization_id: str, question: str) -> dict[str, Any]:
         )
     monthly_history = [
         {"period": p, **{k: round(v, 2) for k, v in monthly[p].items()}}
-        for p in sorted(monthly)[-24:]
+        for p in sorted(monthly)[-6:]
     ]
 
     q = question.lower()
@@ -236,7 +236,7 @@ Cuando haya rankings, indicá medidor/servicio y valor.
 Para cos φ, considerá que menor a 0,95 requiere revisión.
 Para potencia, diferenciá demanda máxima, potencia contratada y sobrante.
 Los ahorros son estimaciones; aclará eso cuando corresponda.
-Si la información no alcanza para responder algo, decilo explícitamente.
+Si la información no alcanza para responder algo, decilo explícitamente. Para tendencias y evolución, priorizá los últimos 6 meses de monthly_history y detectá subas, bajas, anomalías y mejoras.
 Priorizá respuestas accionables y breves, pero incluí números concretos."""
 
     request_payload = {
@@ -279,3 +279,4 @@ Priorizá respuestas accionables y breves, pero incluí números concretos."""
         "latest_period": context.get("latest_period"),
         "summary": context.get("summary"),
     }
+

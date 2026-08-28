@@ -1,9 +1,0 @@
-1. Copiar el ZIP dentro de la carpeta Ahorro-energetico.
-2. Extraerlo en esa carpeta.
-3. Desde PowerShell, ubicado en Ahorro-energetico, ejecutar:
-
-powershell -ExecutionPolicy Bypass -File .\SEGUIMIENTO_MENSUAL\APLICAR_SEGUIMIENTO_MENSUAL.ps1
-
-4. Subir los archivos modificados a GitHub para que Render los despliegue.
-
-La base Supabase ya fue actualizada. Este paquete actualiza solamente el backend.
