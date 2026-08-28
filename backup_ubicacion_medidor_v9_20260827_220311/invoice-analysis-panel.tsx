@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
-import { MeterLocationEditor } from "./meter-location-editor";
 
 type Measurement={
   active_energy_kwh?:number;
@@ -163,8 +162,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
         </section>
       </div>
 
-      <MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
-
       <section className="invoice-analysis-panel">
         <h3>Conceptos facturados</h3>
         <div className="invoice-analysis-table-wrap"><table className="invoice-analysis-table">
@@ -187,5 +184,4 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
     </div>
   </div>
 }
-
 

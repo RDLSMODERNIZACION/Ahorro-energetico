@@ -1,0 +1,37 @@
+﻿UBICACION DE MEDIDOR V9
+
+Agrega al ANALISIS INDIVIDUAL DE FACTURA una sección para editar la ubicación real del medidor.
+
+FUNCIONES
+- Latitud manual
+- Longitud manual
+- Mapa OpenStreetMap
+- Clic sobre el mapa para poner el medidor
+- Marcador arrastrable
+- Botón "Usar mi ubicación"
+- Guarda en public.meter_locations
+- Conserva historial: la ubicación anterior recibe valid_to y la nueva queda vigente
+
+NOTA
+El backend ya tenía PUT /api/meters/{meter_id}/location.
+V9 agrega el GET de la ubicación actual y la interfaz visual.
+
+APLICAR
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_UBICACION_MEDIDOR_V9\APLICAR_UBICACION_MEDIDOR_V9.ps1
+
+DESPUES
+Como modifica front y back, para desarrollo local:
+
+Terminal backend:
+cd back
+uvicorn app.main:app --reload
+
+Terminal front:
+cd front
+npm run dev
+
+Si el front sigue apuntando a Render mediante VITE_API_URL, el backend de Render también debe desplegar el cambio para que funcione el GET nuevo.

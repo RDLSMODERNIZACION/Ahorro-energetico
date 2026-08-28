@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -62,33 +62,11 @@ def create_meter(body: MeterCreate, user: CurrentUser = Depends(current_user)):
     require_org(user.id, body.organization_id, write=True)
     return admin_db().table("meters").insert(body.model_dump(mode="json", exclude_none=True)).execute().data[0]
 
-
-@router.get("/meters/{meter_id}/location")
-def get_location(meter_id: str, user: CurrentUser = Depends(current_user)):
-    db = admin_db()
-    meter = db.table("meters").select("organization_id").eq("id",meter_id).limit(1).execute().data
-    if not meter:
-        raise HTTPException(404,"Medidor inexistente")
-    require_org(user.id,meter[0]["organization_id"])
-    rows = (
-        db.table("meter_locations")
-        .select("*")
-        .eq("meter_id",meter_id)
-        .is_("valid_to","null")
-        .order("valid_from", desc=True)
-        .limit(1)
-        .execute()
-        .data
-    )
-    if not rows:
-        return None
-    return rows[0]
 @router.put("/meters/{meter_id}/location")
 def update_location(meter_id: str, body: LocationUpdate, user: CurrentUser = Depends(current_user)):
     meter = admin_db().table("meters").select("organization_id").eq("id",meter_id).limit(1).execute().data
     if not meter: raise HTTPException(404,"Medidor inexistente")
     require_org(user.id,meter[0]["organization_id"],write=True)
     admin_db().table("meter_locations").update({"valid_to":datetime.now(timezone.utc).isoformat()}).eq("meter_id",meter_id).is_("valid_to","null").execute()
-    row={"meter_id":meter_id,"latitude":str(body.latitude),"longitude":str(body.longitude),"source":"manual_map","created_by":user.id}
+    row={"meter_id":meter_id,"latitude":str(body.latitude),"longitude":str(body.longitude),"created_by":user.id}
     return admin_db().table("meter_locations").insert(row).execute().data[0]
-
