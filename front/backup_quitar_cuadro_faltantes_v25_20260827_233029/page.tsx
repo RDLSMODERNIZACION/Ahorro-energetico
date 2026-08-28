@@ -252,7 +252,111 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
   const visibleMarkers=markerData.filter(m=>{const q=mapSearch.trim().toLowerCase();return!q||[m.service_name,m.sites?.name,m.sites?.address,m.meter_number,m.tracking_code,m.supply_number].some(v=>v?.toLowerCase().includes(q))});
 
   if(!authReady)return <main className="loading-page">Cargando…</main>;
-  if(!session)return <main className="login-page">}<section className="panel"><Title title="Administrador mensual y anual" sub={`${filteredInvoices.length} de ${meters.length} facturas recibidas para ${controlPeriod}`}/><div className="filters"><label>Año<select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></label><label>Mes<select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>{Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(m=><option key={m} value={m}>{new Date(2026,Number(m)-1,1).toLocaleString("es-AR",{month:"long"})}</option>)}</select></label><label className="search-filter">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro, servicio o factura"/></label><button onClick={()=>setSearch("")}>Limpiar búsqueda</button></div><div className="invoice-unified-scroll"><InvoiceTable invoices={filteredInvoices} assessments={assessments} tariffSavings={tariffSavings} pendingMeters={visibleMissingPeriodMeters} period={controlPeriod} onSelect={openMeter}/></div></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}
+  if(!session)return <main className="login-page"><section className="login-card"><div className="login-brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><h1>Ingresar al sistema</h1><p>Facturación EPEN y oportunidades de ahorro</p><form onSubmit={login}><label>Correo electrónico<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{loginError&&<div className="login-error">{loginError}</div>}<button disabled={loginBusy}>{loginBusy?"Ingresando…":"Ingresar"}</button></form><small>El usuario debe estar creado en Supabase Authentication.</small></section></main>;
+
+  return <main className="shell"><aside className="side"><div className="brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><nav><button className={tab==="dashboard"?"active":""} onClick={()=>setTab("dashboard")}>⌁ <span>Resumen</span></button><button className={tab==="invoices"?"active":""} onClick={()=>setTab("invoices")}>▤ <span>Facturas</span></button><button className={tab==="framing"?"active":""} onClick={()=>setTab("framing")}>⇄ <span>Encuadramiento</span></button><button className={tab==="tariffs"?"active":""} onClick={()=>setTab("tariffs")}>↗ <span>Ahorros</span></button><button className={tab==="map"?"active":""} onClick={()=>setTab("map")}>⌖ <span>Medidores</span></button><button className={tab==="ai"?"active":""} onClick={()=>setTab("ai")}><i>✦</i><span>IA</span></button></nav><div className="user-box"><b>{session.user.email}</b><small>{organization?.organizations.name}</small><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></div></aside>
+  <section className="work"><header><div><p>MUNICIPALIDAD DE RINCÓN DE LOS SAUCES</p><h1>{tab==="dashboard"?"Inteligencia energética":tab==="invoices"?"Seguimiento de facturas":tab==="framing"?"Encuadramiento tarifario":tab==="tariffs"?"Oportunidades de ahorro":"Mapa de medidores"}</h1></div><div className="head-actions"><button className="secondary" onClick={analyze} disabled={busy}>Analizar ahora</button><button onClick={()=>fileRef.current?.click()} disabled={busy}>{busy?"Procesando…":"＋ Cargar ZIP / CSV"}</button><input hidden ref={fileRef} type="file" accept=".zip,.csv" onChange={e=>upload(e.target.files?.[0])}/></div></header>
+
+  {tab==="dashboard"&&<>
+  <section className="panel dashboard-ai-ask">
+    <div className="dashboard-ai-copy">
+      <span>✦ INTELIGENCIA ENERGÉTICA · {dashboardPeriodLabel.toUpperCase()}</span>
+      <h2>¿Qué querés saber del período?</h2>
+      <p>Preguntale a la IA sobre consumo, facturas faltantes, potencia, cos φ y oportunidades de ahorro del mes.</p>
+    </div>
+    <div className="dashboard-ai-query">
+      <input
+        value={aiQuery}
+        onChange={e=>setAiQuery(e.target.value)}
+        onKeyDown={e=>{if(e.key==="Enter"){setTab("ai");runAiQuery()}}}
+        placeholder={`Ej.: ¿Qué debería revisar primero en ${dashboardPeriodLabel}?`}
+      />
+      <button onClick={()=>{setTab("ai");runAiQuery()}} disabled={aiBusy}>
+        {aiBusy?"Analizando…":"Preguntar a IA"}
+      </button>
+    </div>
+  </section>
+
+  <div className="dashboard-month-kpis">
+    <article className="received">
+      <span>Facturas recibidas</span>
+      <strong>{dashboardReceived} <i>/ {activeMeters.length}</i></strong>
+      <small>{dashboardPeriodLabel}</small>
+    </article>
+    <article className={dashboardMissing.length?"missing":"ok"}>
+      <span>Facturas faltantes</span>
+      <strong>{dashboardMissing.length}</strong>
+      <small>{dashboardMissing.length?"requieren seguimiento":"período completo"}</small>
+    </article>
+    <article className="opportunities">
+      <span>Suministros con oportunidad</span>
+      <strong>{dashboardOpportunityIds.size}</strong>
+      <small>{dashboardLowPf} cos φ bajo · {dashboardPowerExcess} con potencia sobrante</small>
+    </article>
+    <article className="saving">
+      <span>Ahorro mensual potencial</span>
+      <strong>{money.format(dashboardTotalMonthly)}</strong>
+      <small>{money.format(dashboardTotalMonthly*12)} anualizado ×12</small>
+    </article>
+  </div>
+
+  <div className="dashboard-period-strip">
+    <b>Situación de {dashboardPeriodLabel}</b>
+    <span>{dashboardMissing.length} facturas faltantes</span>
+    <span>{dashboardOpportunityIds.size} suministros con oportunidad</span>
+    <span>{dashboardLowPf} con cos φ bajo</span>
+    <span>{dashboardPowerExcess} con potencia sobrante</span>
+  </div>
+
+  <section className="panel executive-savings">
+    <Title
+      title={`Desglose del ahorro potencial · ${dashboardPeriodLabel}`}
+      sub={`Valores calculados sobre ${dashboardPeriodLabel}. El anual es una proyección del ahorro mensual × 12, con 30% de IVA.`}
+    />
+    <div className="dashboard-savings-grid">
+      <article className="power">
+        <span>Potencia contratada</span>
+        <strong>{money.format(dashboardPowerMonthly*12)}</strong>
+        <small>{money.format(dashboardPowerMonthly)} mensual · {dashboardPeriodLabel}</small>
+        <p>Contratada menos máxima registrada del período, sin margen.</p>
+      </article>
+      <article className="reactive">
+        <span>Factor de potencia</span>
+        <strong>{money.format(dashboardReactiveMonthly*12)}</strong>
+        <small>{money.format(dashboardReactiveMonthly)} mensual · {dashboardPeriodLabel}</small>
+        <p>Recargos de energía reactiva evitables detectados en el mes.</p>
+      </article>
+      <article className="rate">
+        <span>Cambio tarifario</span>
+        <strong>{money.format(dashboardRateMonthly*12)}</strong>
+        <small>{money.format(dashboardRateMonthly)} mensual · {dashboardPeriodLabel}</small>
+        <p>Diferencia contra la categoría recomendada para ese período.</p>
+      </article>
+      <article className="saving-total">
+        <span>Ahorro total propuesto</span>
+        <strong>{money.format(dashboardTotalMonthly*12)}</strong>
+        <small>{money.format(dashboardTotalMonthly)} mensual · {dashboardPeriodLabel}</small>
+        <p>Proyección anual basada únicamente en el ahorro detectado del mes.</p>
+      </article>
+    </div>
+  </section>
+</>}
+  {tab==="invoices"&&<>
+  <div className="invoice-subtabs">
+    <button className={invoiceSubTab==="received"?"active":""} onClick={()=>setInvoiceSubTab("received")}>
+      <span>Facturas recibidas</span>
+      <b>{dashboardReceived}</b>
+    </button>
+    <button className={invoiceSubTab==="missing"?"active missing":""} onClick={()=>setInvoiceSubTab("missing")}>
+      <span>Sin factura</span>
+      <b>{lifecycleMeters.length}</b>
+    </button>
+  </div>
+
+  {invoiceSubTab==="received"&&<>
+
+<section className="month-control"><div><span>Período controlado</span><strong>{controlPeriod||"Sin período"}</strong></div><div><span>Facturas esperadas</span><strong>{activeMeters.length}</strong></div><div className="received"><span>Facturas recibidas</span><strong>{[...presentMeterIds].filter(id=>activeMeters.some(m=>m.id===id)).length}</strong></div><div className={missingPeriodMeters.length?"missing":"complete"}><span>Facturas faltantes</span><strong>{missingPeriodMeters.length}</strong></div></section>
+{missingPeriodMeters.length>0&&<section className="panel missing-invoice-panel"><Title title={`Faltan ${missingPeriodMeters.length} facturas de ${controlPeriod}`} sub="Estos medidores no aparecen en el archivo del período seleccionado"/><div className="missing-meter-grid">{missingPeriodMeters.map(m=><article key={m.id}><i>!</i><div><b>Medidor {m.meter_number||"S/D"}</b><span>{m.service_name||m.sites?.name||"Servicio sin nombre"}</span><small>{m.tracking_code} · Suministro {m.supply_number||"S/D"}</small></div></article>)}</div></section>}<section className="panel"><Title title="Administrador mensual y anual" sub={`${filteredInvoices.length} de ${meters.length} facturas recibidas para ${controlPeriod}`}/><div className="filters"><label>Año<select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></label><label>Mes<select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>{Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(m=><option key={m} value={m}>{new Date(2026,Number(m)-1,1).toLocaleString("es-AR",{month:"long"})}</option>)}</select></label><label className="search-filter">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro, servicio o factura"/></label><button onClick={()=>setSearch("")}>Limpiar búsqueda</button></div><div className="invoice-unified-scroll"><InvoiceTable invoices={filteredInvoices} assessments={assessments} tariffSavings={tariffSavings} pendingMeters={visibleMissingPeriodMeters} period={controlPeriod} onSelect={openMeter}/></div></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}
   </>}
 
   {invoiceSubTab==="missing"&&<div className="invoice-missing-subpage">
@@ -401,7 +505,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
