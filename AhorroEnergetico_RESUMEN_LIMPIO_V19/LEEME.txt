@@ -1,0 +1,21 @@
+﻿RESUMEN LIMPIO V19
+
+Quita del Resumen:
+- Estado del análisis
+- Alertas mensuales
+
+No elimina los datos ni las alertas de la base.
+Solamente deja de mostrarlos en la pantalla Resumen.
+
+Las alertas inteligentes siguen disponibles en IA
+y el control de faltantes sigue disponible en Facturas.
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_RESUMEN_LIMPIO_V19\APLICAR_RESUMEN_LIMPIO_V19.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

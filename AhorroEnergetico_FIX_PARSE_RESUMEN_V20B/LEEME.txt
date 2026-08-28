@@ -1,0 +1,17 @@
+﻿FIX PARSE RESUMEN V20B
+
+Corrige el cierre JSX sobrante que quedó luego de sacar:
+- Estado del análisis
+- Alertas mensuales
+
+Error:
+Unexpected token
+... </section>}</aside>
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_FIX_PARSE_RESUMEN_V20B\APLICAR_FIX_PARSE_RESUMEN_V20B.ps1
+
+Luego:
+cd front
+npm run dev
