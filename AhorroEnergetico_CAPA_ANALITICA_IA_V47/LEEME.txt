@@ -1,0 +1,89 @@
+﻿CAPA ANALÍTICA PARA IA V47
+
+La base de Supabase YA fue ampliada con:
+- meter_monthly_metrics
+- meter_energy_snapshot
+- energy_findings
+
+OBJETIVO
+No hacer que GPT reconstruya el análisis desde miles de facturas en cada pregunta.
+
+FLUJO NUEVO
+Facturas
+→ métricas mensuales
+→ snapshot actual por medidor
+→ hallazgos energéticos
+→ GPT explica / prioriza / recomienda
+
+TABLAS
+
+meter_monthly_metrics
+Resumen por medidor y mes:
+- kWh
+- kvarh
+- demanda máxima
+- potencia contratada
+- utilización %
+- factor de potencia
+- recargo reactivo
+- importe
+- tarifa
+
+meter_energy_snapshot
+Estado actual:
+- último período
+- consumo actual
+- promedio 6 y 12 meses
+- demanda actual
+- máximo 12 meses
+- potencia contratada
+- exceso
+- utilización
+- FP actual / mínimo 6 meses
+- cambios de consumo/importe
+- anomaly_score
+- meses sin factura
+- ahorro potencia/reactiva
+- ahorro mensual/anual
+
+energy_findings
+Hallazgos procesados:
+- power_oversizing
+- low_power_factor
+- zero_consumption_with_contract
+- consumption_anomaly
+- severidad
+- diagnóstico
+- evidencia JSON
+- acción
+- validación
+- inversión
+- ahorro
+- confianza
+- estado
+
+ACTUALIZACIÓN
+Cada vez que se importan facturas:
+- la carga termina normalmente
+- en background se recalcula la capa analítica
+
+También se agrega:
+POST /api/organizations/{organization_id}/energy-intelligence/refresh
+GET  /api/organizations/{organization_id}/energy-intelligence
+
+La IA ahora recibe energy_knowledge con snapshots + findings y debe priorizarlo.
+
+APLICAR
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_CAPA_ANALITICA_IA_V47\APLICAR_CAPA_ANALITICA_IA_V47.ps1
+
+Luego:
+git add .
+git commit -m "Agregar capa analitica para IA"
+git push
+
+Esperar deploy de Render.
+
+NOTA
+El SQL se incluye como respaldo en payload/V47_CAPA_ANALITICA.sql,
+pero las tablas ya fueron creadas directamente en Supabase.

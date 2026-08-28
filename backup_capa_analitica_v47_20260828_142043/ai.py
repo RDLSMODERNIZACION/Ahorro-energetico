@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 
 from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
-from ..energy_intelligence import load_energy_knowledge
 
 router = APIRouter(tags=["IA"])
 
@@ -64,21 +63,21 @@ def _detect_intent(question: str) -> str:
 
     if any(x in q for x in ["no se usan", "sin uso", "fuera de uso", "dar de baja", "baja", "sin factur", "inactivo"]):
         return "inactive_supply"
-    if any(x in q for x in ["quÃ© hago primero", "que hago primero", "prioridad", "priorizar", "acciones", "mayor ahorro", "mayores ahorros", "conviene hacer"]):
+    if any(x in q for x in ["qué hago primero", "que hago primero", "prioridad", "priorizar", "acciones", "mayor ahorro", "mayores ahorros", "conviene hacer"]):
         return "priority"
     if any(x in q for x in ["factor", "cos", "reactiv", "capacitor"]):
         return "power_factor"
     if any(x in q for x in ["potencia", "contratada", "demanda", "sobredimension", "sobrante"]):
         return "power"
-    if any(x in q for x in ["anormal", "anÃ³mal", "raro", "subiÃ³", "subio", "aumentÃ³", "aumento", "variaciÃ³n", "variacion"]):
+    if any(x in q for x in ["anormal", "anómal", "raro", "subió", "subio", "aumentó", "aumento", "variación", "variacion"]):
         return "anomaly"
     if any(x in q for x in ["tarifa", "tarifaria", "encuadram", "epen"]):
         return "tariff"
     if any(x in q for x in ["falt", "pendiente"]):
         return "missing"
-    if any(x in q for x in ["consumo", "energÃ­a", "energia", "kwh"]):
+    if any(x in q for x in ["consumo", "energía", "energia", "kwh"]):
         return "consumption"
-    if any(x in q for x in ["importe", "gasto", "costo", "facturaciÃ³n", "facturacion", "mÃ¡s caro", "mas caro"]):
+    if any(x in q for x in ["importe", "gasto", "costo", "facturación", "facturacion", "más caro", "mas caro"]):
         return "cost"
 
     return "general"
@@ -199,7 +198,6 @@ def _meter_history_context(db, organization_id: str, periods: list[str]) -> list
 
 def _build_context(organization_id: str, question: str) -> dict[str, Any]:
     db = admin_db()
-    energy_knowledge = load_energy_knowledge(organization_id)
     intent = _detect_intent(question)
     latest, invoices = _latest_invoice_rows(db, organization_id)
 
@@ -371,7 +369,6 @@ def _build_context(organization_id: str, question: str) -> dict[str, Any]:
         "today": date.today().isoformat(),
         "intent": intent,
         "latest_period": latest,
-        "energy_knowledge": energy_knowledge,
         "summary": {
             "invoices_latest_period": len(enriched),
             "low_power_factor_count": len(low_pf),
@@ -414,32 +411,32 @@ def ai_query(body: AIQuery, user: CurrentUser = Depends(current_user)):
     model = os.getenv("OPENAI_MODEL", "gpt-5.4").strip() or "gpt-5.4"
     context = _build_context(body.organization_id, body.question)
 
-    system = """Sos el asistente de gestiÃ³n energÃ©tica de una municipalidad argentina.
-Tu funciÃ³n es ayudar a tomar decisiones operativas y econÃ³micas usando SOLO el CONTEXTO recibido.
+    system = """Sos el asistente de gestión energética de una municipalidad argentina.
+Tu función es ayudar a tomar decisiones operativas y económicas usando SOLO el CONTEXTO recibido.
 
 REGLAS:
 - No inventes datos.
-- PriorizÃ¡ el bloque relevant_detail: fue preparado especÃ­ficamente para la intenciÃ³n de la pregunta.
-- latest_period es el perÃ­odo actual de anÃ¡lisis.
-- Para cos Ï†, menor a 0,95 requiere revisiÃ³n.
-- Para potencia, diferenciÃ¡ siempre contratada, demanda mÃ¡xima y sobrante.
-- Un suministro sin factura no significa automÃ¡ticamente que estÃ© dado de baja.
-- Un cambio tarifario es candidato a revisiÃ³n; no afirmes que EPEN lo aprobarÃ¡ sin evidencia.
+- Priorizá el bloque relevant_detail: fue preparado específicamente para la intención de la pregunta.
+- latest_period es el período actual de análisis.
+- Para cos φ, menor a 0,95 requiere revisión.
+- Para potencia, diferenciá siempre contratada, demanda máxima y sobrante.
+- Un suministro sin factura no significa automáticamente que esté dado de baja.
+- Un cambio tarifario es candidato a revisión; no afirmes que EPEN lo aprobará sin evidencia.
 - Los ahorros son estimaciones.
-- Si la informaciÃ³n no alcanza, indicÃ¡ exactamente quÃ© dato falta.
+- Si la información no alcanza, indicá exactamente qué dato falta.
 
 FORMA DE RESPONDER:
-1. EmpezÃ¡ con una conclusiÃ³n directa en 1 o 2 lÃ­neas.
-2. Si hay varios casos, ordenalos por prioridad econÃ³mica/operativa.
-3. En cada caso escribÃ­ el nombre y ademÃ¡s **Medidor NÃšMERO** o **Suministro NÃšMERO** para que la interfaz pueda abrir el anÃ¡lisis individual.
-4. IndicÃ¡ el dato que dispara la recomendaciÃ³n.
-5. IndicÃ¡ la acciÃ³n concreta sugerida.
-6. Cuando sea posible, separÃ¡ "ahorro sin inversiÃ³n" de "requiere inversiÃ³n".
-7. EvitÃ¡ explicaciones genÃ©ricas y repetitivas.
+1. Empezá con una conclusión directa en 1 o 2 líneas.
+2. Si hay varios casos, ordenalos por prioridad económica/operativa.
+3. En cada caso escribí el nombre y además **Medidor NÚMERO** o **Suministro NÚMERO** para que la interfaz pueda abrir el análisis individual.
+4. Indicá el dato que dispara la recomendación.
+5. Indicá la acción concreta sugerida.
+6. Cuando sea posible, separá "ahorro sin inversión" de "requiere inversión".
+7. Evitá explicaciones genéricas y repetitivas.
 8. No uses tablas salvo que el usuario las pida.
-9. Para preguntas de prioridad, devolvÃ© como mÃ¡ximo 5 acciones principales.
-10. Para anomalÃ­as, comparÃ¡ contra meses anteriores y no seÃ±ales cambios pequeÃ±os como crÃ­ticos.
-11. Para posibles bajas, usÃ¡ historial, Ãºltima factura, consumo y estado; nunca concluyas baja solo porque falta una factura.
+9. Para preguntas de prioridad, devolvé como máximo 5 acciones principales.
+10. Para anomalías, compará contra meses anteriores y no señales cambios pequeños como críticos.
+11. Para posibles bajas, usá historial, última factura, consumo y estado; nunca concluyas baja solo porque falta una factura.
 """
 
     request_payload = {
@@ -447,7 +444,7 @@ FORMA DE RESPONDER:
         "instructions": system,
         "input": (
             f"PREGUNTA DEL USUARIO:\n{body.question}\n\n"
-            f"INTENCIÃ“N DETECTADA:\n{context.get('intent')}\n\n"
+            f"INTENCIÓN DETECTADA:\n{context.get('intent')}\n\n"
             f"CONTEXTO DE LA BASE:\n{json.dumps(context, ensure_ascii=False, separators=(',', ':'))}"
         ),
         "store": False,
@@ -471,13 +468,13 @@ FORMA DE RESPONDER:
     if response.status_code >= 400:
         detail = response.text[:1200]
         raise HTTPException(
-            response.status_code, f"OpenAI respondiÃ³ con error: {detail}"
+            response.status_code, f"OpenAI respondió con error: {detail}"
         )
 
     payload = response.json()
     answer = _extract_output_text(payload)
     if not answer:
-        raise HTTPException(502, "OpenAI no devolviÃ³ texto")
+        raise HTTPException(502, "OpenAI no devolvió texto")
 
     return {
         "answer": answer,
@@ -487,4 +484,3 @@ FORMA DE RESPONDER:
         "intent": context.get("intent"),
         "summary": context.get("summary"),
     }
-

@@ -1,21 +1,18 @@
-﻿import hashlib
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+import hashlib
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from ..auth import CurrentUser, current_user, require_org
 from ..config import get_settings
 from ..db import admin_db
 from ..importer import import_invoices
-from ..energy_intelligence import refresh_energy_intelligence
 
 router=APIRouter(tags=["Importaciones"])
 
 @router.post("/imports/invoices")
-async def upload_invoices(background_tasks: BackgroundTasks, organization_id: str=Form(...), file: UploadFile=File(...), user:CurrentUser=Depends(current_user)):
+async def upload_invoices(organization_id: str=Form(...), file: UploadFile=File(...), user:CurrentUser=Depends(current_user)):
     require_org(user.id,organization_id,write=True)
     payload=await file.read(); limit=get_settings().max_upload_mb*1024*1024
     if len(payload)>limit: raise HTTPException(413,f"El archivo supera {get_settings().max_upload_mb} MB")
-    result=import_invoices(organization_id,user.id,file.filename or "facturas.zip",payload)
-    background_tasks.add_task(refresh_energy_intelligence, organization_id)
-    return result
+    return import_invoices(organization_id,user.id,file.filename or "facturas.zip",payload)
 
 @router.post("/imports/document")
 async def upload_document(organization_id:str=Form(...),folder:str=Form("invoices"),file:UploadFile=File(...),user:CurrentUser=Depends(current_user)):
@@ -36,4 +33,3 @@ def missing_invoices(organization_id:str,status:str="open",user:CurrentUser=Depe
     query=admin_db().table("missing_invoice_alerts").select("*,meters(tracking_code,meter_number,nis,sites(name))").eq("organization_id",organization_id)
     if status != "all": query=query.eq("status",status)
     return query.order("expected_period",desc=True).execute().data
-
