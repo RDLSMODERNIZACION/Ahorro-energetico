@@ -8,9 +8,6 @@ from ..models import SiteCreate, MeterCreate, LocationUpdate
 
 router = APIRouter(tags=["Catálogo"])
 
-class MeterNameUpdate(BaseModel):
-    service_name: str
-
 class BillingStatusUpdate(BaseModel):
     status: Literal["active", "inactive", "removed"]
     note: str | None = None
@@ -35,18 +32,6 @@ def list_meters(organization_id: str, user: CurrentUser = Depends(current_user))
     require_org(user.id, organization_id)
     return admin_db().table("meters").select("*,sites(name,address)").eq("organization_id",organization_id).order("meter_number").execute().data
 
-@router.put("/meters/{meter_id}/name")
-def update_meter_name(meter_id: str, body: MeterNameUpdate, user: CurrentUser = Depends(current_user)):
-    db = admin_db()
-    rows = db.table("meters").select("organization_id").eq("id",meter_id).limit(1).execute().data
-    if not rows:
-        raise HTTPException(404,"Medidor inexistente")
-    require_org(user.id,rows[0]["organization_id"],write=True)
-    name = body.service_name.strip()
-    if len(name) < 2:
-        raise HTTPException(422,"El nombre debe tener al menos 2 caracteres")
-    updated = db.table("meters").update({"service_name":name,"updated_at":datetime.now(timezone.utc).isoformat()}).eq("id",meter_id).execute().data
-    return updated[0]
 @router.put("/meters/{meter_id}/billing-status")
 def update_billing_status(meter_id: str, body: BillingStatusUpdate, user: CurrentUser = Depends(current_user)):
     db = admin_db()
@@ -106,5 +91,4 @@ def update_location(meter_id: str, body: LocationUpdate, user: CurrentUser = Dep
     admin_db().table("meter_locations").update({"valid_to":datetime.now(timezone.utc).isoformat()}).eq("meter_id",meter_id).is_("valid_to","null").execute()
     row={"meter_id":meter_id,"latitude":str(body.latitude),"longitude":str(body.longitude),"source":"manual_map","created_by":user.id}
     return admin_db().table("meter_locations").insert(row).execute().data[0]
-
 

@@ -1529,16 +1529,3 @@ td small {
 }
 /* === IA RESPUESTAS CLICK V40 END === */
 
-
-/* === EDITAR NOMBRE V41 START === */
-.invoice-name-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.invoice-name-row h2{margin:0}
-.invoice-edit-name{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.10);color:#fff;border-radius:9px;padding:8px 12px;font-size:12px;font-weight:750;cursor:pointer}
-.invoice-edit-name:hover{background:rgba(255,255,255,.17)}
-.invoice-name-editor{display:flex;gap:8px;align-items:center;width:min(760px,100%)}
-.invoice-name-editor input{min-width:320px;flex:1;border:1px solid rgba(255,255,255,.30);background:#fff;color:#15241d;border-radius:9px;padding:10px 12px;font-size:17px;font-weight:650;outline:none}
-.invoice-name-editor button{border:0;border-radius:9px;padding:10px 13px;font-weight:750;cursor:pointer}
-.invoice-name-editor .save{background:#16935f;color:#fff}
-.invoice-name-editor .cancel{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.20)}
-.invoice-name-error{margin-top:7px;color:#ffd6cf;font-size:12px;font-weight:650}
-/* === EDITAR NOMBRE V41 END === */

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { MeterLocationEditor } from "./meter-location-editor";
-import { supabase } from "./lib/supabase";
 
 type Measurement={
   active_energy_kwh?:number;
@@ -33,7 +32,6 @@ type Metric="kwh"|"amount"|"demand"|"pf";
 
 const nf=new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
 const dec=new Intl.NumberFormat("es-AR",{maximumFractionDigits:3});
-const API="https://ahorro-energetico.onrender.com";
 const money=new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
 
 function periodOf(i:Invoice){return String(i.billing_period||i.period_start).slice(0,7)}
@@ -87,11 +85,6 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
 
 export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];onClose:()=>void}){
   const[metric,setMetric]=useState<Metric>("kwh");
-  const[editingName,setEditingName]=useState(false);
-  const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
-  const[displayName,setDisplayName]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"Servicio sin nombre");
-  const[nameBusy,setNameBusy]=useState(false);
-  const[nameError,setNameError]=useState("");
   const[selectedPeriod,setSelectedPeriod]=useState(periodOf(invoice));
   const selected=history.find(i=>periodOf(i)===selectedPeriod)||invoice;
   const v=values(selected);
@@ -104,51 +97,13 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
   const totalSaving=powerSaving+reactiveSaving+tariffSaving;
   const m=selected.meters||invoice.meters;
   const sorted=[...history].sort((a,b)=>periodOf(a).localeCompare(periodOf(b)));
-  async function saveMeterName(){
-    const clean=nameDraft.trim();
-    if(clean.length<2){setNameError("Ingresá un nombre válido.");return}
-    setNameBusy(true);setNameError("");
-    try{
-      const{data}=await supabase.auth.getSession();
-      if(!data.session)throw new Error("Sesión vencida");
-      const response=await fetch(`${API}/api/meters/${selected.meter_id}/name`,{
-        method:"PUT",
-        headers:{Authorization:`Bearer ${data.session.access_token}`,"Content-Type":"application/json"},
-        body:JSON.stringify({service_name:clean})
-      });
-      const body=await response.text();
-      if(!response.ok){
-        let message=body;
-        try{message=JSON.parse(body).detail||body}catch{}
-        throw new Error(message);
-      }
-      setDisplayName(clean);
-      if(m)m.service_name=clean;
-      setEditingName(false);
-    }catch(error){
-      setNameError(error instanceof Error?error.message:"No se pudo guardar el nombre");
-    }finally{setNameBusy(false)}
-  }
   return <div className="invoice-analysis-backdrop">
     <div className="invoice-analysis-page">
       <div className="invoice-analysis-top">
         <div>
           <button className="invoice-analysis-back" onClick={onClose}>← Volver a facturas</button>
           <small>ANÁLISIS INDIVIDUAL DE FACTURA</small>
-          <div className="invoice-name-row">
-            {editingName?
-              <div className="invoice-name-editor">
-                <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)} autoFocus/>
-                <button className="save" onClick={saveMeterName} disabled={nameBusy}>{nameBusy?"Guardando…":"Guardar"}</button>
-                <button className="cancel" onClick={()=>{setEditingName(false);setNameError("");setNameDraft(displayName)}}>Cancelar</button>
-              </div>
-              :<>
-                <h2>{displayName}</h2>
-                <button className="invoice-edit-name" onClick={()=>{setNameDraft(displayName);setEditingName(true)}}>✎ Editar nombre</button>
-              </>
-            }
-          </div>
-          {nameError&&<div className="invoice-name-error">{nameError}</div>}
+          <h2>{m?.service_name||m?.sites?.name||"Servicio sin nombre"}</h2>
           <p>{m?.tracking_code} · Medidor {m?.meter_number||"S/D"} · Suministro {m?.supply_number||"S/D"}</p>
         </div>
         <div className="invoice-analysis-period">
@@ -231,7 +186,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
     </div>
   </div>
 }
-
 
 
 
