@@ -1,0 +1,38 @@
+﻿RESUMEN MES + IA V22
+
+Rediseña el Resumen para que todo hable del último mes disponible.
+
+ARRIBA:
+- caja profesional para preguntarle a la IA
+
+KPIs:
+- Facturas recibidas / esperadas
+- Facturas faltantes
+- Suministros con oportunidad de ahorro
+- Ahorro mensual potencial
+
+SITUACION DEL PERIODO:
+- faltantes
+- oportunidades
+- cos phi bajo
+- potencia sobrante
+
+DESGLOSE:
+- Potencia contratada
+- Factor de potencia
+- Cambio tarifario
+- Total
+Todos calculados para el mismo mes y anualizados x12.
+
+Elimina del resumen:
+- gasto histórico
+- consumo histórico
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_RESUMEN_MES_IA_V22\APLICAR_RESUMEN_MES_IA_V22.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

@@ -226,25 +226,6 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
       opportunityCount:opportunities.length
     };
   },[invoices,periods,missingPeriodMeters,controlPeriod,tariffSavings]);
-  const dashboardPeriod=periods[0]||"";
-  const dashboardPeriodLabel=dashboardPeriod?new Date(Number(dashboardPeriod.slice(0,4)),Number(dashboardPeriod.slice(5,7))-1,1).toLocaleString("es-AR",{month:"long",year:"numeric"}):"Sin período";
-  const dashboardInvoices=invoices.filter(i=>invoiceMonth(i)===dashboardPeriod);
-  const dashboardPresentIds=new Set(dashboardInvoices.map(i=>i.meter_id));
-  const dashboardReceived=[...dashboardPresentIds].filter(id=>activeMeters.some(m=>m.id===id)).length;
-  const dashboardMissing=activeMeters.filter(m=>!dashboardPresentIds.has(m.id));
-  const dashboardPowerMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoicePowerSaving(i).amount,0);
-  const dashboardReactiveMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoiceReactiveSaving(i),0);
-  const dashboardRateMonthly=tariffSavings.filter(x=>String(x.billing_period).slice(0,7)===dashboardPeriod).reduce((sum,x)=>sum+Number(x.monthly_saving_with_vat||0),0);
-  const dashboardTotalMonthly=dashboardPowerMonthly+dashboardReactiveMonthly+dashboardRateMonthly;
-  const dashboardOpportunityIds=new Set<string>();
-  for(const i of dashboardInvoices){
-    const hasPower=invoicePowerSaving(i).amount>0;
-    const hasReactive=invoiceReactiveSaving(i)>0;
-    const hasTariff=tariffSavings.some(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===dashboardPeriod&&Number(x.monthly_saving_with_vat||0)>0);
-    if(hasPower||hasReactive||hasTariff)dashboardOpportunityIds.add(i.meter_id);
-  }
-  const dashboardLowPf=dashboardInvoices.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).length;
-  const dashboardPowerExcess=dashboardInvoices.filter(i=>metrics(i).excess>0).length;
 const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id);setTab("invoices")};
   const openMeterById=(meterId?:string)=>{if(!meterId)return;const i=[...invoices].filter(x=>x.meter_id===meterId).sort((a,b)=>invoiceMonth(b).localeCompare(invoiceMonth(a)))[0];if(i)openMeter(i)};
   const markerData=useMemo(()=>{const counters={west:0,center:0,east:0};return meters.map(m=>{const text=`${m.service_name||""} ${m.sites?.name||""} ${m.sites?.address||""}`.toLowerCase();const zone=text.includes("oeste")?"west":text.includes("este")?"east":text.match(/centro|municipalidad|san martin|belgrano|plaza|radio|biblioteca|deportiva|social/)?"center":text.match(/costa|pozo|bomba|agua|cloac|planta|vivero/)?(hashText(text)%2?"west":"east"):["west","center","east"][hashText(text)%3] as "west"|"center"|"east";const index=counters[zone]++,bounds=zone==="west"?[9,34]:zone==="center"?[37,62]:[65,91],width=bounds[1]-bounds[0],col=index%5,row=Math.floor(index/5);return{...m,zone,x:bounds[0]+4+col*(width-8)/4+(hashText(m.id)%3-1)*.8,y:14+(row*11)%70+(hashText(m.meter_number)%3-1)*.7}})},[meters]);
@@ -257,88 +238,67 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
   <section className="work"><header><div><p>MUNICIPALIDAD DE RINCÓN DE LOS SAUCES</p><h1>{tab==="dashboard"?"Inteligencia energética":tab==="invoices"?"Seguimiento de facturas":tab==="framing"?"Encuadramiento tarifario":tab==="tariffs"?"Oportunidades de ahorro":"Mapa de medidores"}</h1></div><div className="head-actions"><button className="secondary" onClick={analyze} disabled={busy}>Analizar ahora</button><button onClick={()=>fileRef.current?.click()} disabled={busy}>{busy?"Procesando…":"＋ Cargar ZIP / CSV"}</button><input hidden ref={fileRef} type="file" accept=".zip,.csv" onChange={e=>upload(e.target.files?.[0])}/></div></header>
 
   {tab==="dashboard"&&<>
-  <section className="panel dashboard-ai-ask">
-    <div className="dashboard-ai-copy">
-      <span>✦ INTELIGENCIA ENERGÉTICA · {dashboardPeriodLabel.toUpperCase()}</span>
-      <h2>¿Qué querés saber del período?</h2>
-      <p>Preguntale a la IA sobre consumo, facturas faltantes, potencia, cos φ y oportunidades de ahorro del mes.</p>
-    </div>
-    <div className="dashboard-ai-query">
-      <input
-        value={aiQuery}
-        onChange={e=>setAiQuery(e.target.value)}
-        onKeyDown={e=>{if(e.key==="Enter"){setTab("ai");runAiQuery()}}}
-        placeholder={`Ej.: ¿Qué debería revisar primero en ${dashboardPeriodLabel}?`}
-      />
-      <button onClick={()=>{setTab("ai");runAiQuery()}} disabled={aiBusy}>
-        {aiBusy?"Analizando…":"Preguntar a IA"}
-      </button>
-    </div>
-  </section>
-
-  <div className="dashboard-month-kpis">
-    <article className="received">
-      <span>Facturas recibidas</span>
-      <strong>{dashboardReceived} <i>/ {activeMeters.length}</i></strong>
-      <small>{dashboardPeriodLabel}</small>
+  <div className="kpis">
+    <article>
+      <span>Gasto histórico</span>
+      <strong>{money.format(total)}</strong>
+      <small>{invoices.length} facturas cargadas</small>
     </article>
-    <article className={dashboardMissing.length?"missing":"ok"}>
-      <span>Facturas faltantes</span>
-      <strong>{dashboardMissing.length}</strong>
-      <small>{dashboardMissing.length?"requieren seguimiento":"período completo"}</small>
+    <article>
+      <span>Consumo histórico</span>
+      <strong>{number.format(kwh)} <i>kWh</i></strong>
+      <small>energía activa registrada</small>
     </article>
-    <article className="opportunities">
-      <span>Suministros con oportunidad</span>
-      <strong>{dashboardOpportunityIds.size}</strong>
-      <small>{dashboardLowPf} cos φ bajo · {dashboardPowerExcess} con potencia sobrante</small>
+    <article>
+      <span>Ahorro potencial</span>
+      <strong>{money.format(tariffAnnual)}</strong>
+      <small>proyección anual</small>
     </article>
-    <article className="saving">
+    <article className="green">
       <span>Ahorro mensual potencial</span>
-      <strong>{money.format(dashboardTotalMonthly)}</strong>
-      <small>{money.format(dashboardTotalMonthly*12)} anualizado ×12</small>
+      <strong>{money.format(tariffAnnual/12)}</strong>
+      <small>estimación actual</small>
     </article>
-  </div>
-
-  <div className="dashboard-period-strip">
-    <b>Situación de {dashboardPeriodLabel}</b>
-    <span>{dashboardMissing.length} facturas faltantes</span>
-    <span>{dashboardOpportunityIds.size} suministros con oportunidad</span>
-    <span>{dashboardLowPf} con cos φ bajo</span>
-    <span>{dashboardPowerExcess} con potencia sobrante</span>
   </div>
 
   <section className="panel executive-savings">
     <Title
-      title={`Desglose del ahorro potencial · ${dashboardPeriodLabel}`}
-      sub={`Valores calculados sobre ${dashboardPeriodLabel}. El anual es una proyección del ahorro mensual × 12, con 30% de IVA.`}
+      title="Desglose del ahorro potencial"
+      sub="Cálculo actualizado con potencia usada, cuadro tarifario y 30% de IVA"
     />
     <div className="dashboard-savings-grid">
       <article className="power">
         <span>Potencia contratada</span>
-        <strong>{money.format(dashboardPowerMonthly*12)}</strong>
-        <small>{money.format(dashboardPowerMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Contratada menos máxima registrada del período, sin margen.</p>
+        <strong>{money.format(powerAnnual)}</strong>
+        <small>{money.format(powerAnnual/12)} mensual</small>
+        <p>Contratada menos máxima registrada, sin margen.</p>
       </article>
       <article className="reactive">
         <span>Factor de potencia</span>
-        <strong>{money.format(dashboardReactiveMonthly*12)}</strong>
-        <small>{money.format(dashboardReactiveMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Recargos de energía reactiva evitables detectados en el mes.</p>
+        <strong>{money.format(reactiveAnnual)}</strong>
+        <small>{money.format(reactiveAnnual/12)} mensual</small>
+        <p>Recargos COS que podrían evitarse.</p>
       </article>
       <article className="rate">
         <span>Cambio tarifario</span>
-        <strong>{money.format(dashboardRateMonthly*12)}</strong>
-        <small>{money.format(dashboardRateMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Diferencia contra la categoría recomendada para ese período.</p>
+        <strong>{money.format(rateAnnual)}</strong>
+        <small>{money.format(rateAnnual/12)} mensual</small>
+        <p>{(tariffSavings.length||assessments.length)?"Diferencia contra la categoría que corresponde.":"Pendiente: el backend no devolvió el análisis tarifario."}</p>
       </article>
       <article className="saving-total">
         <span>Ahorro total propuesto</span>
-        <strong>{money.format(dashboardTotalMonthly*12)}</strong>
-        <small>{money.format(dashboardTotalMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Proyección anual basada únicamente en el ahorro detectado del mes.</p>
+        <strong>{money.format(tariffAnnual)}</strong>
+        <small>{money.format(tariffAnnual/12)} mensual</small>
+        <p>Proyección anual con IVA incluido.</p>
       </article>
     </div>
   </section>
+
+  <MeterLifecyclePanel
+    meters={lifecycleMeters}
+    latestPeriod={periods[0]||""}
+    onStatus={updateMeterStatus}
+  />
 </>}
 {tab==="invoices"&&<><MeterLifecyclePanel meters={lifecycleMeters} latestPeriod={periods[0]||""} onStatus={updateMeterStatus}/><section className="month-control"><div><span>Período controlado</span><strong>{controlPeriod||"Sin período"}</strong></div><div><span>Facturas esperadas</span><strong>{activeMeters.length}</strong></div><div className="received"><span>Facturas recibidas</span><strong>{[...presentMeterIds].filter(id=>activeMeters.some(m=>m.id===id)).length}</strong></div><div className={missingPeriodMeters.length?"missing":"complete"}><span>Facturas faltantes</span><strong>{missingPeriodMeters.length}</strong></div></section>
 {missingPeriodMeters.length>0&&<section className="panel missing-invoice-panel"><Title title={`Faltan ${missingPeriodMeters.length} facturas de ${controlPeriod}`} sub="Estos medidores no aparecen en el archivo del período seleccionado"/><div className="missing-meter-grid">{missingPeriodMeters.map(m=><article key={m.id}><i>!</i><div><b>Medidor {m.meter_number||"S/D"}</b><span>{m.service_name||m.sites?.name||"Servicio sin nombre"}</span><small>{m.tracking_code} · Suministro {m.supply_number||"S/D"}</small></div></article>)}</div></section>}<section className="panel"><Title title="Administrador mensual y anual" sub={`${filteredInvoices.length} de ${meters.length} facturas recibidas para ${controlPeriod}`}/><div className="filters"><label>Año<select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></label><label>Mes<select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>{Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(m=><option key={m} value={m}>{new Date(2026,Number(m)-1,1).toLocaleString("es-AR",{month:"long"})}</option>)}</select></label><label className="search-filter">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro, servicio o factura"/></label><button onClick={()=>setSearch("")}>Limpiar búsqueda</button></div><div className="invoice-unified-scroll"><InvoiceTable invoices={filteredInvoices} assessments={assessments} tariffSavings={tariffSavings} pendingMeters={visibleMissingPeriodMeters} period={controlPeriod} onSelect={openMeter}/></div></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</>}
@@ -444,7 +404,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
