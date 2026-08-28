@@ -1,0 +1,21 @@
+﻿UBICACION AL FONDO V36B
+
+El V36 anterior falló porque intentaba encontrar un useEffect exacto en page.tsx.
+
+V36B usa el enfoque correcto:
+- modifica directamente invoice-analysis-panel.tsx
+- elimina cualquier ubicación previa
+- coloca MeterLocationEditor como ÚLTIMO bloque del análisis individual
+- queda después de "Mediciones registradas"
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_UBICACION_AL_FONDO_V36B\APLICAR_UBICACION_AL_FONDO_V36B.ps1
+
+Luego:
+
+cd front
+npm run dev
+
+Ctrl + F5

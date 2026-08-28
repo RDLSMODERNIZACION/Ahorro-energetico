@@ -1,0 +1,30 @@
+﻿ORDEN FACTOR DE POTENCIA V35
+
+PROBLEMA
+Al tocar "Factor potencia", el orden numérico simple no era útil:
+- podía poner "No detectado" arriba
+- no priorizaba realmente los factores fuera de rango
+
+NUEVO COMPORTAMIENTO
+Primer clic:
+1. FP malos (<0,95)
+2. Dentro de los malos: peor a mejor
+3. FP correctos
+4. No detectado al final
+
+Segundo clic:
+- invierte peor/mejor dentro de los grupos
+- "No detectado" sigue al final
+
+ADEMAS
+- Header indica "FP < 0,95 primero"
+- filas con FP bajo tienen una marca roja suave
+
+APLICAR
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_ORDEN_FACTOR_POTENCIA_V35\APLICAR_ORDEN_FACTOR_POTENCIA_V35.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

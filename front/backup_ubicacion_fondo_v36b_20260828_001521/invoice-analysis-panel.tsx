@@ -162,7 +162,9 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
           </div>
         </section>
       </div>
-<section className="invoice-analysis-panel">
+<MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
+
+      <section className="invoice-analysis-panel">
         <h3>Conceptos facturados</h3>
         <div className="invoice-analysis-table-wrap"><table className="invoice-analysis-table">
           <thead><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Precio unitario</th><th>Importe neto</th></tr></thead>
@@ -181,12 +183,9 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
           </tr>)}{!(selected.invoice_measurements||[]).length&&<tr><td colSpan={7}>No hay mediciones discriminadas en esta factura.</td></tr>}</tbody>
         </table></div>
       </section>
-      <MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
-
     </div>
   </div>
 }
-
 
 
 

@@ -1456,36 +1456,3 @@ td small {
 }
 /* === IA AHORRO MES V34 END === */
 
-/* === ORDEN FP V35 START === */
-.pf-sort-head{
-  min-width:128px;
-}
-.pf-sort-head span{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:3px;
-}
-.pf-sort-head small{
-  display:block;
-  font-size:7px;
-  line-height:1.2;
-  font-weight:650;
-  color:#839188;
-  text-transform:none;
-  white-space:nowrap;
-}
-.pf-sort-head.active{
-  color:#b73e31;
-}
-.pf-sort-head.active small{
-  color:#c45042;
-}
-.pf-problem-row td{
-  background-image:linear-gradient(90deg,rgba(207,73,58,.035),rgba(207,73,58,0));
-}
-.pf-problem-row td:first-child{
-  box-shadow:inset 3px 0 0 #d45a49;
-}
-/* === ORDEN FP V35 END === */
-
