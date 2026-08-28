@@ -37,7 +37,7 @@ async function api<T>(path:string, session:Session, init?:RequestInit):Promise<T
 }
 
 
-function renderAiRichText(text:string,onOpenReference?:(reference:string)=>void){
+function renderAiRichText(text:string){
   const normalized=text
     .replace(/\r/g,"")
     .replace(/\s+(?=\d+\.\s+\*\*)/g,"\n")
@@ -45,66 +45,37 @@ function renderAiRichText(text:string,onOpenReference?:(reference:string)=>void)
     .replace(/\s+(?=-\s+\*\*)/g,"\n")
     .trim();
 
-  const openRef=(value:string)=>{
-    const cleaned=value
-      .replace(/\*\*/g,"")
-      .replace(/^(medidor|suministro|id)\s*[:#-]?\s*/i,"")
-      .trim();
-    if(cleaned)onOpenReference?.(cleaned);
-  };
-
-  const isReference=(value:string)=>{
-    const v=value.replace(/\*\*/g,"").trim();
-    return /(?:medidor|suministro|id)\s*[:#-]?\s*[A-Za-z0-9-]{3,}/i.test(v)
-      || /^[0-9]{5,12}$/.test(v);
-  };
-
   const renderInline=(line:string,keyPrefix:string)=>{
     const parts=line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
     return parts.map((part,index)=>{
       if(part.startsWith("**")&&part.endsWith("**")){
-        const label=part.slice(2,-2);
-        if(onOpenReference&&isReference(label)){
-          return <button type="button" className="ai-inline-link" key={`${keyPrefix}-b-${index}`} onClick={()=>openRef(label)}>{label}</button>;
-        }
-        return <strong key={`${keyPrefix}-b-${index}`}>{label}</strong>;
+        return <strong key={`${keyPrefix}-b-${index}`}>{part.slice(2,-2)}</strong>;
       }
       return <span key={`${keyPrefix}-t-${index}`}>{part}</span>;
     });
-  };
-
-  const clickFromLine=(line:string)=>{
-    if(!onOpenReference)return;
-    const meter=line.match(/medidor\s*[:#-]?\s*([A-Za-z0-9-]{3,})/i);
-    if(meter){openRef(meter[1]);return}
-    const supply=line.match(/suministro\s*[:#-]?\s*([A-Za-z0-9-]{3,})/i);
-    if(supply){openRef(supply[1]);}
   };
 
   return normalized.split("\n").filter(Boolean).map((raw,index)=>{
     const line=raw.trim();
     const numbered=line.match(/^(\d+)\.\s+(.*)$/);
     const bullet=line.match(/^(?:•|-)\s+(.*)$/);
-    const clickable=Boolean(onOpenReference)&&/(medidor|suministro)\s*[:#-]?\s*[A-Za-z0-9-]{3,}/i.test(line);
 
     if(numbered){
-      return <div className={`ai-rich-item${clickable?" clickable":""}`} key={`n-${index}`} onClick={()=>clickable&&clickFromLine(numbered[2])}>
+      return <div className="ai-rich-item" key={`n-${index}`}>
         <span className="ai-rich-number">{numbered[1]}</span>
         <div>{renderInline(numbered[2],`n-${index}`)}</div>
-        {clickable&&<em className="ai-open-hint">Abrir análisis →</em>}
       </div>;
     }
     if(bullet){
-      return <div className={`ai-rich-item${clickable?" clickable":""}`} key={`u-${index}`} onClick={()=>clickable&&clickFromLine(bullet[1])}>
+      return <div className="ai-rich-item" key={`u-${index}`}>
         <span className="ai-rich-bullet">•</span>
         <div>{renderInline(bullet[1],`u-${index}`)}</div>
-        {clickable&&<em className="ai-open-hint">Abrir análisis →</em>}
       </div>;
     }
     if(line.startsWith("## ")){
       return <h4 className="ai-rich-heading" key={`h-${index}`}>{line.slice(3)}</h4>;
     }
-    return <p className={`ai-rich-paragraph${clickable?" clickable":""}`} key={`p-${index}`} onClick={()=>clickable&&clickFromLine(line)}>{renderInline(line,`p-${index}`)}{clickable&&<em className="ai-open-hint">Abrir análisis →</em>}</p>;
+    return <p className="ai-rich-paragraph" key={`p-${index}`}>{renderInline(line,`p-${index}`)}</p>;
   });
 }
 export default function Home(){
@@ -187,42 +158,6 @@ useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.sessio
       setAiBusy(false);
     }
   }
-function openAiReference(reference:string){
-  const ref=reference.trim().toLowerCase().replace(/\s+/g,"");
-  const normalize=(v?:string)=>String(v||"").toLowerCase().replace(/\s+/g,"").replace(/^0+/,"");
-
-  const meter=meters.find(m=>
-    normalize(m.meter_number)===normalize(ref) ||
-    normalize(m.supply_number)===normalize(ref) ||
-    normalize(m.tracking_code)===normalize(ref) ||
-    normalize(m.id)===normalize(ref)
-  );
-
-  if(!meter){
-    setToast(`No encontré el medidor/suministro ${reference}`);
-    setTimeout(()=>setToast(""),3500);
-    return;
-  }
-
-  const latest=[...invoices]
-    .filter(i=>i.meter_id===meter.id)
-    .sort((a,b)=>invoiceMonth(b).localeCompare(invoiceMonth(a)))[0];
-
-  if(latest){
-    setTab("invoices");
-    setInvoiceSubTab("received");
-    setSelectedMeter(meter.id);
-    setSelectedInvoice(latest);
-    const p=invoiceMonth(latest);
-    if(p){
-      setYearFilter(p.slice(0,4));
-      setMonthFilter(p.slice(5,7));
-    }
-  }else{
-    setToast(`El medidor ${meter.meter_number||reference} no tiene factura para abrir`);
-    setTimeout(()=>setToast(""),3500);
-  }
-}
 async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"removed"){if(!session||!orgId)return;setBusy(true);try{await api(`/api/meters/${meterId}/billing-status`,session,{method:"PUT",body:JSON.stringify({status})});setToast(status==="active"?"El medidor vuelve al seguimiento mensual":status==="removed"?"Baja confirmada: ya no se esperarán facturas":"Medidor marcado como posible baja");await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo actualizar el medidor")}finally{setBusy(false);setTimeout(()=>setToast(""),4000)}}
 
   const total=invoices.reduce((s,x)=>s+Number(x.total_amount||0),0),kwh=invoices.reduce((s,x)=>s+(x.invoice_measurements||[]).reduce((a,m)=>a+Number(m.active_energy_kwh||0),0),0),annualSaving=assessments.length?assessments.reduce((s,x)=>s+Number(x.estimated_annual_saving||0),0):opportunities.filter(x=>x.status!=="dismissed").reduce((s,x)=>s+Number(x.estimated_annual_saving||0),0);
@@ -535,7 +470,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
 
       <div className="ai-answer">
         <div className="ai-avatar">✦</div>
-        <div className="ai-answer-content"><b>Asistente energético</b><div className="ai-rich-response">{aiBusy?<p className="ai-rich-paragraph">Analizando Supabase con OpenAI…</p>:renderAiRichText(aiAnswer,openAiReference)}</div></div>
+        <div className="ai-answer-content"><b>Asistente energético</b><div className="ai-rich-response">{aiBusy?<p className="ai-rich-paragraph">Analizando Supabase con OpenAI…</p>:renderAiRichText(aiAnswer)}</div></div>
       </div>
 
       <div className="ai-input-row">
@@ -607,7 +542,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
