@@ -1,0 +1,23 @@
+﻿UBICACION ARRIBA DE CONCEPTOS V10
+
+Mueve la sección "Ubicación del medidor" para que quede exactamente:
+
+Detalle completo de la factura / Oportunidades de ahorro
+↓
+UBICACION DEL MEDIDOR
+↓
+Conceptos facturados
+
+APLICAR
+
+Desde:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_UBICACION_POSICION_V10\APLICAR_UBICACION_POSICION_V10.ps1
+
+Luego:
+cd front
+npm run dev
+
+Ctrl + F5

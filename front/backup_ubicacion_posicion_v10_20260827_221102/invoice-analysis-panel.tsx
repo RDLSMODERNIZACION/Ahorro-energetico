@@ -162,7 +162,8 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
           </div>
         </section>
       </div>
-<MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
+
+      <MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
 
       <section className="invoice-analysis-panel">
         <h3>Conceptos facturados</h3>
@@ -186,6 +187,5 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
     </div>
   </div>
 }
-
 
 
