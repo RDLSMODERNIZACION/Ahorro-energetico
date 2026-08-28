@@ -1,0 +1,27 @@
+﻿PESTAÑA SIN FACTURA V23
+
+Agrega una pestaña nueva en sidebar:
+SIN FACTURA
+
+Muestra una lista separada con:
+- Estado
+- Medidor / ID
+- Servicio
+- Suministro
+- Tarifa
+- Última factura
+- Meses sin factura
+- Confirmar baja
+- Continúa activo
+
+Además quita el panel grande de "Medidores sin facturación reciente" del Resumen,
+para que no se mezclen con los que sí tienen factura.
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_PESTANA_SIN_FACTURA_V23\APLICAR_PESTANA_SIN_FACTURA_V23.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5
