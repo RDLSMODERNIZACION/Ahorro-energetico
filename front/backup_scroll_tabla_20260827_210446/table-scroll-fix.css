@@ -10,6 +10,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* La tabla conserva todas las columnas y se desplaza dentro del panel. */
 .invoice-admin-scroll .invoice-admin {
   width: max-content;
   min-width: 1700px;
@@ -17,6 +18,7 @@
   border-spacing: 0;
 }
 
+/* Encabezado visible mientras se recorre verticalmente la tabla. */
 .invoice-admin-scroll .invoice-admin thead th {
   position: sticky;
   top: 0;
@@ -25,6 +27,7 @@
   box-shadow: 0 1px 0 #e5ebe7;
 }
 
+/* Mantiene Medidor e ID visibles cuando se desplaza hacia la derecha. */
 .invoice-admin-scroll .invoice-admin th:nth-child(1),
 .invoice-admin-scroll .invoice-admin td:nth-child(1) {
   position: sticky;
@@ -35,6 +38,7 @@
   background: #fff;
 }
 
+/* Mantiene Servicio visible junto al medidor. */
 .invoice-admin-scroll .invoice-admin th:nth-child(2),
 .invoice-admin-scroll .invoice-admin td:nth-child(2) {
   position: sticky;
@@ -57,6 +61,7 @@
   background: #f2faf6;
 }
 
+/* Scroll horizontal mas facil de ver y agarrar con el mouse. */
 .invoice-admin-scroll::-webkit-scrollbar {
   width: 12px;
   height: 14px;
