@@ -61,20 +61,42 @@ export default function Home(){
   async function login(e:FormEvent){e.preventDefault();setLoginBusy(true);setLoginError("");const{error}=await supabase.auth.signInWithPassword({email,password});if(error)setLoginError(error.message);setLoginBusy(false)}
   async function upload(file?:File){if(!file||!session||!orgId)return;setBusy(true);try{const form=new FormData();form.append("organization_id",orgId);form.append("file",file);const result=await api<{imported:number;missing_count:number;duplicate:boolean}>("/api/imports/invoices",session,{method:"POST",body:form});setToast(result.duplicate?"Este archivo ya había sido cargado":`${result.imported} facturas importadas · ${result.missing_count} faltantes`);await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo importar") }finally{setBusy(false);setTimeout(()=>setToast(""),5000)}}
   async function analyze(){if(!session||!orgId)return;setBusy(true);try{const r=await api<{opportunities_created:number}>(`/api/organizations/${orgId}/analysis/run`,session,{method:"POST"});setToast(`${r.opportunities_created} oportunidades detectadas`);await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo analizar")}finally{setBusy(false)}}
-  async function runAiQuery(text?:string){
-    const question=(text??aiQuery).trim();
-    if(!question){setAiAnswer("Escribí una consulta.");return}
-    if(!session||!orgId){setAiAnswer("No hay sesión u organización activa.");return}
+    function runAiQuery(text?:string){
+    const q=(text??aiQuery).trim().toLowerCase();
+    if(!q){setAiAnswer("Escribí una consulta.");return}
     setAiBusy(true);
     try{
-      const result=await api<{answer:string;model?:string;latest_period?:string}>(
-        "/api/ai/query",
-        session,
-        {method:"POST",body:JSON.stringify({organization_id:orgId,question})}
-      );
-      setAiAnswer(result.answer);
-    }catch(error){
-      setAiAnswer(error instanceof Error?error.message:"No se pudo consultar la IA");
+      const latest=periods[0]||"";
+      const latestRows=invoices.filter(i=>invoiceMonth(i)===latest);
+      const lowPf=latestRows.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).sort((a,b)=>metrics(a).pf-metrics(b).pf);
+      const powerExcess=latestRows.filter(i=>metrics(i).excess>0).sort((a,b)=>metrics(b).excess-metrics(a).excess);
+      const topSaving=latestRows.map(i=>{
+        const p=invoicePowerSaving(i).amount;
+        const r=invoiceReactiveSaving(i);
+        const t=tariffSavings.find(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===latest);
+        return{i,saving:p+r+Number(t?.monthly_saving_with_vat||0)};
+      }).filter(x=>x.saving>0).sort((a,b)=>b.saving-a.saving);
+
+      let answer="";
+      if(q.includes("cos")||q.includes("factor")||q.includes("reactiva")){
+        answer=`Encontré ${lowPf.length} medidor(es) con cos φ menor a 0,95 en ${latest}. `+
+          (lowPf.slice(0,5).map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${metrics(i).pf.toFixed(3)}`).join(" · ")||"No hay casos críticos.");
+      }else if(q.includes("potencia")||q.includes("contratada")||q.includes("sobrante")){
+        answer=`Hay ${powerExcess.length} medidor(es) con potencia contratada por encima de la demanda en ${latest}. `+
+          (powerExcess.slice(0,5).map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${number.format(metrics(i).excess)} kW sobrantes`).join(" · ")||"No hay sobrantes.");
+      }else if(q.includes("falt")||q.includes("sin factura")){
+        answer=`Para ${controlPeriod||latest} hay ${missingPeriodMeters.length} factura(s) faltante(s). `+
+          (missingPeriodMeters.slice(0,8).map(m=>`${m.service_name||m.meter_number}`).join(" · ")||"No faltan facturas.");
+      }else if(q.includes("ahorro")||q.includes("prioridad")||q.includes("conviene")){
+        answer=`Los principales ahorros mensuales detectados en ${latest} son: `+
+          (topSaving.slice(0,5).map(x=>`${x.i.meters?.service_name||x.i.meters?.meter_number}: ${money.format(x.saving)}/mes`).join(" · ")||"No hay ahorros valorizados.");
+      }else if(q.includes("consumo")||q.includes("mayor")){
+        const top=[...latestRows].sort((a,b)=>metrics(b).kwh-metrics(a).kwh).slice(0,5);
+        answer=`Los mayores consumos de ${latest}: `+top.map(i=>`${i.meters?.service_name||i.meters?.meter_number}: ${number.format(metrics(i).kwh)} kWh`).join(" · ");
+      }else{
+        answer=`Resumen de ${latest}: ${latestRows.length} facturas cargadas, ${missingPeriodMeters.length} faltantes, ${lowPf.length} con cos φ bajo, ${powerExcess.length} con potencia sobrante y ${topSaving.length} con ahorro valorizado.`;
+      }
+      setAiAnswer(answer);
     }finally{
       setAiBusy(false);
     }
@@ -146,7 +168,7 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
 
     <section className="panel ai-chat">
       <div className="ai-chat-head">
-        <div><h2>Preguntale a la base</h2><p>Conectado al backend, Supabase y OpenAI.</p></div>
+        <div><h2>Preguntale a la base</h2><p>Primera versión: consultas inteligentes sobre los datos ya cargados.</p></div>
       </div>
 
       <div className="ai-suggestions">
@@ -197,7 +219,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 

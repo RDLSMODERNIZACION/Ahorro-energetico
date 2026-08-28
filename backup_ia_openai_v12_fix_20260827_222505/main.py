@@ -26,4 +26,3 @@ app=CORSMiddleware(
 )
 
 
-
