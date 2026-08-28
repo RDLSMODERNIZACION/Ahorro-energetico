@@ -1,0 +1,22 @@
+﻿OCULTAR CUADRO FALTANTES V28
+
+Este fix es intencionalmente seguro.
+
+NO modifica page.tsx.
+NO elimina JSX.
+NO elimina datos.
+
+Solo agrega CSS para ocultar el cuadro grande:
+"Faltan X facturas de YYYY-MM"
+
+Los faltantes siguen disponibles en:
+Facturas > Sin factura
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_OCULTAR_CUADRO_FALTANTES_V28\APLICAR_OCULTAR_CUADRO_FALTANTES_V28.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

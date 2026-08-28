@@ -1,0 +1,29 @@
+﻿V29 - RESTAURAR "SIN FACTURA" Y OCULTAR CUADRO VIEJO
+
+Problema:
+El V28 ocultó por CSS clases que también usa la nueva subpestaña "Sin factura".
+Por eso el contador mostraba 3 pero la pantalla quedaba vacía.
+
+V29:
+1. Elimina el CSS V28.
+2. Recupera visualmente la lista de "Sin factura".
+3. Desactiva SOLO <MissingInvoiceTable ... /> usando {null}.
+4. No elimina divs, sections ni cierres JSX.
+
+Resultado:
+Facturas
+  - Facturas recibidas
+  - Sin factura   -> lista visible
+
+Y desaparece el cuadro redundante:
+"Faltan X facturas de YYYY-MM"
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_RESTAURAR_SIN_FACTURA_Y_OCULTAR_CUADRO_V29\APLICAR_V29.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

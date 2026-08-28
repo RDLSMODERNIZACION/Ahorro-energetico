@@ -1439,6 +1439,22 @@ td small {
 /* === FACTURAS SUBPESTANAS V24 END === */
 
 
-
-
+/* === OCULTAR CUADRO FALTANTES V28 START === */
+/*
+  Este fix es SOLO visual.
+  No modifica page.tsx ni la estructura JSX.
+  Los faltantes siguen disponibles en la subpestaña "Sin factura".
+*/
+.missing-invoice-panel,
+.missing-meter-grid,
+.invoice-missing-subpage,
+.invoice-missing-summary,
+.missing-invoices,
+.missing-summary,
+.panel:has(.missing-card),
+.panel:has(.missing-invoice-card),
+.panel:has(.missing-alert-card) {
+  display:none !important;
+}
+/* === OCULTAR CUADRO FALTANTES V28 END === */
 
