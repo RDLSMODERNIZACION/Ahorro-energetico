@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 
@@ -74,12 +74,12 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
   const slot=plotW/Math.max(1,data.length),bw=Math.max(12,slot*.58);
   return <div className="invoice-analysis-chart-wrap"><svg viewBox={`0 0 ${width} ${height}`} className="invoice-analysis-chart">
     {[0,.25,.5,.75,1].map(step=>{const y=top+plotH*(1-step);return <g key={step}><line x1={left} x2={width-right} y1={y} y2={y}/><text x={left-10} y={y+4} textAnchor="end">{metric==="pf"?(max*step).toFixed(2):nf.format(max*step)}</text></g>})}
-    {data.map((d,index)=>{const x=left+index*slot+(slot-bw)/2,y=top+plotH-(d.value/max)*plotH;return <g className={`invoice-analysis-bar${metric==="pf"&&d.value>0&&d.value<.95?" bad-pf":""}${metric==="pf"&&d.value>=.95?" good-pf":""}${selectedPeriod===d.period?" selected":""}`} key={d.period} onClick={()=>onPeriod(d.period)}>
+    {data.map((d,index)=>{const x=left+index*slot+(slot-bw)/2,y=top+plotH-(d.value/max)*plotH;return <g className={`invoice-analysis-bar${selectedPeriod===d.period?" selected":""}`} key={d.period} onClick={()=>onPeriod(d.period)}>
       <rect x={x} y={y} width={bw} height={Math.max(2,top+plotH-y)} rx="5"><title>{labelPeriod(d.period)} · {fmt(metric,d.value)}</title></rect>
       {(index%3===0||index===data.length-1)&&<text x={x+bw/2} y={height-22} textAnchor="middle">{labelPeriod(d.period)}</text>}
     </g>})}
-    {metric==="pf"&&<g className="invoice-pf-limit"><line x1={left} x2={width-right} y1={top+plotH-(0.95/max)*plotH} y2={top+plotH-(0.95/max)*plotH}/><text x={width-right-4} y={top+plotH-(0.95/max)*plotH-7} textAnchor="end">Límite cos φ 0,95</text></g>}{metric==="demand"&&data.map((d,index)=>d.contracted>0?<line key={`c-${d.period}`} className="invoice-contract-line" x1={left+index*slot} x2={left+(index+1)*slot} y1={top+plotH-(d.contracted/max)*plotH} y2={top+plotH-(d.contracted/max)*plotH}/>:null)}
-  </svg>{metric==="pf"&&<div className="invoice-pf-legend"><span><i className="good"/>Correcto: cos φ ≥ 0,95</span><span><i className="bad"/>Revisar: cos φ &lt; 0,95</span></div>}</div>
+    {metric==="demand"&&data.map((d,index)=>d.contracted>0?<line key={`c-${d.period}`} className="invoice-contract-line" x1={left+index*slot} x2={left+(index+1)*slot} y1={top+plotH-(d.contracted/max)*plotH} y2={top+plotH-(d.contracted/max)*plotH}/>:null)}
+  </svg></div>
 }
 
 export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];onClose:()=>void}){
@@ -184,4 +184,3 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{in
     </div>
   </div>
 }
-
