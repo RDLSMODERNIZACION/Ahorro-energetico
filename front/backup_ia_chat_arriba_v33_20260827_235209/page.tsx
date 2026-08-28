@@ -453,37 +453,11 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
       <div className="ai-badge">✦ IA</div>
     </section>
 
-    <section className="panel ai-chat">
-      <div className="ai-chat-head">
-        <div><h2>Preguntale a la base</h2><p>Conectado al backend, Supabase y OpenAI.</p></div>
-      </div>
-
-      <div className="ai-suggestions">
-        {[
-          "¿Qué medidores tienen cos φ bajo?",
-          "¿Dónde sobra más potencia contratada?",
-          "¿Qué facturas faltan este mes?",
-          "¿Cuáles son los mayores ahorros?",
-          "¿Cuáles son los mayores consumos?"
-        ].map(q=><button key={q} onClick={()=>{setAiQuery(q);runAiQuery(q)}}>{q}</button>)}
-      </div>
-
-      <div className="ai-answer">
-        <div className="ai-avatar">✦</div>
-        <div className="ai-answer-content"><b>Asistente energético</b><div className="ai-rich-response">{aiBusy?<p className="ai-rich-paragraph">Analizando Supabase con OpenAI…</p>:renderAiRichText(aiAnswer)}</div></div>
-      </div>
-
-      <div className="ai-input-row">
-        <input value={aiQuery} onChange={e=>setAiQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")runAiQuery()}} placeholder="Ej.: ¿Qué medidores conviene revisar primero?"/>
-        <button onClick={()=>runAiQuery()} disabled={aiBusy}>{aiBusy?"Analizando…":"Consultar"}</button>
-      </div>
-    </section>
-
     <div className="ai-alert-grid">
       <article><span>Faltantes de agosto</span><b>{missingPeriodMeters.length}</b><small>{controlPeriod||periods[0]||"Sin período"}</small></article>
       <article><span>Cos φ bajo</span><b>{latestInvoiceByMeter.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).length}</b><small>requieren revisión</small></article>
       <article><span>Potencia sobrante</span><b>{latestInvoiceByMeter.filter(i=>metrics(i).excess>0).length}</b><small>medidores detectados</small></article>
-      <article className="green"><span>Ahorro anual potencial</span><b>{money.format(dashboardTotalMonthly*12)}</b><small>{dashboardPeriodLabel} · mensual {money.format(dashboardTotalMonthly)}</small></article>
+      <article className="green"><span>Ahorro anual potencial</span><b>{money.format(tariffAnnual)}</b><small>estimación actual</small></article>
     </div>
 
         <div className="ai-smart-sections">
@@ -514,6 +488,31 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
         </div>
       </section>
     </div>
+<section className="panel ai-chat">
+      <div className="ai-chat-head">
+        <div><h2>Preguntale a la base</h2><p>Conectado al backend, Supabase y OpenAI.</p></div>
+      </div>
+
+      <div className="ai-suggestions">
+        {[
+          "¿Qué medidores tienen cos φ bajo?",
+          "¿Dónde sobra más potencia contratada?",
+          "¿Qué facturas faltan este mes?",
+          "¿Cuáles son los mayores ahorros?",
+          "¿Cuáles son los mayores consumos?"
+        ].map(q=><button key={q} onClick={()=>{setAiQuery(q);runAiQuery(q)}}>{q}</button>)}
+      </div>
+
+      <div className="ai-answer">
+        <div className="ai-avatar">✦</div>
+        <div className="ai-answer-content"><b>Asistente energético</b><div className="ai-rich-response">{aiBusy?<p className="ai-rich-paragraph">Analizando Supabase con OpenAI…</p>:renderAiRichText(aiAnswer)}</div></div>
+      </div>
+
+      <div className="ai-input-row">
+        <input value={aiQuery} onChange={e=>setAiQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")runAiQuery()}} placeholder="Ej.: ¿Qué medidores conviene revisar primero?"/>
+        <button onClick={()=>runAiQuery()} disabled={aiBusy}>{aiBusy?"Analizando…":"Consultar"}</button>
+      </div>
+    </section>
   </div>}
 {tab==="map"&&<div className="map-layout"><section className="panel map-panel"><div className="map-head"><div><h2>Ubicación aproximada de suministros</h2><p>Distribución orientativa por Oeste, Centro y Este · pendiente de confirmación GPS</p></div><span>{visibleMarkers.length} de {meters.length}</span></div><div className="map-search"><input value={mapSearch} onChange={e=>setMapSearch(e.target.value)} placeholder="Buscar servicio, medidor, calle o suministro"/><small>Los puntos sin coordenadas se ubican aproximadamente según su descripción.</small></div><div className="map"><div className="river"/><b className="zone west">OESTE</b><b className="zone center">CENTRO</b><b className="zone east">ESTE</b>{visibleMarkers.map(m=><div key={m.id} className={`marker ${selectedMeter===m.id?"selected":""}`} style={{left:`${m.x}%`,top:`${m.y}%`}} onClick={()=>setSelectedMeter(m.id)}><i>⚡</i><label>{m.service_name||m.sites?.name||"Servicio sin nombre"}<small>{m.zone.toUpperCase()} · {m.tracking_code} · {m.meter_number}</small></label></div>)}</div></section>
 <aside className="panel meter-list"><Title title="Medidores" sub="Seleccioná un punto para ver sus datos"/>{visibleMarkers.map(m=><button className={selectedMeter===m.id?"active":""} key={m.id} onClick={()=>{setSelectedMeter(m.id);const i=invoices.find(x=>x.meter_id===m.id);if(i)setSelectedInvoice(i)}}><i>●</i><div><b>{m.service_name||m.sites?.name||"Servicio sin nombre"}</b><small>{m.zone.toUpperCase()} · {m.tracking_code} · Medidor {m.meter_number}</small></div><em>{m.current_tariff_code||"Sin tarifa"}</em></button>)}</aside>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</div>}
@@ -542,8 +541,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
-
 
 
 

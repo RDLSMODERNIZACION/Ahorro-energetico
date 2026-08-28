@@ -1438,21 +1438,8 @@ td small {
 }
 /* === FACTURAS SUBPESTANAS V24 END === */
 
-/* === IA CHAT ARRIBA V33 START === */
-.ai-module > .ai-hero + .ai-chat{
-  margin-top:0;
-  margin-bottom:0;
-}
-.ai-module > .ai-chat + .ai-alert-grid,
-.ai-module > .ai-chat + .ai-smart-sections{
-  margin-top:0;
-}
-/* === IA CHAT ARRIBA V33 END === */
 
-/* === IA AHORRO MES V34 START === */
-.ai-alert-grid .green small{
-  font-weight:700;
-  color:#6b8f7d;
-}
-/* === IA AHORRO MES V34 END === */
+
+
+
 
