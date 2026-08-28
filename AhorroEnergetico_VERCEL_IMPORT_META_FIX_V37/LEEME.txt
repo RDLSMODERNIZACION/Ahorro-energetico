@@ -1,0 +1,22 @@
+﻿FIX VERCEL V37
+
+Error:
+TypeError: Cannot read properties of undefined (reading 'VITE_API_URL')
+
+Causa:
+page.tsx usa import.meta.env.VITE_API_URL, pero Vercel está compilando con Next.js.
+
+Se cambia a:
+process.env.NEXT_PUBLIC_API_URL
+
+con fallback:
+https://ahorro-energetico.onrender.com
+
+Aplicar:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_VERCEL_IMPORT_META_FIX_V37\APLICAR_VERCEL_IMPORT_META_FIX_V37.ps1
+
+Después:
+git add .
+git commit -m "Fix Vercel API env"
+git push
