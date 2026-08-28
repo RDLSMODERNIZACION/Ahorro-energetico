@@ -1,0 +1,36 @@
+﻿AHORRO ENERGETICO - V5
+
+Este script NO depende del texto exacto de los fixes anteriores.
+
+Detecta automaticamente si tenes:
+
+A) InvoiceTable + MissingInvoiceTable separados
+B) la variante V3 con pendingMeters dentro de InvoiceTable
+C) un wrapper invoice-unified-scroll ya creado
+
+Luego fuerza UN SOLO contenedor con scroll vertical y horizontal.
+
+IMPORTANTE SOBRE TU ERROR ANTERIOR
+
+Si descomprimiste la carpeta V4/V5 en:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico\
+
+y despues haces:
+cd front
+
+la carpeta del fix queda UN NIVEL ARRIBA.
+
+Desde FRONT seria:
+..\AhorroEnergetico_SCROLL_REAL_V5\APLICAR_SCROLL_REAL_V5.ps1
+
+Pero lo mas facil es ejecutarlo desde la raiz:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+con:
+.\AhorroEnergetico_SCROLL_REAL_V5\APLICAR_SCROLL_REAL_V5.ps1
+
+Luego:
+cd front
+npm run dev
+
+y Ctrl + F5 en Chrome.
