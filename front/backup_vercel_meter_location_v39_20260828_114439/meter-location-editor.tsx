@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 
-const API="https://ahorro-energetico.onrender.com";
+const API=(import.meta.env.VITE_API_URL as string)||"https://ahorro-energetico.onrender.com";
 
 declare global{
   interface Window{L?:any}
@@ -24,7 +24,7 @@ const DEFAULT_LNG=-68.9250;
 
 async function token(){
   const {data}=await supabase.auth.getSession();
-  if(!data.session)throw new Error("SesiÃ³n vencida");
+  if(!data.session)throw new Error("Sesión vencida");
   return data.session.access_token;
 }
 
@@ -86,7 +86,7 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
         setLat(String(row.latitude??""));
         setLng(String(row.longitude??""));
       }catch(error){
-        if(!cancelled)setMessage(error instanceof Error?error.message:"No se pudo consultar la ubicaciÃ³n");
+        if(!cancelled)setMessage(error instanceof Error?error.message:"No se pudo consultar la ubicación");
       }
     })();
     return()=>{cancelled=true};
@@ -157,22 +157,22 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
 
   function useMyLocation(){
     setMessage("");
-    if(!navigator.geolocation){setMessage("El navegador no permite obtener ubicaciÃ³n.");return}
+    if(!navigator.geolocation){setMessage("El navegador no permite obtener ubicación.");return}
     navigator.geolocation.getCurrentPosition(
       position=>{
         const a=position.coords.latitude,b=position.coords.longitude;
         setLat(a.toFixed(6));setLng(b.toFixed(6));
         if(mapRef.current)mapRef.current.setView([a,b],18);
       },
-      ()=>setMessage("No se pudo obtener tu ubicaciÃ³n actual."),
+      ()=>setMessage("No se pudo obtener tu ubicación actual."),
       {enableHighAccuracy:true,timeout:10000}
     );
   }
 
   async function save(){
     const a=Number(lat),b=Number(lng);
-    if(!Number.isFinite(a)||a < -90||a > 90){setMessage("Latitud invÃ¡lida.");return}
-    if(!Number.isFinite(b)||b < -180||b > 180){setMessage("Longitud invÃ¡lida.");return}
+    if(!Number.isFinite(a)||a < -90||a > 90){setMessage("Latitud inválida.");return}
+    if(!Number.isFinite(b)||b < -180||b > 180){setMessage("Longitud inválida.");return}
     setBusy(true);setMessage("");
     try{
       const access=await token();
@@ -185,10 +185,10 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
       if(!response.ok)throw new Error(body||`Error ${response.status}`);
       const row=JSON.parse(body);
       setOriginal(row);
-      setMessage("UbicaciÃ³n guardada correctamente.");
+      setMessage("Ubicación guardada correctamente.");
       if(mapRef.current)mapRef.current.setView([a,b],18);
     }catch(error){
-      setMessage(error instanceof Error?error.message:"No se pudo guardar la ubicaciÃ³n");
+      setMessage(error instanceof Error?error.message:"No se pudo guardar la ubicación");
     }finally{setBusy(false)}
   }
 
@@ -196,11 +196,11 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
   return <section className="invoice-analysis-panel meter-location-editor">
     <div className="meter-location-head">
       <div>
-        <h3>UbicaciÃ³n del medidor</h3>
-        <p>{label||"Medidor"} Â· cargÃ¡ coordenadas o tocÃ¡ directamente el mapa.</p>
+        <h3>Ubicación del medidor</h3>
+        <p>{label||"Medidor"} · cargá coordenadas o tocá directamente el mapa.</p>
       </div>
       <span className={hasCurrent?"location-status saved":"location-status pending"}>
-        {hasCurrent?"UBICACIÃ“N GUARDADA":"SIN UBICACIÃ“N"}
+        {hasCurrent?"UBICACIÓN GUARDADA":"SIN UBICACIÓN"}
       </span>
     </div>
 
@@ -214,19 +214,19 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
         </label>
 
         <div className="meter-location-actions">
-          <button type="button" className="secondary" onClick={useMyLocation}>âŒ– Usar mi ubicaciÃ³n</button>
-          <button type="button" className="primary" disabled={busy} onClick={save}>{busy?"Guardandoâ€¦":"Guardar ubicaciÃ³n"}</button>
+          <button type="button" className="secondary" onClick={useMyLocation}>⌖ Usar mi ubicación</button>
+          <button type="button" className="primary" disabled={busy} onClick={save}>{busy?"Guardando…":"Guardar ubicación"}</button>
         </div>
 
         <div className="meter-location-help">
-          <b>TambiÃ©n podÃ©s ubicarlo visualmente</b>
-          <span>TocÃ¡ cualquier punto del mapa. DespuÃ©s podÃ©s arrastrar el marcador para ajustarlo con precisiÃ³n.</span>
+          <b>También podés ubicarlo visualmente</b>
+          <span>Tocá cualquier punto del mapa. Después podés arrastrar el marcador para ajustarlo con precisión.</span>
         </div>
 
         {original&&<div className="meter-location-current">
-          <span>Ãšltima ubicaciÃ³n registrada</span>
+          <span>Última ubicación registrada</span>
           <b>{Number(original.latitude).toFixed(6)}, {Number(original.longitude).toFixed(6)}</b>
-          <small>{original.valid_from?`Desde ${new Date(original.valid_from).toLocaleString("es-AR")}`:"UbicaciÃ³n vigente"}</small>
+          <small>{original.valid_from?`Desde ${new Date(original.valid_from).toLocaleString("es-AR")}`:"Ubicación vigente"}</small>
         </div>}
 
         {message&&<div className={message.includes("correctamente")?"meter-location-message ok":"meter-location-message"}>{message}</div>}
@@ -234,10 +234,9 @@ export function MeterLocationEditor({meterId,label}:{meterId:string;label?:strin
 
       <div className="meter-location-map-wrap">
         <div ref={mapNode} className="meter-location-map"/>
-        {!mapReady&&<div className="meter-location-loading">Cargando mapaâ€¦</div>}
-        <div className="meter-location-map-note">Mapa OpenStreetMap Â· clic para posicionar Â· marcador arrastrable</div>
+        {!mapReady&&<div className="meter-location-loading">Cargando mapa…</div>}
+        <div className="meter-location-map-note">Mapa OpenStreetMap · clic para posicionar · marcador arrastrable</div>
       </div>
     </div>
   </section>
 }
-

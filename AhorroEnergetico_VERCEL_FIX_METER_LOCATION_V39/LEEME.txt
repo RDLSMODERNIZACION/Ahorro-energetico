@@ -1,0 +1,29 @@
+﻿VERCEL FIX METER LOCATION V39
+
+Encontramos la causa real.
+
+Aunque page.tsx ya estaba corregido, este archivo seguía teniendo:
+
+front/app/meter-location-editor.tsx
+
+const API=(import.meta.env.VITE_API_URL as string)||...
+
+Ese componente se importa desde InvoiceAnalysisPanel, por eso Next lo evalúa
+durante el prerender y Vercel sigue fallando.
+
+V39:
+- reemplaza VITE_API_URL en meter-location-editor.tsx
+- busca cualquier VITE_API_URL restante dentro de front/app
+- si queda alguna referencia, el script falla y te la muestra
+- limpia .next
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_VERCEL_FIX_METER_LOCATION_V39\APLICAR_VERCEL_FIX_METER_LOCATION_V39.ps1
+
+DESPUÉS:
+
+git add .
+git commit -m "Fix Vercel meter location env"
+git push
