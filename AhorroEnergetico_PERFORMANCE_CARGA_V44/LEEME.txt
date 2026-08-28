@@ -1,0 +1,45 @@
+﻿PERFORMANCE CARGA V44
+
+DIAGNOSTICO DE TU NETWORK:
+- invoices?limit=5000 = 1.16 MB y ~13 segundos
+- missing / tariff-assessments / tariff-savings se repetían varias veces
+- los tiles del mapa NO son el problema (30-70 ms)
+
+MEJORAS:
+1. El listado masivo de facturas deja de traer campos pesados que el front no usa:
+   - raw_data
+   - metadata de importación
+   - campos administrativos innecesarios
+
+2. Conserva:
+   - factura/período/importe
+   - medidor/suministro/servicio
+   - consumo
+   - demanda
+   - factor de potencia
+   - potencia contratada
+   - conceptos necesarios para ahorro
+
+3. Backend pagina de 1000 en 1000 en vez de 200 en 200.
+   Menos viajes internos Render -> Supabase.
+
+4. Front evita volver a descargar el mismo dataset varias veces
+   cuando cambia organization/session durante la inicialización.
+
+APLICAR:
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_PERFORMANCE_CARGA_V44\APLICAR_PERFORMANCE_CARGA_V44.ps1
+
+Luego:
+git add .
+git commit -m "Optimizar carga de datos"
+git push
+
+Se despliegan:
+- Render (backend)
+- Vercel (front)
+
+Después comparar Network:
+- invoices?limit=5000
+- cantidad total de requests
+- Finish

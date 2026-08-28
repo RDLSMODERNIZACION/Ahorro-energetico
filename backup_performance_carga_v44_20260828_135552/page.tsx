@@ -117,7 +117,6 @@ export default function Home(){
   const[invoiceSubTab,setInvoiceSubTab]=useState<"received"|"missing">("received");
   const fileRef=useRef<HTMLInputElement>(null);
   const invoiceFiltersInitialized=useRef(false);
-  const loadedDataKey=useRef("");
   useEffect(()=>{
     function hideLegacyMissingPanelV31(){
       const marker="Estos medidores no aparecen en el archivo del período seleccionado";
@@ -161,13 +160,12 @@ useEffect(()=>{supabase.auth.getSession().then(({data})=>{setSession(data.sessio
     try{
       let target=org;
       if(!target){const orgs=await api<Organization[]>("/api/organizations",s);if(!orgs.length)throw new Error("Tu usuario todavía no está asociado a la Municipalidad");setOrganization(orgs[0]);target=orgs[0].organization_id}
-      loadedDataKey.current=`${s.user.id}:${target}`;
       const [m,i,o]=await Promise.all([api<Meter[]>(`/api/organizations/${target}/meters`,s),api<Invoice[]>(`/api/organizations/${target}/invoices?limit=5000`,s),api<Opportunity[]>(`/api/organizations/${target}/opportunities`,s).catch(()=>[])]);
       setMeters(m);setInvoices(i);setOpportunities(o);setSelectedMeter(current=>current||m[0]?.id||"");if(!invoiceFiltersInitialized.current&&i.length){const latest=[...new Set(i.map(x=>(x.billing_period||x.period_start).slice(0,7)))].sort().reverse()[0];if(latest){setYearFilter(latest.slice(0,4));setMonthFilter(latest.slice(5,7));invoiceFiltersInitialized.current=true}}
       const [miss,frames,tariffResult]=await Promise.all([api<Missing[]>(`/api/organizations/${target}/missing-invoices`,s).catch(()=>[]),api<TariffAssessment[]>(`/api/organizations/${target}/tariff-assessments?v=14`,s).catch(()=>[]),api<TariffSavingResponse>(`/api/organizations/${target}/tariff-savings?v=1`,s).catch(e=>{setToast(`No se pudo cargar el ahorro tarifario: ${e instanceof Error?e.message:"Error desconocido"}`);return null})]);setMissing(miss);setAssessments(frames);setTariffSavings(tariffResult?.candidates||[]);
     }catch(e){setToast(e instanceof Error?e.message:"No se pudieron cargar los datos")}
   },[]);
-  useEffect(()=>{if(!session)return;const key=orgId?`${session.user.id}:${orgId}`:"";if(key&&loadedDataKey.current===key)return;load(session,orgId)},[session,orgId,load]);
+  useEffect(()=>{if(session)load(session,orgId)},[session,orgId,load]);
 
   async function login(e:FormEvent){e.preventDefault();setLoginBusy(true);setLoginError("");const{error}=await supabase.auth.signInWithPassword({email,password});if(error)setLoginError(error.message);setLoginBusy(false)}
   async function upload(file?:File){if(!file||!session||!orgId)return;setBusy(true);try{const form=new FormData();form.append("organization_id",orgId);form.append("file",file);const result=await api<{imported:number;missing_count:number;duplicate:boolean}>("/api/imports/invoices",session,{method:"POST",body:form});setToast(result.duplicate?"Este archivo ya había sido cargado":`${result.imported} facturas importadas · ${result.missing_count} faltantes`);await load(session,orgId)}catch(e){setToast(e instanceof Error?e.message:"No se pudo importar") }finally{setBusy(false);setTimeout(()=>setToast(""),5000)}}
@@ -610,7 +608,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
