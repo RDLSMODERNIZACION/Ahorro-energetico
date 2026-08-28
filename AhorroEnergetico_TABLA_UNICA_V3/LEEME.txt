@@ -1,0 +1,27 @@
+﻿FIX V3 - TABLA UNICA DE FACTURAS
+
+Este FIX cambia la estructura, no solamente el CSS.
+
+Antes:
+- tabla de facturas recibidas
+- tabla separada de facturas pendientes
+
+Ahora:
+- UNA SOLA TABLA
+- las pendientes aparecen al final del mismo tbody
+- un unico scroll horizontal
+- un unico scroll vertical
+- Medidor y Servicio quedan fijos
+
+EJECUTAR
+
+Parado en Ahorro-energetico\front:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_TABLA_UNICA_V3\APLICAR_TABLA_UNICA_V3.ps1
+
+Luego:
+
+npm run dev
+
+El script crea un backup automatico antes de modificar page.tsx.
