@@ -1,0 +1,24 @@
+﻿VERCEL.JSON SIN BOM V38B
+
+El error "Invalid vercel.json file provided" viene del archivo vercel.json.
+
+El archivo actual fue escrito desde PowerShell con BOM UTF-8.
+Vercel está rechazándolo antes de iniciar el build.
+
+V38B:
+- reescribe front/vercel.json
+- usa UTF-8 SIN BOM
+- valida el JSON
+- conserva:
+  rm -rf .next && npx next build
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_VERCEL_JSON_SIN_BOM_V38B\APLICAR_VERCEL_JSON_SIN_BOM_V38B.ps1
+
+Luego:
+
+git add front/vercel.json
+git commit -m "Fix vercel json encoding"
+git push
