@@ -1,0 +1,30 @@
+﻿FACTURAS SUBPESTAÑAS V24
+
+Corrige la ubicación de "Sin factura".
+
+NO queda en la sidebar.
+
+Dentro de FACTURAS aparecen dos subpestañas:
+- Facturas recibidas
+- Sin factura
+
+"Sin factura" muestra una lista separada con:
+- Estado
+- Medidor / ID
+- Servicio
+- Suministro
+- Tarifa
+- Última factura
+- Meses sin factura
+- Confirmar baja
+- Continúa activo
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_FACTURAS_SUBPESTANAS_V24\APLICAR_FACTURAS_SUBPESTANAS_V24.ps1
+
+Luego:
+cd front
+npm run dev
+Ctrl + F5

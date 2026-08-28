@@ -82,9 +82,8 @@ export default function Home(){
   const[session,setSession]=useState<Session|null>(null),[authReady,setAuthReady]=useState(false);
   const[email,setEmail]=useState(""),[password,setPassword]=useState(""),[loginError,setLoginError]=useState(""),[loginBusy,setLoginBusy]=useState(false);
   const[organization,setOrganization]=useState<Organization|null>(null),[meters,setMeters]=useState<Meter[]>([]),[invoices,setInvoices]=useState<Invoice[]>([]),[missing,setMissing]=useState<Missing[]>([]),[opportunities,setOpportunities]=useState<Opportunity[]>([]),[assessments,setAssessments]=useState<TariffAssessment[]>([]),[tariffSavings,setTariffSavings]=useState<TariffSaving[]>([]);
-  const[tab,setTab]=useState<"dashboard"|"invoices"|"framing"|"tariffs"|"map"|"ai">("dashboard"),[busy,setBusy]=useState(false),[toast,setToast]=useState(""),[selectedMeter,setSelectedMeter]=useState(""),[selectedInvoice,setSelectedInvoice]=useState<Invoice|null>(null),[yearFilter,setYearFilter]=useState("all"),[monthFilter,setMonthFilter]=useState("all"),[search,setSearch]=useState(""),[framingFilter,setFramingFilter]=useState("all"),[mapSearch,setMapSearch]=useState("");
+  const[tab,setTab]=useState<"dashboard"|"invoices"|"missing"|"framing"|"tariffs"|"map"|"ai">("dashboard"),[busy,setBusy]=useState(false),[toast,setToast]=useState(""),[selectedMeter,setSelectedMeter]=useState(""),[selectedInvoice,setSelectedInvoice]=useState<Invoice|null>(null),[yearFilter,setYearFilter]=useState("all"),[monthFilter,setMonthFilter]=useState("all"),[search,setSearch]=useState(""),[framingFilter,setFramingFilter]=useState("all"),[mapSearch,setMapSearch]=useState("");
   const[aiQuery,setAiQuery]=useState(""),[aiAnswer,setAiAnswer]=useState("Seleccioná una consulta sugerida o escribí qué querés analizar."),[aiBusy,setAiBusy]=useState(false);
-  const[invoiceSubTab,setInvoiceSubTab]=useState<"received"|"missing">("received");
   const fileRef=useRef<HTMLInputElement>(null);
   const invoiceFiltersInitialized=useRef(false);
 
@@ -254,7 +253,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
   if(!authReady)return <main className="loading-page">Cargando…</main>;
   if(!session)return <main className="login-page"><section className="login-card"><div className="login-brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><h1>Ingresar al sistema</h1><p>Facturación EPEN y oportunidades de ahorro</p><form onSubmit={login}><label>Correo electrónico<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>{loginError&&<div className="login-error">{loginError}</div>}<button disabled={loginBusy}>{loginBusy?"Ingresando…":"Ingresar"}</button></form><small>El usuario debe estar creado en Supabase Authentication.</small></section></main>;
 
-  return <main className="shell"><aside className="side"><div className="brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><nav><button className={tab==="dashboard"?"active":""} onClick={()=>setTab("dashboard")}>⌁ <span>Resumen</span></button><button className={tab==="invoices"?"active":""} onClick={()=>setTab("invoices")}>▤ <span>Facturas</span></button><button className={tab==="framing"?"active":""} onClick={()=>setTab("framing")}>⇄ <span>Encuadramiento</span></button><button className={tab==="tariffs"?"active":""} onClick={()=>setTab("tariffs")}>↗ <span>Ahorros</span></button><button className={tab==="map"?"active":""} onClick={()=>setTab("map")}>⌖ <span>Medidores</span></button><button className={tab==="ai"?"active":""} onClick={()=>setTab("ai")}><i>✦</i><span>IA</span></button></nav><div className="user-box"><b>{session.user.email}</b><small>{organization?.organizations.name}</small><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></div></aside>
+  return <main className="shell"><aside className="side"><div className="brand"><span>M</span><div><b>GESTIÓN</b><small>ENERGÉTICA MUNICIPAL</small></div></div><nav><button className={tab==="dashboard"?"active":""} onClick={()=>setTab("dashboard")}>⌁ <span>Resumen</span></button><button className={tab==="invoices"?"active":""} onClick={()=>setTab("invoices")}>▤ <span>Facturas</span></button><button className={tab==="missing"?"active":""} onClick={()=>setTab("missing")}><i>!</i><span>Sin factura</span></button><button className={tab==="framing"?"active":""} onClick={()=>setTab("framing")}>⇄ <span>Encuadramiento</span></button><button className={tab==="tariffs"?"active":""} onClick={()=>setTab("tariffs")}>↗ <span>Ahorros</span></button><button className={tab==="map"?"active":""} onClick={()=>setTab("map")}>⌖ <span>Medidores</span></button><button className={tab==="ai"?"active":""} onClick={()=>setTab("ai")}><i>✦</i><span>IA</span></button></nav><div className="user-box"><b>{session.user.email}</b><small>{organization?.organizations.name}</small><button onClick={()=>supabase.auth.signOut()}>Cerrar sesión</button></div></aside>
   <section className="work"><header><div><p>MUNICIPALIDAD DE RINCÓN DE LOS SAUCES</p><h1>{tab==="dashboard"?"Inteligencia energética":tab==="invoices"?"Seguimiento de facturas":tab==="framing"?"Encuadramiento tarifario":tab==="tariffs"?"Oportunidades de ahorro":"Mapa de medidores"}</h1></div><div className="head-actions"><button className="secondary" onClick={analyze} disabled={busy}>Analizar ahora</button><button onClick={()=>fileRef.current?.click()} disabled={busy}>{busy?"Procesando…":"＋ Cargar ZIP / CSV"}</button><input hidden ref={fileRef} type="file" accept=".zip,.csv" onChange={e=>upload(e.target.files?.[0])}/></div></header>
 
   {tab==="dashboard"&&<>
@@ -341,39 +340,21 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
     </div>
   </section>
 </>}
-  {tab==="invoices"&&<>
-  <div className="invoice-subtabs">
-    <button className={invoiceSubTab==="received"?"active":""} onClick={()=>setInvoiceSubTab("received")}>
-      <span>Facturas recibidas</span>
-      <b>{dashboardReceived}</b>
-    </button>
-    <button className={invoiceSubTab==="missing"?"active missing":""} onClick={()=>setInvoiceSubTab("missing")}>
-      <span>Sin factura</span>
-      <b>{lifecycleMeters.length}</b>
-    </button>
-  </div>
-
-  {invoiceSubTab==="received"&&<>
-
-<section className="month-control"><div><span>Período controlado</span><strong>{controlPeriod||"Sin período"}</strong></div><div><span>Facturas esperadas</span><strong>{activeMeters.length}</strong></div><div className="received"><span>Facturas recibidas</span><strong>{[...presentMeterIds].filter(id=>activeMeters.some(m=>m.id===id)).length}</strong></div><div className={missingPeriodMeters.length?"missing":"complete"}><span>Facturas faltantes</span><strong>{missingPeriodMeters.length}</strong></div></section>
-{missingPeriodMeters.length>0&&<section className="panel missing-invoice-panel"><Title title={`Faltan ${missingPeriodMeters.length} facturas de ${controlPeriod}`} sub="Estos medidores no aparecen en el archivo del período seleccionado"/><div className="missing-meter-grid">{missingPeriodMeters.map(m=><article key={m.id}><i>!</i><div><b>Medidor {m.meter_number||"S/D"}</b><span>{m.service_name||m.sites?.name||"Servicio sin nombre"}</span><small>{m.tracking_code} · Suministro {m.supply_number||"S/D"}</small></div></article>)}</div></section>}<section className="panel"><Title title="Administrador mensual y anual" sub={`${filteredInvoices.length} de ${meters.length} facturas recibidas para ${controlPeriod}`}/><div className="filters"><label>Año<select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></label><label>Mes<select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>{Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(m=><option key={m} value={m}>{new Date(2026,Number(m)-1,1).toLocaleString("es-AR",{month:"long"})}</option>)}</select></label><label className="search-filter">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro, servicio o factura"/></label><button onClick={()=>setSearch("")}>Limpiar búsqueda</button></div><div className="invoice-unified-scroll"><InvoiceTable invoices={filteredInvoices} assessments={assessments} tariffSavings={tariffSavings} pendingMeters={visibleMissingPeriodMeters} period={controlPeriod} onSelect={openMeter}/></div></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}
-  </>}
-
-  {invoiceSubTab==="missing"&&<div className="invoice-missing-subpage">
-    <section className="panel invoice-missing-summary">
+  {tab==="missing"&&<div className="missing-tab-page">
+    <section className="panel missing-tab-header">
       <div>
-        <span>MEDIDORES SIN FACTURA</span>
-        <h2>Seguimiento separado</h2>
-        <p>Acá se muestran únicamente los medidores que no tienen facturación reciente o están en posible baja.</p>
+        <span className="missing-tab-kicker">SEGUIMIENTO DE FACTURACIÓN</span>
+        <h2>Medidores sin factura</h2>
+        <p>Listado separado de los suministros que no tienen facturación reciente. No se mezclan con las facturas recibidas.</p>
       </div>
-      <div className="invoice-missing-total">
+      <div className="missing-tab-count">
         <b>{lifecycleMeters.length}</b>
-        <small>medidores en seguimiento</small>
+        <span>medidores en seguimiento</span>
       </div>
     </section>
 
-    <section className="panel invoice-missing-list-panel">
-      <div className="invoice-missing-list-head">
+    <section className="panel missing-list-panel">
+      <div className="missing-list-head">
         <span>Estado</span>
         <span>Medidor / ID</span>
         <span>Servicio</span>
@@ -383,27 +364,47 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
         <span>Acciones</span>
       </div>
 
-      <div className="invoice-missing-list-body">
+      <div className="missing-list-body">
         {lifecycleMeters.map(m=>{
           const months=monthsBetween(m.last_seen_period,periods[0]||"");
-          return <div className={`invoice-missing-list-row ${m.status==="removed"?"removed":"watch"}`} key={m.id}>
-            <div><span className={`invoice-missing-state ${m.status||"inactive"}`}>{m.status==="removed"?"BAJA CONFIRMADA":"POSIBLE BAJA"}</span></div>
-            <div><b>Medidor {m.meter_number||"S/D"}</b><small>{m.tracking_code||"Sin ID"}</small></div>
-            <div><b>{m.service_name||m.sites?.name||"Servicio sin nombre"}</b><small>{m.sites?.address||"Sin dirección registrada"}</small></div>
-            <div><b>{m.supply_number||"S/D"}</b><small>{m.current_tariff_code||"Sin tarifa"}</small></div>
-            <div><b>{m.last_seen_period?.slice(0,7)||"S/D"}</b><small>último período cargado</small></div>
-            <div><b>{months}</b><small>meses</small></div>
-            <div className="invoice-missing-list-actions">
+          return <div className={`missing-list-row ${m.status==="removed"?"removed":"watch"}`} key={m.id}>
+            <div>
+              <span className={`missing-state ${m.status||"inactive"}`}>{m.status==="removed"?"BAJA CONFIRMADA":"POSIBLE BAJA"}</span>
+            </div>
+            <div>
+              <b>Medidor {m.meter_number||"S/D"}</b>
+              <small>{m.tracking_code||"Sin ID"}</small>
+            </div>
+            <div>
+              <b>{m.service_name||m.sites?.name||"Servicio sin nombre"}</b>
+              <small>{m.sites?.address||"Sin dirección registrada"}</small>
+            </div>
+            <div>
+              <b>{m.supply_number||"S/D"}</b>
+              <small>{m.current_tariff_code||"Sin tarifa"}</small>
+            </div>
+            <div>
+              <b>{m.last_seen_period?.slice(0,7)||"S/D"}</b>
+              <small>último período cargado</small>
+            </div>
+            <div>
+              <b>{months}</b>
+              <small>meses</small>
+            </div>
+            <div className="missing-list-actions">
               {m.status!=="removed"&&<button className="danger-btn" onClick={()=>updateMeterStatus(m.id,"removed")}>Confirmar baja</button>}
               <button className="ok-btn" onClick={()=>updateMeterStatus(m.id,"active")}>Continúa activo</button>
             </div>
           </div>
         })}
-        {!lifecycleMeters.length&&<div className="invoice-missing-list-empty">No hay medidores sin facturación reciente.</div>}
+        {!lifecycleMeters.length&&<div className="missing-list-empty">No hay medidores sin facturación reciente.</div>}
       </div>
     </section>
   </div>}
-</>}{tab==="framing"&&<><div className="savings-summary"><article><span>Potencia contratada</span><b>{money.format(powerAnnual)}</b><small>ahorro anual</small></article>
+{tab==="invoices"&&<>
+<section className="month-control"><div><span>Período controlado</span><strong>{controlPeriod||"Sin período"}</strong></div><div><span>Facturas esperadas</span><strong>{activeMeters.length}</strong></div><div className="received"><span>Facturas recibidas</span><strong>{[...presentMeterIds].filter(id=>activeMeters.some(m=>m.id===id)).length}</strong></div><div className={missingPeriodMeters.length?"missing":"complete"}><span>Facturas faltantes</span><strong>{missingPeriodMeters.length}</strong></div></section>
+{missingPeriodMeters.length>0&&<section className="panel missing-invoice-panel"><Title title={`Faltan ${missingPeriodMeters.length} facturas de ${controlPeriod}`} sub="Estos medidores no aparecen en el archivo del período seleccionado"/><div className="missing-meter-grid">{missingPeriodMeters.map(m=><article key={m.id}><i>!</i><div><b>Medidor {m.meter_number||"S/D"}</b><span>{m.service_name||m.sites?.name||"Servicio sin nombre"}</span><small>{m.tracking_code} · Suministro {m.supply_number||"S/D"}</small></div></article>)}</div></section>}<section className="panel"><Title title="Administrador mensual y anual" sub={`${filteredInvoices.length} de ${meters.length} facturas recibidas para ${controlPeriod}`}/><div className="filters"><label>Año<select value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{years.map(y=><option key={y}>{y}</option>)}</select></label><label>Mes<select value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>{Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0")).map(m=><option key={m} value={m}>{new Date(2026,Number(m)-1,1).toLocaleString("es-AR",{month:"long"})}</option>)}</select></label><label className="search-filter">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro, servicio o factura"/></label><button onClick={()=>setSearch("")}>Limpiar búsqueda</button></div><div className="invoice-unified-scroll"><InvoiceTable invoices={filteredInvoices} assessments={assessments} tariffSavings={tariffSavings} pendingMeters={visibleMissingPeriodMeters} period={controlPeriod} onSelect={openMeter}/></div></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</>}
+  {tab==="framing"&&<><div className="savings-summary"><article><span>Potencia contratada</span><b>{money.format(powerAnnual)}</b><small>ahorro anual</small></article>
 <article><span>Factor de potencia</span><b>{money.format(reactiveAnnual)}</b><small>recargos evitables</small></article>
 <article><span>Cambio tarifario</span><b>{money.format(rateAnnual)}</b><small>ahorro anual simulado</small></article><article className="total"><span>Total de propuestas</span><b>{money.format(tariffAnnual)}</b><small>{money.format(tariffAnnual/12)} por mes</small></article></div><div className="framing-meta"><span>{assessments.length} suministros analizados</span><span>{reviewCount} requieren revisión</span><span>{assessments.filter(x=>x.status==="correct").length} correctamente encuadrados</span></div><TariffSavingsTable rows={tariffSavings}/><section className="panel"><Title title="Diagnóstico y ahorros separados" sub="Potencia · Energía reactiva · Categoría tarifaria"/><div className="framing-tabs"><button className={framingFilter==="all"?"active":""} onClick={()=>setFramingFilter("all")}>Todos</button><button className={framingFilter==="change_candidate"?"active":""} onClick={()=>setFramingFilter("change_candidate")}>Posible cambio</button><button className={framingFilter==="power_review"?"active":""} onClick={()=>setFramingFilter("power_review")}>Revisar potencia</button><button className={framingFilter==="provisional"?"active":""} onClick={()=>setFramingFilter("provisional")}>Provisorios</button><button className={framingFilter==="correct"?"active":""} onClick={()=>setFramingFilter("correct")}>Correctos</button></div><TariffTable rows={visibleAssessments} onMeter={id=>{const i=invoices.find(x=>x.meter_id===id);if(i)openMeter(i)}}/></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} onClose={()=>setSelectedInvoice(null)}/>}</>}
   {tab==="tariffs"&&<HistoricalAnalysis invoices={invoices} meters={meters} tariffSavings={tariffSavings}/>}
@@ -505,7 +506,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
