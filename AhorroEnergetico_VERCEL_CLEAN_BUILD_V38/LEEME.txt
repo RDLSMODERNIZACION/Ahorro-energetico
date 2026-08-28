@@ -1,0 +1,37 @@
+﻿VERCEL CLEAN BUILD V38
+
+El log seguía mostrando:
+
+Restored build cache from previous deployment
+
+y luego volvía a ejecutar un chunk viejo que todavía buscaba VITE_API_URL.
+
+V38 hace dos cosas:
+
+1. Deja la URL del backend fija en page.tsx:
+   https://ahorro-energetico.onrender.com
+
+2. Crea front/vercel.json con:
+   rm -rf .next && npx next build
+
+Así, aunque Vercel restaure su cache, se elimina el .next viejo antes
+de compilar y Turbopack tiene que reconstruir los chunks.
+
+APLICAR:
+
+Set-ExecutionPolicy -Scope Process Bypass
+.\AhorroEnergetico_VERCEL_CLEAN_BUILD_V38\APLICAR_VERCEL_CLEAN_BUILD_V38.ps1
+
+DESPUÉS:
+
+git add .
+git commit -m "Force clean Vercel build"
+git push
+
+En el próximo log debería aparecer:
+
+Running "rm -rf .next && npx next build"
+
+y NO solamente:
+
+Running "npx next build"
