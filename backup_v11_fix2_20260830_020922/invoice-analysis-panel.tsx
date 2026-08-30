@@ -39,8 +39,6 @@ type AdvancedTariffHistoryPoint={
   monthly_saving:number;
   annualized_saving:number;
   capacity_kw:number;
-  available?:boolean;
-  reason?:string|null;
 };
 type AdvancedTariffHistoryResponse={
   meter_id:string;
@@ -92,9 +90,9 @@ function fmt(metric:Metric,value:number){
   return `${nf.format(value)} kWh`;
 }
 
-function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:string;monthly_saving:number;current_tariff?:string;recommended_tariff?:string;available?:boolean}[];selectedPeriod:string;onPeriod:(p:string)=>void}){
+function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:string;monthly_saving:number;current_tariff?:string;recommended_tariff?:string}[];selectedPeriod:string;onPeriod:(p:string)=>void}){
   const data=useMemo(()=>{
-    const map=new Map<string,{billing_period:string;monthly_saving:number;current_tariff?:string;recommended_tariff?:string;available?:boolean}>();
+    const map=new Map<string,{billing_period:string;monthly_saving:number;current_tariff?:string;recommended_tariff?:string}>();
     for(const row of rows){
       const p=String(row.billing_period||"").slice(0,7);
       if(p)map.set(p,row);
@@ -105,21 +103,20 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
       .map(([period,row])=>({
         period,
         row,
-        value:Math.max(0,Number(row.monthly_saving||0)),
-        available:row.available!==false
+        value:Math.max(0,Number(row.monthly_saving||0))
       }));
   },[rows]);
 
-  if(!data.length){
+  if(!data.length||!data.some(d=>d.value>0)){
     return <div className="invoice-tariff-no-data">
-      <b>Sin histórico tarifario</b>
-      <span>No hay períodos disponibles para este medidor.</span>
+      <b>Sin ahorro tarifario valorizado</b>
+      <span>No hay una simulación mensual disponible para este medidor.</span>
     </div>;
   }
 
   const width=1280,height=330,left=82,right=28,top=25,bottom=52;
   const plotW=width-left-right,plotH=height-top-bottom;
-  const max=Math.max(1,...data.filter(d=>d.available).map(d=>d.value))*1.08;
+  const max=Math.max(1,...data.map(d=>d.value))*1.08;
   const slot=plotW/Math.max(1,data.length),bw=Math.max(12,slot*.58);
 
   const axis=(value:number)=>{
@@ -141,33 +138,22 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
       {data.map((d,index)=>{
         const x=left+index*slot+(slot-bw)/2;
         const y=top+plotH-(d.value/max)*plotH;
-        const missing=!d.available;
-        const barY=missing?top+plotH-10:(d.value>0?y:top+plotH-3);
-        const barH=missing?10:Math.max(3,top+plotH-y);
-
         return <g
-          className={`invoice-analysis-bar tariff-saving-bar${missing?" missing":""}${selectedPeriod===d.period?" selected":""}`}
+          className={`invoice-analysis-bar tariff-saving-bar${selectedPeriod===d.period?" selected":""}`}
           key={d.period}
           onClick={()=>onPeriod(d.period)}
         >
-          <rect x={x} y={barY} width={bw} height={barH} rx="5">
-            <title>{missing
-              ?`${labelPeriod(d.period)} · Falta cuadro tarifario ${d.row.recommended_tariff||"propuesto"}`
-              :`${labelPeriod(d.period)} · ${d.row.current_tariff||"Actual"} → ${d.row.recommended_tariff||"Propuesta"} · ${money.format(d.value)}`
-            }</title>
+          <rect x={x} y={d.value>0?y:top+plotH-2} width={bw} height={Math.max(2,top+plotH-y)} rx="5">
+            <title>{labelPeriod(d.period)} · {d.row.current_tariff||"Actual"} → {d.row.recommended_tariff||"Propuesta"} · {money.format(d.value)}</title>
           </rect>
           {(index%3===0||index===data.length-1)&&
             <text x={x+bw/2} y={height-22} textAnchor="middle">{labelPeriod(d.period)}</text>}
         </g>
       })}
     </svg>
-
-    <div className="invoice-tariff-legend">
-      <span><i className="saving"/>Ahorro valorizado</span>
-      {data.some(d=>!d.available)&&<span><i className="missing"/>Falta cuadro T4 para ese mes</span>}
-    </div>
   </div>
 }
+
 function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void}){
   const data=useMemo(()=>{
     const map=new Map<string,Invoice>();
@@ -269,11 +255,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
   const excess=Math.max(0,v.contracted-v.demand);
   const powerSaving=excess*rate*1.30;
   const reactiveSaving=(selected.invoice_lines||[]).filter(x=>x.concept_code==="COS").reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0)*1.30;
-  const legacyTariffSaving=Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0);
-  const advancedTariffPoint=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
-  const advancedTariffSaving=advancedTariffPoint?.available===false?0:Number(advancedTariffPoint?.monthly_saving||0);
-  const tariffSaving=advancedTariffSaving>0?advancedTariffSaving:legacyTariffSaving;
-  const tariffSavingSource=advancedTariffSaving>0?"T4":legacyTariffSaving>0?"legacy":"none";
+  const tariffSaving=Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0);
   const totalSaving=powerSaving+reactiveSaving+tariffSaving;
   const m=selected.meters||invoice.meters;
   const sorted=[...history].sort((a,b)=>periodOf(a).localeCompare(periodOf(b)));
@@ -385,16 +367,14 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
               billing_period:String(x.billing_period).slice(0,7),
               monthly_saving:Number(x.monthly_saving_with_vat||0),
               current_tariff:x.current_tariff,
-              recommended_tariff:x.recommended_tariff,
-              available:true
+              recommended_tariff:x.recommended_tariff
             }));
 
           const advancedRows=(advancedTariffHistory?.points||[]).map(x=>({
             billing_period:String(x.billing_period).slice(0,7),
             monthly_saving:Number(x.monthly_saving||0),
             current_tariff:x.current_tariff,
-            recommended_tariff:x.recommended_tariff,
-            available:x.available!==false
+            recommended_tariff:x.recommended_tariff
           }));
 
           const chartRows=advancedRows.some(x=>x.monthly_saving>0) ? advancedRows : legacyRows;
@@ -435,7 +415,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
           <div className="invoice-analysis-saving-list">
             <div><span>Potencia contratada</span><b>{money.format(powerSaving)}</b><small>{excess>0?`${nf.format(excess)} kW sobrantes × tarifa de potencia + IVA 30%`:"Sin ahorro detectado"}</small></div>
             <div><span>Factor de potencia</span><b>{money.format(reactiveSaving)}</b><small>{reactiveSaving>0?"Penalización reactiva evitable + IVA 30%":"Sin penalización valorizada"}</small></div>
-            <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?"Ahorro mensual simulado con IVA":advancedTariffPoint?.available===false?"Falta cuadro tarifario T4 para este período":"Sin ahorro tarifario valorizado"}</small></div>
+            <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSaving>0?"Ahorro mensual simulado con IVA":"Sin ahorro tarifario valorizado"}</small></div>
             <div className="total"><span>Total mensual</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} / año</small></div>
           </div>
         </section>
@@ -464,7 +444,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

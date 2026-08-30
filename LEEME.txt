@@ -1,28 +1,21 @@
-REBUILD HELPERS V10
+V11 FIX3
 
-Este fix no intenta encontrar ni borrar el fragmento huérfano exacto.
+Corrige el error de PowerShell:
+"El operador -ireplace solo permite que lo sigan dos elementos, no 6."
 
-Hace algo más seguro:
-- toma invoice-analysis-panel.tsx;
-- conserva todo lo anterior a function fmt();
-- conserva todo desde InvoiceAnalysisPanel en adelante;
-- RECONSTRUYE COMPLETAMENTE el bloque intermedio con:
-  1. fmt
-  2. TariffSavingTrend
-  3. InvoiceTrend
+La causa era una construcción incorrecta de -replace en FIX2.
 
-De esta manera desaparecen:
-- fragmentos huérfanos;
-- funciones duplicadas;
-- restos de V6/V7/V9 en esa zona.
-
-Al final valida que exista exactamente:
-- 1 fmt
-- 1 TariffSavingTrend
-- 1 InvoiceTrend
+FIX3:
+- ya no usa ese -replace;
+- reemplaza legacyRows completo con Regex;
+- mantiene todos los cambios previstos:
+  - ahorro T4 unificado con cuadro inferior;
+  - Total mensual y Ahorro potencial;
+  - meses grises cuando falta cuadro T4;
+  - leyenda del gráfico.
 
 Ejecutar:
-.\APLICAR_REBUILD_HELPERS_V10.ps1
+.\APLICAR_EPEN_AHORRO_V11_FIX3.ps1
 
 Luego:
 cd front

@@ -3,9 +3,25 @@ from fastapi import APIRouter, Depends
 
 from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
-from .epen_optimization import _simulate, _max_demand, _contracted, _period, _voltage_key, _tariff_key
+from .epen_optimization import (
+    _simulate, _max_demand, _contracted, _period, _voltage_key,
+    _tariff_key, _active_kwh,
+)
 
 router = APIRouter(tags=["Optimización EPEN"])
+
+
+def _one_invoice_per_period(invoices):
+    """Evita que notas de crédito/ajustes del mismo mes reemplacen la factura real."""
+    by_period = {}
+    for invoice in invoices:
+        period = _period(invoice)
+        if not period:
+            continue
+        current = by_period.get(period)
+        if current is None or _active_kwh(invoice) > _active_kwh(current):
+            by_period[period] = invoice
+    return [by_period[p] for p in sorted(by_period)]
 
 
 @router.get("/meters/{meter_id}/tariff-saving-history")
@@ -38,13 +54,15 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
         "contracted_kw_peak,contracted_kw_off_peak,service_capacity_kw)"
     ).eq("meter_id", meter_id).execute().data or []
 
-    invoices.sort(key=lambda x: _period(x))
+    invoices = _one_invoice_per_period(invoices)
     if not invoices:
         return {"meter_id": meter_id, "mode": "none", "points": []}
 
     last12 = invoices[-12:]
     voltage = _voltage_key(invoices[-1].get("voltage_level") or meter.get("voltage_level"))
-    current_tariff = _tariff_key(invoices[-1].get("current_tariff_code") or meter.get("current_tariff_code"))
+    current_tariff = _tariff_key(
+        invoices[-1].get("current_tariff_code") or meter.get("current_tariff_code")
+    )
     months_over_100 = sum(1 for x in last12 if _max_demand(x) >= Decimal("100"))
 
     candidate = (
@@ -66,7 +84,9 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
         }
 
     points = []
+
     for invoice in invoices[-24:]:
+        period = _period(invoice)
         tariff = _tariff_key(invoice.get("current_tariff_code") or current_tariff)
         inv_voltage = _voltage_key(invoice.get("voltage_level") or voltage)
 
@@ -91,12 +111,28 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
             rates, invoice, target, inv_voltage, unique_kw, Decimal("0")
         )
 
+        # IMPORTANTE: no omitimos el mes. Si falta cuadro tarifario,
+        # lo devolvemos igualmente para que el gráfico conserve los 24 períodos.
         if current_cost is None or proposed_cost is None:
+            points.append({
+                "billing_period": period,
+                "current_tariff": tariff,
+                "recommended_tariff": target,
+                "current_cost": None if current_cost is None else float(current_cost),
+                "recommended_cost": None if proposed_cost is None else float(proposed_cost),
+                "monthly_saving": 0.0,
+                "annualized_saving": 0.0,
+                "capacity_kw": float(unique_kw),
+                "available": False,
+                "reason": "missing_tariff_schedule",
+                "resolution_number": None,
+            })
             continue
 
         saving = max(Decimal("0"), current_cost - proposed_cost)
+
         points.append({
-            "billing_period": _period(invoice),
+            "billing_period": period,
             "current_tariff": tariff,
             "recommended_tariff": target,
             "current_cost": float(current_cost),
@@ -104,6 +140,8 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
             "monthly_saving": float(saving),
             "annualized_saving": float(saving * 12),
             "capacity_kw": float(unique_kw),
+            "available": True,
+            "reason": None,
             "resolution_number": (
                 (proposed_schedule or current_schedule or {}).get("resolution_number")
             ),

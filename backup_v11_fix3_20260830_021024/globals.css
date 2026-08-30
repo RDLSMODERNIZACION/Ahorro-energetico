@@ -1747,12 +1747,3 @@ td small {
 .invoice-tariff-no-data{height:330px;display:grid;place-content:center;text-align:center;gap:5px;color:#64748b}
 .invoice-tariff-no-data b{font-size:15px;color:#334155}
 .invoice-tariff-no-data span{font-size:11px}
-
-/* EPEN V11 FIX3 */
-.tariff-saving-bar.missing rect{fill:#cbd5e1!important;stroke:#94a3b8;stroke-width:1}
-.tariff-saving-bar.missing.selected rect{fill:#94a3b8!important;stroke:#475569;stroke-width:2}
-.invoice-tariff-legend{display:flex;gap:18px;justify-content:flex-end;padding:2px 26px 0;font-size:11px;color:#475569}
-.invoice-tariff-legend span{display:flex;align-items:center;gap:7px}
-.invoice-tariff-legend i{width:13px;height:13px;border-radius:4px;display:inline-block}
-.invoice-tariff-legend i.saving{background:#2b9b70}
-.invoice-tariff-legend i.missing{background:#cbd5e1;border:1px solid #94a3b8}
