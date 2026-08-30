@@ -30,3 +30,24 @@
 .pl-tariff-warning{margin:16px;padding:12px;border:1px solid #edc8a2;background:#fff8ed;color:#95601e;border-radius:8px;font-size:9px;line-height:1.5}
 .pl-data{cursor:pointer}.pl-data:hover{box-shadow:inset 3px 0 #1b925e;background:#f6fbf8}
 @media(max-width:900px){.pl-analysis-head{padding:62px 18px 22px}.pl-analysis-head button{left:18px}.pl-analysis-tabs{padding:12px 18px;overflow-x:auto}.pl-detail-kpis-v3{padding:14px 18px;grid-template-columns:repeat(2,1fr)}.pl-analysis-card{margin:0 18px 14px}.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
+
+
+/* AP sort headers */
+.pl-head .pl-sort-head{
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:inherit;
+  letter-spacing:inherit;
+  text-align:left;
+  padding:0;
+  cursor:pointer;
+}
+.pl-head .pl-sort-head:hover{
+  color:#18845a;
+}
+.pl-head .pl-sort-head.active{
+  color:#18845a;
+}
+

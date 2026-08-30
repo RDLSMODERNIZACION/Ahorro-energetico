@@ -93,8 +93,6 @@ export function PublicLightingPanel({
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
   const [selected,setSelected]=useState<PLRow|null>(null);
-  const [sortKey,setSortKey]=useState<"consumption"|"amount"|null>(null);
-  const [sortDir,setSortDir]=useState<"desc"|"asc">("desc");
 
   // Fuente de verdad del período inicial:
   // usamos las facturas generales que ya carga la aplicación.
@@ -133,40 +131,16 @@ export function PublicLightingPanel({
 
   const rows=useMemo(()=>{
     if(!data)return[];
-
     const q=search.trim().toLowerCase();
 
-    const filtered=data.rows.filter(row=>{
+    return data.rows.filter(row=>{
       if(status!=="all"&&row.analysis_status!==status)return false;
       if(!q)return true;
 
       return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number]
         .some(v=>String(v||"").toLowerCase().includes(q));
     });
-
-    if(!sortKey)return filtered;
-
-    return [...filtered].sort((a,b)=>{
-      const av=sortKey==="consumption"
-        ? Number(a.active_energy_kwh??-1)
-        : Number(a.total_amount??-1);
-
-      const bv=sortKey==="consumption"
-        ? Number(b.active_energy_kwh??-1)
-        : Number(b.total_amount??-1);
-
-      return sortDir==="desc" ? bv-av : av-bv;
-    });
-  },[data,search,status,sortKey,sortDir]);
-
-  function toggleSort(key:"consumption"|"amount"){
-    if(sortKey===key){
-      setSortDir(current=>current==="desc"?"asc":"desc");
-    }else{
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  }
+  },[data,search,status]);
 
   const selectedInvoice=selected?(
     (selected.invoice_id?invoices.find(i=>String(i.id)===String(selected.invoice_id)):undefined)
@@ -254,24 +228,10 @@ export function PublicLightingPanel({
         <div className="pl-row pl-head">
           <span>MEDIDOR / SUMINISTRO</span>
           <span>UBICACIÓN</span>
-          <button
-            type="button"
-            className={`pl-sort-head ${sortKey==="consumption"?"active":""}`}
-            onClick={()=>toggleSort("consumption")}
-            title="Ordenar por consumo"
-          >
-            CONSUMO {sortKey==="consumption"?(sortDir==="desc"?"↓":"↑"):""}
-          </button>
+          <span>CONSUMO</span>
           <span>DEMANDA</span>
           <span>FACTOR POT.</span>
-          <button
-            type="button"
-            className={`pl-sort-head ${sortKey==="amount"?"active":""}`}
-            onClick={()=>toggleSort("amount")}
-            title="Ordenar por importe"
-          >
-            IMPORTE {sortKey==="amount"?(sortDir==="desc"?"↓":"↑"):""}
-          </button>
+          <span>IMPORTE</span>
           <span>TARIFA</span>
           <span>ANÁLISIS</span>
         </div>
@@ -342,7 +302,6 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
 
 
 

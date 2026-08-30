@@ -1,0 +1,18 @@
+/* AP sort headers */
+.pl-head .pl-sort-head{
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:inherit;
+  letter-spacing:inherit;
+  text-align:left;
+  padding:0;
+  cursor:pointer;
+}
+.pl-head .pl-sort-head:hover{
+  color:#18845a;
+}
+.pl-head .pl-sort-head.active{
+  color:#18845a;
+}
