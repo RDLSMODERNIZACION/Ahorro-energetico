@@ -1,7 +1,7 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
-from .routers import analysis,catalog,imports,invoices,tariffs,ai,intelligence,epen_optimization
+from .routers import analysis,catalog,imports,invoices,tariffs,ai,intelligence
 
 api=FastAPI(title="Gestión Energética Municipal API",version="1.0.0",description="Facturas EPEN, cuadros tarifarios y oportunidades de ahorro")
 api.include_router(catalog.router,prefix="/api")
@@ -9,7 +9,6 @@ api.include_router(imports.router,prefix="/api")
 api.include_router(tariffs.router,prefix="/api")
 api.include_router(invoices.router,prefix="/api")
 api.include_router(analysis.router,prefix="/api")
-api.include_router(epen_optimization.router,prefix="/api")
 api.include_router(ai.router,prefix="/api")
 api.include_router(intelligence.router,prefix="/api")
 
@@ -26,7 +25,6 @@ app=CORSMiddleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 

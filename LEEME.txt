@@ -1,0 +1,12 @@
+FIX DE INSTALACIÓN EPEN OPTIMIZACION V1
+
+El primer script asumía que estaba dentro de una subcarpeta y tomaba como repositorio la carpeta padre.
+Este script detecta automáticamente si está:
+- directamente en la raíz de Ahorro-energetico, o
+- dentro de una subcarpeta del repositorio.
+
+Descomprimir TODO el ZIP en:
+C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+
+Y ejecutar:
+.\APLICAR_EPEN_OPTIMIZACION_V1_FIX.ps1
