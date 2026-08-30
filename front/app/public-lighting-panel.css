@@ -1,31 +1,32 @@
 
-/* AP Individual V2 - complemento visual del módulo existente */
-.pl-analysis-backdrop{position:fixed;inset:0;z-index:90;background:#10241c77;backdrop-filter:blur(2px);display:flex;justify-content:flex-end}
-.pl-analysis-drawer{width:min(920px,97vw);height:100vh;overflow:auto;background:#f5f8f6;box-shadow:-24px 0 70px #081d1455}
-.pl-analysis-head{margin:0;padding:23px 26px;background:#173a2c;color:white;display:flex;justify-content:space-between;align-items:flex-start}
-.pl-analysis-head small{font-size:8px;letter-spacing:.14em;color:#9bd1b8}.pl-analysis-head h2{font-size:20px;margin:6px 0}.pl-analysis-head p{margin:0;color:#b9d6c9;font-size:10px}
-.pl-analysis-head button{border:0;background:#ffffff18;color:#fff;width:36px;height:36px;border-radius:8px;font-size:24px;cursor:pointer}
-.pl-analysis-tabs{display:flex;gap:7px;padding:12px 16px;background:#fff;border-bottom:1px solid #e5ebe7;position:sticky;top:0;z-index:2}
-.pl-analysis-tabs button{border:1px solid #d9e5de;background:#fff;color:#617168;border-radius:20px;padding:8px 14px;font-size:9px;font-weight:800;cursor:pointer}
+/* AP Individual V3 - análisis individual como página independiente */
+.pl-analysis-backdrop{position:fixed;inset:0;z-index:90;background:#f5f8f6;display:block;overflow:auto}
+.pl-analysis-drawer{width:100%;min-height:100vh;height:auto;overflow:visible;background:#f5f8f6;box-shadow:none}
+.pl-analysis-head{position:relative;margin:0;padding:68px 34px 28px;background:#173a2c;color:white;display:flex;justify-content:space-between;align-items:flex-start;border-radius:0 0 14px 14px}
+.pl-analysis-head small{font-size:8px;letter-spacing:.14em;color:#9bd1b8}.pl-analysis-head h2{font-size:24px;margin:7px 0}.pl-analysis-head p{margin:0;color:#b9d6c9;font-size:10px}
+.pl-analysis-head button{position:absolute;left:34px;top:18px;border:1px solid #ffffff24;background:#ffffff12;color:#fff;width:auto;height:34px;border-radius:8px;padding:0 14px;font-size:0;font-weight:800;cursor:pointer}
+.pl-analysis-head button::before{content:"← Volver a Alumbrado Público";font-size:10px}
+.pl-analysis-tabs{display:flex;gap:7px;padding:14px 34px;background:#fff;border-bottom:1px solid #e5ebe7;position:sticky;top:0;z-index:2}
+.pl-analysis-tabs button{border:1px solid #d9e5de;background:#fff;color:#617168;border-radius:20px;padding:9px 16px;font-size:9px;font-weight:800;cursor:pointer}
 .pl-analysis-tabs button.active{background:#1b925e;border-color:#1b925e;color:#fff}
-.pl-detail-kpis-v3{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px}
-.pl-detail-kpis-v3 article{background:#fff;border:1px solid #e5ebe7;border-radius:9px;padding:13px}.pl-detail-kpis-v3 article.alert{background:#fff4f1;border-color:#f0c3b9}
-.pl-detail-kpis-v3 span{display:block;font-size:8px;color:#78877f;margin-bottom:7px}.pl-detail-kpis-v3 b{font-size:13px}
-.pl-analysis-card{margin:0 16px 15px;background:#fff;border:1px solid #e5ebe7;border-radius:10px;overflow:hidden}
-.pl-analysis-card-title{padding:14px 16px;border-bottom:1px solid #edf1ee;display:flex;justify-content:space-between;align-items:center}
-.pl-analysis-card-title h3{margin:0;font-size:12px}.pl-analysis-card-title p{margin:4px 0 0;color:#7a8981;font-size:9px}.pl-analysis-card-title>b{color:#173d2f;font-size:16px}
-.pl-diagnosis{padding:12px 15px}.pl-diagnosis>div{display:flex;gap:9px;align-items:center;padding:10px;border-radius:8px;background:#fff4ef;color:#9b4d3f;font-size:10px;margin-bottom:7px}
+.pl-detail-kpis-v3{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px 34px}
+.pl-detail-kpis-v3 article{background:#fff;border:1px solid #e5ebe7;border-radius:10px;padding:15px}.pl-detail-kpis-v3 article.alert{background:#fff4f1;border-color:#f0c3b9}
+.pl-detail-kpis-v3 span{display:block;font-size:8px;color:#78877f;margin-bottom:7px}.pl-detail-kpis-v3 b{font-size:14px}
+.pl-analysis-card{margin:0 34px 18px;background:#fff;border:1px solid #e5ebe7;border-radius:11px;overflow:hidden}
+.pl-analysis-card-title{padding:16px 18px;border-bottom:1px solid #edf1ee;display:flex;justify-content:space-between;align-items:center}
+.pl-analysis-card-title h3{margin:0;font-size:13px}.pl-analysis-card-title p{margin:4px 0 0;color:#7a8981;font-size:9px}.pl-analysis-card-title>b{color:#173d2f;font-size:17px}
+.pl-diagnosis{padding:13px 17px}.pl-diagnosis>div{display:flex;gap:9px;align-items:center;padding:11px;border-radius:8px;background:#fff4ef;color:#9b4d3f;font-size:10px;margin-bottom:7px}
 .pl-diagnosis>div.good{background:#edf8f2;color:#166e4a}.pl-diagnosis i{font-style:normal;font-weight:900}
-.pl-summary-dl{display:grid;grid-template-columns:repeat(2,1fr);margin:0}.pl-summary-dl>div{padding:13px 15px;border-bottom:1px solid #edf1ee}.pl-summary-dl>div:nth-child(odd){border-right:1px solid #edf1ee}
+.pl-summary-dl{display:grid;grid-template-columns:repeat(2,1fr);margin:0}.pl-summary-dl>div{padding:14px 17px;border-bottom:1px solid #edf1ee}.pl-summary-dl>div:nth-child(odd){border-right:1px solid #edf1ee}
 .pl-summary-dl dt{font-size:8px;color:#829087;text-transform:uppercase}.pl-summary-dl dd{margin:5px 0 0;font-size:10px;font-weight:800}
-.pl-chart-v3{height:300px;display:flex;align-items:flex-end;gap:6px;padding:24px 16px 12px;overflow-x:auto}
-.pl-chart-v3 button{border:0;background:transparent;min-width:31px;height:245px;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;cursor:pointer}
-.pl-chart-v3 .bar-wrap{height:210px;width:18px;display:flex;align-items:flex-end}.pl-chart-v3 .bar-wrap i{display:block;width:100%;background:#58ad83;border-radius:5px 5px 2px 2px;min-height:3px}
+.pl-chart-v3{height:340px;display:flex;align-items:flex-end;gap:8px;padding:28px 20px 14px;overflow-x:auto}
+.pl-chart-v3 button{border:0;background:transparent;min-width:36px;height:275px;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;cursor:pointer}
+.pl-chart-v3 .bar-wrap{height:235px;width:21px;display:flex;align-items:flex-end}.pl-chart-v3 .bar-wrap i{display:block;width:100%;background:#58ad83;border-radius:5px 5px 2px 2px;min-height:3px}
 .pl-chart-v3.amount .bar-wrap i{background:#7f9f90}.pl-chart-v3 button.active .bar-wrap i{background:#187c55}.pl-chart-v3 small{font-size:7px;color:#7d8c84;white-space:nowrap}
-.pl-selected-period{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #edf1ee}.pl-selected-period>div{padding:12px 14px;border-right:1px solid #edf1ee}.pl-selected-period>div:last-child{border-right:0}
+.pl-selected-period{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #edf1ee}.pl-selected-period>div{padding:13px 15px;border-right:1px solid #edf1ee}.pl-selected-period>div:last-child{border-right:0}
 .pl-selected-period span{display:block;color:#7b8982;font-size:8px;margin-bottom:5px}.pl-selected-period b{font-size:10px}
-.pl-tariff-list button{width:100%;border:0;border-bottom:1px solid #edf1ee;background:#fff;display:grid;grid-template-columns:95px 85px 1fr 130px;gap:10px;align-items:center;padding:11px 15px;text-align:left;cursor:pointer}
+.pl-tariff-list button{width:100%;border:0;border-bottom:1px solid #edf1ee;background:#fff;display:grid;grid-template-columns:95px 85px 1fr 130px;gap:10px;align-items:center;padding:12px 17px;text-align:left;cursor:pointer}
 .pl-tariff-list button.active{background:#edf8f2}.pl-tariff-list span{font-weight:900;color:#177c54;font-size:9px}.pl-tariff-list small{color:#798980;font-size:8px}.pl-tariff-list em{text-align:right;font-style:normal;font-weight:800;font-size:9px}
-.pl-tariff-warning{margin:14px;padding:12px;border:1px solid #edc8a2;background:#fff8ed;color:#95601e;border-radius:8px;font-size:9px;line-height:1.5}
+.pl-tariff-warning{margin:16px;padding:12px;border:1px solid #edc8a2;background:#fff8ed;color:#95601e;border-radius:8px;font-size:9px;line-height:1.5}
 .pl-data{cursor:pointer}.pl-data:hover{box-shadow:inset 3px 0 #1b925e;background:#f6fbf8}
-@media(max-width:900px){.pl-analysis-drawer{width:100vw}.pl-detail-kpis-v3,.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
+@media(max-width:900px){.pl-analysis-head{padding:62px 18px 22px}.pl-analysis-head button{left:18px}.pl-analysis-tabs{padding:12px 18px;overflow-x:auto}.pl-detail-kpis-v3{padding:14px 18px;grid-template-columns:repeat(2,1fr)}.pl-analysis-card{margin:0 18px 14px}.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
