@@ -1,32 +1,32 @@
-EPEN OPTIMIZACION V2
+EPEN OPTIMIZACION V3
+
+Corrige la presentación del análisis individual:
+
+1. Si la factura es T3/T3A, en la parte superior muestra:
+   - Potencia contratada punta
+   - Potencia contratada fuera de punta
+
+   Busca los valores primero en contracted_kw_peak / contracted_kw_off_peak
+   y, si faltan, en las líneas DEP/DEM y DFP de la factura.
+
+2. El cuadro "Análisis tarifario avanzado EPEN" ya NO muestra los tres estudios siempre.
+   Solo muestra lo que aplica a esa factura:
+   - T3/T3A => análisis de dos potencias.
+   - T4 => solo si el suministro es candidato real.
+   - BT→MT => únicamente si la factura está actualmente en BT.
+
+3. En un suministro como Planta de agua Confluencia (T3A - MT):
+   debe mostrar únicamente:
+   - T3: punta / fuera de punta
+   - Candidato T4-MT
+   NO debe mostrar BT→MT.
 
 REQUISITO:
-Haber aplicado primero V1_FIX.
+Tener aplicada la V2 anterior.
 
-NUEVO:
-1) En FACTURAS > columna TARIFA agrega indicadores:
-   - T3 · 2 POTENCIAS
-   - APTO T4
-   - BT → MT
+INSTALACION:
+Descomprimir en la raíz de Ahorro-energetico y ejecutar:
 
-2) Al abrir una factura individual agrega un bloque:
-   ANÁLISIS TARIFARIO AVANZADO EPEN
-   - T3 punta / fuera de punta
-   - T3 → T4
-   - BT → MT
-   con valores y ahorro mensual antes de impuestos.
+.\APLICAR_EPEN_OPTIMIZACION_V3.ps1
 
-3) Backend agrega endpoint individual:
-   /api/meters/{meter_id}/epen-optimization
-
-INSTALACIÓN:
-Descomprimir TODO en la raíz de Ahorro-energetico y ejecutar:
-.\APLICAR_EPEN_OPTIMIZACION_V2.ps1
-
-Luego:
-cd front
-npm run dev
-
-Para backend local:
-cd back
-python -m uvicorn app.main:app --reload
+Después reiniciar el front.

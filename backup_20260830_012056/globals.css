@@ -1648,11 +1648,3 @@ td small {
 .epen-individual-grid article>small{font-size:11px;color:#64748b}
 .epen-individual-grid article>strong{margin-top:auto;font-size:16px;color:#047857}
 @media(max-width:1000px){.epen-individual-grid{grid-template-columns:1fr}}
-
-/* EPEN ADVANCED V3 */
-.epen-individual-grid.epen-cols-1{grid-template-columns:minmax(0,1fr)}
-.epen-individual-grid.epen-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.epen-individual-grid.epen-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(7,minmax(0,1fr))}
-@media(max-width:1450px){.invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:1000px){.epen-individual-grid.epen-cols-2,.epen-individual-grid.epen-cols-3{grid-template-columns:1fr}.invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(2,minmax(0,1fr))}}
