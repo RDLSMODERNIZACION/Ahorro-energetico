@@ -1,20 +1,32 @@
-FIX V13 PARSE
+EPEN RESUMEN GENERAL V14
 
-Error:
-Unexpected token en invoice-analysis-panel.tsx alrededor de la línea 501.
+PROBLEMA
+La tarjeta "Cambio tarifario" del resumen general seguía usando:
+tariffSavings.monthly_saving_with_vat
 
-Causa verificada en el código:
-después del cierre correcto de InvoiceTrend quedó repetido:
+Ese es el cálculo tarifario viejo.
 
-onPeriod={setSelectedPeriod}
-/>
-)}
+Mientras que el análisis individual ya usa:
+T3/T3A REAL facturada - T4 simulada
 
-Este fix elimina únicamente ese duplicado.
+Por eso los valores no coincidían.
 
-Ejecutar:
-.\APLICAR_FIX_V13_PARSE.ps1
+V14 agrega:
+GET /api/organizations/{organization_id}/tariff-saving-summary?period=YYYY-MM
 
-Luego:
-cd front
-npm run dev
+El endpoint:
+- analiza todos los medidores del período;
+- aplica el mismo criterio T4 del análisis individual;
+- usa T3/T3A REAL desde invoice_lines;
+- simula T4 con el cuadro oficial;
+- suma sólo ahorros valorizados;
+- no extrapola meses sin cuadro oficial.
+
+La tarjeta del dashboard "Cambio tarifario" ahora usa ese total.
+También el total general incorpora ese mismo valor.
+
+INSTALAR:
+.\APLICAR_EPEN_RESUMEN_GENERAL_V14.ps1
+
+IMPORTANTE:
+Hay cambios de backend. Deploy en Render obligatorio.
