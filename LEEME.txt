@@ -1,80 +1,67 @@
-AP COMO CLASIFICACIÓN DEL MEDIDOR GENERAL - V4
-================================================
+AP LINKED METER FIX V5
+======================
 
-OBJETIVO
---------
-Dejar de usar public_lighting_invoices como fuente del análisis.
+Revisión hecha contra el GitHub ACTUAL y la base Supabase ACTUAL.
 
-Alumbrado Público pasa a ser una CLASIFICACIÓN:
-public_lighting_meters.meter_id -> meters.id
+PROBLEMA ENCONTRADO
+-------------------
+El backend actual de GitHub usa:
 
-A partir de ahí AP usa EXACTAMENTE las mismas:
-- invoices
-- invoice_measurements
-- invoice_lines
+public_lighting_meters.meter_id
 
-que Dependencias.
+pero la base real NO tiene ese campo.
 
-RESULTADO
----------
-El análisis individual de AP abre el MISMO InvoiceAnalysisPanel
-que una Dependencia, con datos reales de:
+La base tiene:
 
-- Demanda
-- Importe
-- Factor de potencia
-- Tarifaria
-- Potencia contratada
-- Conceptos facturados
-- Mediciones
-- Histórico
+public_lighting_meters.linked_meter_id
 
-La tabla public_lighting_invoices NO se elimina.
-Queda como histórico/legacy por seguridad, pero deja de ser la fuente
-del análisis AP.
+y ya está correctamente vinculado:
+81 AP / 81 vinculados.
 
-PASO 1 - BASE DE DATOS
-----------------------
-Abrí Supabase > SQL Editor y ejecutá:
+Además, las facturas históricas AP ya fueron migradas al modelo general:
+meters -> invoices -> invoice_measurements.
 
-supabase/001_ap_como_clasificacion.sql
+QUÉ CORRIGE ESTE ZIP
+--------------------
+1. Backend AP:
+   - usa linked_meter_id
+   - deja de intentar escribir meter_id
+   - consulta invoices generales
+   - devuelve meter_id al front como alias del linked_meter_id
+   - calcula consumo, demanda y factor de potencia desde invoice_measurements
+   - usa invoice_lines para detectar penalización COS
 
-Ese SQL:
-1. agrega public_lighting_meters.meter_id
-2. crea FK hacia meters.id
-3. intenta vincular primero por supply_number
-4. luego por meter_number
-5. al final muestra los AP que quedaron sin vincular
+2. Front AP:
+   - abre el MISMO InvoiceAnalysisPanel de Dependencias
+   - mantiene:
+       Demanda
+       Importe
+       Factor de potencia
+       Tarifaria
+   - botón: Volver a Alumbrado Público
+   - no muestra editor de nombre/ubicación específico dentro del análisis AP
 
-Si la consulta final devuelve filas, hay que revisar esos pocos casos
-manualmente antes de considerar la migración 100% terminada.
+3. No requiere más cambios en Supabase.
 
-PASO 2 - CÓDIGO
----------------
-Desde la raíz de Ahorro-energetico:
+LIMITACIÓN REAL DE LOS DATOS HISTÓRICOS
+---------------------------------------
+Las facturas AP antiguas fueron importadas originalmente desde
+public_lighting_invoices. Muchas de esas filas no contenían demanda
+ni factor de potencia.
 
-.\APLICAR_AP_COMO_CLASIFICACION_V4.ps1
+Por eso:
+- donde invoice_measurements tenga demanda, se mostrará;
+- donde tenga power_factor o tangent_phi, se mostrará/calculará;
+- donde históricamente no exista ese dato, se mostrará S/D.
 
-El script:
-- hace backup
-- reemplaza el router backend de AP
-- reemplaza el panel frontend de AP
-- asegura que page.tsx pase invoices/tariffSavings/epenOptimization
+Esto ya no es una limitación del diseño: es disponibilidad del dato histórico.
 
-PASO 3 - PROBAR
----------------
-Backend debe estar reiniciado/desplegado.
+APLICAR
+-------
+Desde la raíz del repo:
 
-Frontend:
-cd front
-npm run dev
+.\APLICAR_AP_LINKED_METER_FIX_V5.ps1
 
-IMPORTANTE
-----------
-No se modificó GitHub automáticamente.
-Este ZIP es para aplicar localmente.
+Luego reiniciar backend y frontend.
 
-La migración es deliberadamente conservadora:
-NO borra public_lighting_invoices.
-Cuando confirmemos que todo AP ya funciona desde invoices generales,
-podemos decidir si la tabla legacy se conserva o se archiva.
+No se modifica GitHub directamente.

@@ -36,10 +36,6 @@ def _month_index(period: str) -> int:
     return d.year * 12 + d.month
 
 
-def _normalize(value) -> str:
-    return str(value or "").strip().lower()
-
-
 def _invoice_kwh(invoice: dict) -> float | None:
     values = [
         _num(x.get("active_energy_kwh"))
@@ -51,10 +47,10 @@ def _invoice_kwh(invoice: dict) -> float | None:
 
 def _invoice_demand(invoice: dict) -> float | None:
     values = []
-    for x in invoice.get("invoice_measurements") or []:
+    for measurement in invoice.get("invoice_measurements") or []:
         for key in ("demand_kw", "registered_demand_peak_kw", "registered_demand_off_peak_kw"):
-            value = _num(x.get(key))
-            if value is not None:
+            value = _num(measurement.get(key))
+            if value is not None and value > 0:
                 values.append(value)
     return max(values) if values else None
 
@@ -75,9 +71,9 @@ def _invoice_power_factor(invoice: dict) -> tuple[float | None, bool]:
         tangent = _num(measurement.get("tangent_phi"))
         surcharge = _num(measurement.get("reactive_surcharge_percent")) or 0.0
 
-        if reported and reported > 0:
+        if reported is not None and reported > 0:
             resolved.append(reported)
-        elif tangent and tangent > 0:
+        elif tangent is not None and tangent > 0:
             resolved.append(1.0 / sqrt(1.0 + tangent * tangent))
 
         if surcharge > 0:
@@ -137,11 +133,13 @@ def public_lighting_analysis(
     require_org(user.id, organization_id)
     db = admin_db()
 
-    # AP pasa a ser una CLASIFICACIÓN de meters.
+    # IMPORTANTE:
+    # La base real ya tiene public_lighting_meters.linked_meter_id -> meters.id.
+    # AP es una clasificación del medidor general, no una segunda factura.
     ap_meters = (
         db.table("public_lighting_meters")
         .select(
-            "id,meter_id,supply_number,supply_contract,meter_number,address,"
+            "id,linked_meter_id,supply_number,supply_contract,meter_number,address,"
             "tariff_code,validation_status,billing_type,voltage_level"
         )
         .eq("organization_id", organization_id)
@@ -151,7 +149,6 @@ def public_lighting_analysis(
         or []
     )
 
-    # Intento de auto-vinculación para registros aún sin meter_id.
     general_meters = (
         db.table("meters")
         .select(
@@ -163,45 +160,17 @@ def public_lighting_analysis(
         .data
         or []
     )
-
-    by_supply = defaultdict(list)
-    by_meter = defaultdict(list)
-    for meter in general_meters:
-        if _normalize(meter.get("supply_number")):
-            by_supply[_normalize(meter.get("supply_number"))].append(meter)
-        if _normalize(meter.get("meter_number")):
-            by_meter[_normalize(meter.get("meter_number"))].append(meter)
-
     general_by_id = {m["id"]: m for m in general_meters}
 
-    for ap in ap_meters:
-        if ap.get("meter_id"):
-            continue
-
-        candidate = None
-        supply_matches = by_supply.get(_normalize(ap.get("supply_number")), [])
-        meter_matches = by_meter.get(_normalize(ap.get("meter_number")), [])
-
-        if len(supply_matches) == 1:
-            candidate = supply_matches[0]
-        elif len(meter_matches) == 1:
-            candidate = meter_matches[0]
-
-        if candidate:
-            ap["meter_id"] = candidate["id"]
-            try:
-                db.table("public_lighting_meters").update(
-                    {"meter_id": candidate["id"]}
-                ).eq("id", ap["id"]).execute()
-            except Exception:
-                # El análisis sigue funcionando aunque no pueda persistir la vinculación.
-                pass
-
-    linked_ids = [x.get("meter_id") for x in ap_meters if x.get("meter_id")]
+    linked_ids = list({
+        x.get("linked_meter_id")
+        for x in ap_meters
+        if x.get("linked_meter_id")
+    })
 
     invoices = []
     if linked_ids:
-        # Misma fuente de datos que Dependencias.
+        # EXACTAMENTE la misma fuente de datos que Dependencias.
         invoices = (
             db.table("invoices")
             .select(
@@ -245,8 +214,11 @@ def public_lighting_analysis(
     anomaly_count = 0
 
     for ap in ap_meters:
-        meter_id = ap.get("meter_id")
+        # Hacia el front lo seguimos llamando meter_id para que el componente
+        # individual pueda usar directamente invoices / tariffSavings / optimization.
+        meter_id = ap.get("linked_meter_id")
         meter = general_by_id.get(meter_id) if meter_id else None
+
         history = sorted(
             invoices_by_meter.get(meter_id, []),
             key=lambda x: _month_key(x.get("billing_period") or x.get("period_start")),
@@ -288,6 +260,7 @@ def public_lighting_analysis(
             received += 1
             total_kwh += current_kwh or 0
             total_amount += current_amount or 0
+
             level, reasons, change_pct, constant = _analysis_status(
                 current_kwh,
                 previous_kwh,
@@ -310,7 +283,7 @@ def public_lighting_analysis(
             reasons = [
                 "Sin factura general vinculada para el período seleccionado"
                 if meter_id
-                else "Suministro de Alumbrado Público todavía no vinculado a un medidor general"
+                else "Suministro de Alumbrado Público sin linked_meter_id"
             ]
             change_pct = None
             constant = False
@@ -322,7 +295,22 @@ def public_lighting_analysis(
             critical_count += 1
             anomaly_count += 1
 
-        row = {
+        history_rows = []
+        for x in history[-24:]:
+            pf_value, pf_penalized = _invoice_power_factor(x)
+            history_rows.append({
+                "invoice_id": x.get("id"),
+                "billing_period": _month_key(x.get("billing_period") or x.get("period_start")),
+                "active_energy_kwh": _invoice_kwh(x),
+                "demand_kw": _invoice_demand(x),
+                "power_factor": round(pf_value, 6) if pf_value is not None else None,
+                "power_factor_penalized": pf_penalized,
+                "total_amount": _num(x.get("total_amount")),
+                "tariff_code": x.get("current_tariff_code"),
+                "invoice_number": x.get("invoice_number"),
+            })
+
+        rows.append({
             "public_lighting_meter_id": ap["id"],
             "meter_id": meter_id,
             "linked": bool(meter_id),
@@ -346,34 +334,14 @@ def public_lighting_analysis(
             "analysis_status": level,
             "analysis_reasons": reasons,
             "constant_consumption": constant,
-            "history": [
-                {
-                    "invoice_id": x.get("id"),
-                    "billing_period": _month_key(x.get("billing_period") or x.get("period_start")),
-                    "active_energy_kwh": _invoice_kwh(x),
-                    "demand_kw": _invoice_demand(x),
-                    "power_factor": (
-                        round(_invoice_power_factor(x)[0], 6)
-                        if _invoice_power_factor(x)[0] is not None
-                        else None
-                    ),
-                    "power_factor_penalized": _invoice_power_factor(x)[1],
-                    "total_amount": _num(x.get("total_amount")),
-                    "tariff_code": x.get("current_tariff_code"),
-                    "invoice_number": x.get("invoice_number"),
-                }
-                for x in history[-24:]
-            ],
-        }
-        rows.append(row)
+            "history": history_rows,
+        })
 
     needle = (search or "").strip().lower()
     if needle:
         rows = [
-            r
-            for r in rows
-            if needle
-            in " ".join(
+            r for r in rows
+            if needle in " ".join(
                 str(v or "").lower()
                 for v in [
                     r.get("supply_number"),
@@ -395,7 +363,7 @@ def public_lighting_analysis(
             "expected": len(ap_meters),
             "received": received,
             "missing": max(0, len(ap_meters) - received),
-            "unlinked": len([x for x in ap_meters if not x.get("meter_id")]),
+            "unlinked": len([x for x in ap_meters if not x.get("linked_meter_id")]),
             "total_kwh": round(total_kwh, 2),
             "total_amount": round(total_amount, 2),
             "anomalies": anomaly_count,
