@@ -1708,14 +1708,3 @@ td small {
 .invoice-tariff-history-foot b{font-size:13px;color:#0f172a}
 .invoice-tariff-history-foot>div:nth-child(3) b,.invoice-tariff-history-foot>div:nth-child(4) b{color:#047857}
 @media(max-width:1050px){.invoice-tariff-history-head{grid-template-columns:1fr}.invoice-tariff-history-foot{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-/* EPEN ADVANCED V6 */
-.invoice-tariff-simple-view{padding:0}
-.invoice-tariff-simple-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:0 4px 8px}
-.invoice-tariff-simple-head h4{margin:0 0 3px;font-size:14px;color:#0f172a}
-.invoice-tariff-simple-head p{margin:0;color:#64748b;font-size:11px}
-.invoice-tariff-simple-head>div:last-child{display:grid;text-align:right}
-.invoice-tariff-simple-head>div:last-child span{font-size:10px;color:#64748b;font-weight:800}
-.invoice-tariff-simple-head>div:last-child b{font-size:18px;color:#047857}
-.invoice-tariff-simple-head>div:last-child small{font-size:10px;color:#64748b}
-@media(max-width:800px){.invoice-tariff-simple-head{align-items:flex-start;flex-direction:column}.invoice-tariff-simple-head>div:last-child{text-align:left}}

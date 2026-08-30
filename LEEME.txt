@@ -1,27 +1,19 @@
-EPEN OPTIMIZACION V5
+EPEN OPTIMIZACION V6
 
-Corrige la pestaña AHORRO TARIFARIO.
+La pestaña AHORRO TARIFARIO ahora mantiene el mismo diseño que:
+- Consumo
+- Importe
+- Demanda
+- Factor de potencia
 
-Ahora la pestaña muestra el importe mensual que se habría ahorrado cambiando la categoría tarifaria en cada factura.
+Es un gráfico de BARRAS VERTICALES de hasta 24 meses.
+Cada barra = ahorro mensual que habría tenido la factura si se aplicaba la tarifa propuesta.
 
-Incluye:
-- Ahorro del mes seleccionado.
-- Costo simulado con tarifa actual.
-- Costo simulado con tarifa propuesta.
-- Tarifa actual -> tarifa propuesta.
-- Gráfico histórico de ahorro mensual, hasta 24 meses.
-- Ahorro anualizado del mes seleccionado.
+Al tocar una barra se selecciona ese mes.
 
-Al tocar una barra del gráfico se selecciona ese mes/factura.
+Se eliminó el estilo de tarjetas grandes de la V5 para que visualmente sea consistente con el gráfico histórico existente.
 
-IMPORTANTE:
-Este gráfico usa el resultado tariffSavings que ya calcula el backend para cada período.
-No suma T4 ni BT->MT en este gráfico: muestra exclusivamente el ahorro por CAMBIO DE TARIFA PROPUESTO de la factura.
+REQUISITO: V5 aplicada.
 
-REQUISITO:
-Tener aplicada la V4.
-
-INSTALACIÓN:
-Descomprimir en la raíz del repositorio y ejecutar:
-
-.\APLICAR_EPEN_OPTIMIZACION_V5.ps1
+Ejecutar:
+.\APLICAR_EPEN_OPTIMIZACION_V6.ps1
