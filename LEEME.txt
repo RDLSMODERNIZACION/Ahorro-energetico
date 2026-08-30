@@ -1,43 +1,40 @@
-EPEN BT -> MT V17
+EPEN FILA BT-MT V18
 
-CASO INCORPORADO:
-Planta de agua Nueva, Vieja y Vivero
+Caso:
 Medidor 502105395
-Suministro 00108525
+Planta de agua Nueva, Vieja y Vivero
 
-La app detectaba oportunidad BT -> MT pero no mostraba ahorro porque
-tariff-saving-history sólo soportaba T3/T3A -> T4.
+Datos verificados para agosto 2026:
+T3A-BT REAL comparable: $44.525.895,56
 
-V17 amplía el motor.
+T3A-MT simulado con Res. 041/2026:
+- DEP: 309 kW x $24.291,44
+- EPI: 14.903 kWh x $322,223
+- ERE: 35.989 kWh x $315,722
+- EVA: 16.273 kWh x $320,440
 
-METODOLOGÍA BT -> MT
-Actual:
-- toma T3/T3A-BT REAL desde invoice_lines.
+T3A-MT simulado aproximado: $28.885.183,51
 
-Propuesta:
-- mantiene las mismas cantidades reales de cada concepto:
-  DEP / DFP / EPI / ERE / EVA / CAV / etc.
-- reemplaza únicamente el precio unitario por el cuadro oficial MT
-  del MISMO período y MISMA categoría.
-- no promedia bandas horarias.
-- no inventa consumos.
-- no extrapola cuadros de otro mes.
+Ahorro BT->MT:
+$15.640.712,05 / mes antes de impuestos.
 
-FÓRMULA:
-T3A-BT real facturada - T3A-MT simulada = ahorro BT->MT
+PROBLEMA
+La fila sólo buscaba advancedTariffSummary por meter_id.
+Si el resumen no devolvía esa fila como available, ignoraba la oportunidad
+aunque epenOptimization ya la hubiera detectado.
 
-Para agosto 2026, este medidor debería quedar alrededor de:
-~ $15,6 millones/mes antes de impuestos
-más el ahorro de potencia que la app calcula por separado.
+V18 usa esta prioridad:
+1. tariff-saving-summary por meter_id;
+2. match por meter_number / supply_number;
+3. epenOptimization.mt.monthly_saving_before_taxes;
+4. epenOptimization.t4.monthly_saving_before_taxes;
+5. cálculo legacy.
 
-También:
-- aparece histórico mensual en Ahorro tarifario;
-- al tocar una barra se ve resolución, precios BT reales y MT oficiales;
-- el resumen general / tariff-saving-summary incorpora BT->MT;
-- la tabla de facturas V15 lo puede sumar automáticamente al recibir el resumen.
-
-IMPORTANTE:
-Deploy de backend en Render obligatorio.
+De esta manera una insignia BT -> MT no debería volver a quedar sin ahorro valorizado.
 
 INSTALAR:
-.\APLICAR_EPEN_BT_MT_V17.ps1
+.\APLICAR_EPEN_FILA_BTMT_V18.ps1
+
+Luego:
+cd front
+npm run dev
