@@ -275,7 +275,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
   </div>
 }
 export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];optimization?:EpenOptimizationMeter;onClose:()=>void}){
-  const[metric,setMetric]=useState<Metric>("kwh");
+  const[metric,setMetric]=useState<Metric>("demand");
   const[advancedTariffHistory,setAdvancedTariffHistory]=useState<AdvancedTariffHistoryResponse|null>(null);
   const[editingName,setEditingName]=useState(false);
   const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
@@ -394,11 +394,8 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
             <p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p>
           </div>
           <div className="invoice-analysis-metrics">
-            <button className={metric==="kwh"?"active":""} onClick={()=>setMetric("kwh")}>Consumo</button>
-            <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
             <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
-            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button>
-            <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Ahorro tarifario</button>
+            <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
           </div>
         </div>
 
@@ -565,8 +562,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
-
 
 
 
