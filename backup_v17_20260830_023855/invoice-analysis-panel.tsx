@@ -52,13 +52,10 @@ type AdvancedTariffHistoryPoint={
 };
 type AdvancedTariffHistoryResponse={
   meter_id:string;
-  mode:"t4"|"mt"|"none";
+  mode:"t4"|"none";
   current_tariff?:string;
   recommended_tariff?:string;
   taxes_included?:boolean;
-  status?:string;
-  requires_epen_feasibility?:boolean;
-  requires_epen_contract?:boolean;
   points:AdvancedTariffHistoryPoint[];
 };
 type Metric="kwh"|"amount"|"demand"|"pf"|"tariff";
@@ -423,7 +420,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
                 <div>
                   <span>DETALLE DEL PERÍODO</span>
                   <h4>{periodOf(selected)} · {detail?.current_tariff||selected.current_tariff_code||"Actual"} → {detail?.recommended_tariff||"T4"}</h4>
-                  <p>{detail?.available===false?"No se puede valorizar este mes porque falta el cuadro oficial T4 correspondiente.":"Comparación entre lo realmente facturado y la tarifa propuesta simulada del mismo período."}</p>
+                  <p>{detail?.available===false?"No se puede valorizar este mes porque falta el cuadro oficial T4 correspondiente.":"Comparación entre lo realmente facturado y la tarifa T4 simulada del mismo período."}</p>
                 </div>
                 <div className={detail?.available===false?"missing":"saving"}>
                   <span>AHORRO TARIFARIO</span>
@@ -440,7 +437,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
                     <small>Subtotal real tomado de invoice_lines</small>
                   </article>
                   <article>
-                    <span>TARIFA PROPUESTA SIMULADA</span>
+                    <span>T4 SIMULADA</span>
                     <b>{money.format(Number(detail.recommended_cost||0))}</b>
                     <small>{detail.recommended_tariff} · {nf.format(Number(detail.capacity_kw||0))} kW</small>
                   </article>
@@ -482,7 +479,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
                 <div className="invoice-tariff-formula">
                   <span>FÓRMULA DEL AHORRO</span>
                   <b>{money.format(Number(detail.current_cost||0))} − {money.format(Number(detail.recommended_cost||0))} = {money.format(Number(detail.monthly_saving||0))}</b>
-                  <small>Actual real facturada − tarifa propuesta simulada · antes de impuestos{advancedTariffHistory?.mode==="mt"?" · BT→MT sujeto a factibilidad EPEN":""}</small>
+                  <small>Actual real facturada − T4 simulada · antes de impuestos</small>
                 </div>
               </>}
 
@@ -523,7 +520,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
           <div className="invoice-analysis-saving-list">
             <div><span>Potencia contratada</span><b>{money.format(powerSaving)}</b><small>{excess>0?`${nf.format(excess)} kW sobrantes × tarifa de potencia + IVA 30%`:"Sin ahorro detectado"}</small></div>
             <div><span>Factor de potencia</span><b>{money.format(reactiveSaving)}</b><small>{reactiveSaving>0?"Penalización reactiva evitable + IVA 30%":"Sin penalización valorizada"}</small></div>
-            <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?"Ahorro mensual simulado con IVA":advancedTariffPoint?.available===false?"Falta cuadro tarifario oficial para este período":"Sin ahorro tarifario valorizado"}</small></div>
+            <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?"Ahorro mensual simulado con IVA":advancedTariffPoint?.available===false?"Falta cuadro tarifario T4 para este período":"Sin ahorro tarifario valorizado"}</small></div>
             <div className="total"><span>Total mensual</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} / año</small></div>
           </div>
         </section>
@@ -552,7 +549,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

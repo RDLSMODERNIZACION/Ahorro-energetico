@@ -1,31 +1,43 @@
-EPEN RESUMEN V16
+EPEN BT -> MT V17
 
-Se revisó el GitHub ACTUAL y se encontró que V14 había quedado incompleta:
+CASO INCORPORADO:
+Planta de agua Nueva, Vieja y Vivero
+Medidor 502105395
+Suministro 00108525
 
-FRONT:
-- ya tenía advancedTariffSummary;
-- ya intentaba cargar /tariff-saving-summary;
-- PERO dashboardRateMonthly seguía usando tariffSavings.monthly_saving_with_vat.
+La app detectaba oportunidad BT -> MT pero no mostraba ahorro porque
+tariff-saving-history sólo soportaba T3/T3A -> T4.
 
-BACKEND:
-- tariff_history.py NO tenía /organizations/{organization_id}/tariff-saving-summary.
+V17 amplía el motor.
 
-Por eso el dashboard seguía mostrando:
-$564.950 mensual
-$6.779.405 anual
+METODOLOGÍA BT -> MT
+Actual:
+- toma T3/T3A-BT REAL desde invoice_lines.
 
-aunque el análisis individual de Planta de agua Confluencia ya tenía un ahorro T3A real -> T4-MT de más de $20 millones/mes.
+Propuesta:
+- mantiene las mismas cantidades reales de cada concepto:
+  DEP / DFP / EPI / ERE / EVA / CAV / etc.
+- reemplaza únicamente el precio unitario por el cuadro oficial MT
+  del MISMO período y MISMA categoría.
+- no promedia bandas horarias.
+- no inventa consumos.
+- no extrapola cuadros de otro mes.
 
-V16:
-1. agrega realmente el endpoint al backend;
-2. usa el total de ese endpoint en Cambio tarifario;
-3. suma ese mismo valor al Ahorro total propuesto;
-4. cuenta esos medidores como suministros con oportunidad;
-5. mantiene fallback al cálculo viejo sólo si el endpoint no está disponible.
+FÓRMULA:
+T3A-BT real facturada - T3A-MT simulada = ahorro BT->MT
+
+Para agosto 2026, este medidor debería quedar alrededor de:
+~ $15,6 millones/mes antes de impuestos
+más el ahorro de potencia que la app calcula por separado.
+
+También:
+- aparece histórico mensual en Ahorro tarifario;
+- al tocar una barra se ve resolución, precios BT reales y MT oficiales;
+- el resumen general / tariff-saving-summary incorpora BT->MT;
+- la tabla de facturas V15 lo puede sumar automáticamente al recibir el resumen.
+
+IMPORTANTE:
+Deploy de backend en Render obligatorio.
 
 INSTALAR:
-.\APLICAR_EPEN_RESUMEN_V16.ps1
-
-MUY IMPORTANTE:
-desplegar BACKEND en Render.
-Sin deploy, el front hará fallback y seguirá mostrando $564.950.
+.\APLICAR_EPEN_BT_MT_V17.ps1
