@@ -341,60 +341,37 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
 
       <section className="invoice-analysis-panel">
         <div className="invoice-analysis-chart-head">
-          <div>
-            <h3>Evolución histórica del medidor</h3>
-            <p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p>
-          </div>
+          <div><h3>Evolución histórica del medidor</h3><p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p></div>
           <div className="invoice-analysis-metrics">
             <button className={metric==="kwh"?"active":""} onClick={()=>setMetric("kwh")}>Consumo</button>
             <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
             <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
-            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button>
-            <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Ahorro tarifario</button>
-          </div>
-        </div>
-
-        {metric==="tariff" ? (() => {
-          const legacyRows=tariffSavings
-            .filter(x=>x.meter_id===selected.meter_id)
-            .map(x=>({
-              billing_period:String(x.billing_period).slice(0,7),
-              monthly_saving:Number(x.monthly_saving_with_vat||0),
-              current_tariff:x.current_tariff,
-              recommended_tariff:x.recommended_tariff
-            }));
-
+            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button><button className={metric==="tariff"?(()=>{
+          const legacyRows=tariffSavings.filter(x=>x.meter_id===selected.meter_id).map(x=>({
+            billing_period:String(x.billing_period).slice(0,7),
+            monthly_saving:Number(x.monthly_saving_with_vat||0),
+            current_tariff:x.current_tariff,
+            recommended_tariff:x.recommended_tariff
+          }));
           const advancedRows=(advancedTariffHistory?.points||[]).map(x=>({
             billing_period:String(x.billing_period).slice(0,7),
             monthly_saving:Number(x.monthly_saving||0),
             current_tariff:x.current_tariff,
             recommended_tariff:x.recommended_tariff
           }));
-
-          const chartRows=advancedRows.some(x=>x.monthly_saving>0) ? advancedRows : legacyRows;
+          const chartRows=advancedRows.some(x=>x.monthly_saving>0)?advancedRows:legacyRows;
           const selectedRow=chartRows.find(x=>x.billing_period===periodOf(selected));
-
           return <div className="invoice-tariff-chart-view">
-            <TariffSavingTrend
-              rows={chartRows}
-              selectedPeriod={periodOf(selected)}
-              onPeriod={setSelectedPeriod}
-            />
+            <TariffSavingTrend rows={chartRows} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>
             {selectedRow&&<div className="invoice-tariff-selected-caption">
               <span>{selectedRow.current_tariff||selected.current_tariff_code||"Actual"} → {selectedRow.recommended_tariff||"Propuesta"}</span>
               <b>{money.format(Number(selectedRow.monthly_saving||0))} de ahorro en {periodOf(selected)}</b>
               {advancedRows.some(x=>x.monthly_saving>0)&&<small>Simulación antes de impuestos · T4 requiere contrato EPEN</small>}
             </div>}
           </div>;
-        })() : (
-          <InvoiceTrend
-            rows={sorted}
-            metric={metric}
-            selectedPeriod={periodOf(selected)}
-            onPeriod={setSelectedPeriod}
-          />
-        )}
+        })():<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}
       </section>
+
       <div className="invoice-analysis-grid">
         <section className="invoice-analysis-panel">
           <h3>Detalle completo de la factura</h3>
@@ -446,7 +423,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

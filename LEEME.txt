@@ -1,20 +1,27 @@
-V7 FIX2
+REPARACION V8
 
-Corrige el error:
-"No encontré TariffSavingTrend/InvoiceTrend."
+Este fix ya no intenta parchear el JSX roto línea por línea.
 
-La causa es que, después de los fixes anteriores, esas funciones ya no estaban en el orden que esperaba el instalador V7.
+Reconstruye COMPLETO el bloque:
+Evolución histórica del medidor
 
-Este instalador:
-- detecta/recrea InvoiceTrend si falta;
-- detecta/reemplaza/inserta TariffSavingTrend sin depender del orden;
-- agrega el endpoint histórico T3/T4;
-- conecta la pestaña Ahorro tarifario con el histórico mensual T3A→T4-MT;
-- mantiene barras verticales iguales al resto de gráficos.
+Mantiene:
+- Consumo
+- Importe
+- Demanda
+- Factor potencia
+- Ahorro tarifario
+
+Ahorro tarifario usa:
+1. histórico T3/T3A -> T4 si el backend lo devuelve;
+2. si no, el ahorro tarifario tradicional.
+
+El objetivo principal de esta versión es eliminar el error:
+Expected `>` but found `<`
 
 Ejecutar:
-.\APLICAR_EPEN_OPTIMIZACION_V7_FIX2.ps1
+.\APLICAR_REPARACION_V8.ps1
 
-Luego reiniciar:
-BACKEND
-FRONT
+Luego:
+cd front
+npm run dev
