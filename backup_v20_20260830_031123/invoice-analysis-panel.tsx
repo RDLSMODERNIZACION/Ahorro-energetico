@@ -12,9 +12,6 @@ type Measurement={
   registered_demand_peak_kw?:number;
   registered_demand_off_peak_kw?:number;
   power_factor?:number;
-  resolved_power_factor?:number;
-  power_factor_source?:string;
-  power_factor_penalized?:boolean;
   tangent_phi?:number;
   reactive_surcharge_percent?:number;
   meter_number?:string;
@@ -87,17 +84,10 @@ function values(i:Invoice){
   const kvarh=ms.reduce((s,m)=>s+Number(m.reactive_energy_kvarh||0),0);
   const demand=Math.max(0,...ms.map(m=>Number(m.demand_kw||m.registered_demand_peak_kw||0)));
   const contracted=contractedBands(i).peak;
-  const pfs=ms
-    .map(m=>Number(m.resolved_power_factor||m.power_factor||0))
-    .filter(v=>v>0);
-  const pf=pfs.length?Math.min(...pfs):Number(i.resolved_power_factor||0);
+  const pfs=ms.map(m=>Number(m.power_factor||0)).filter(v=>v>0);
+  const pf=pfs.length?Math.min(...pfs):0;
   const surcharge=Math.max(0,...ms.map(m=>Number(m.reactive_surcharge_percent||0)));
-  const cosCharge=(i.invoice_lines||[])
-    .filter(x=>String(x.concept_code||"").toUpperCase()==="COS")
-    .reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0);
-  const penalized=Boolean(i.power_factor_penalized)||ms.some(m=>m.power_factor_penalized)||surcharge>0||cosCharge>0;
-  const pfUnknownPenalized=penalized&&!(pf>0);
-  return{kwh,kvarh,demand,contracted,pf,surcharge,penalized,pfUnknownPenalized,cosCharge};
+  return{kwh,kvarh,demand,contracted,pf,surcharge};
 }
 function metricValue(i:Invoice,m:Metric){
   const v=values(i);
@@ -161,8 +151,7 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
 
       {data.map((d,index)=>{
         const x=left+index*slot+(slot-bw)/2;
-        const graphValue=metric==="pf"&&d.pfUnknownPenalized?0.95:d.value;
-        const y=top+plotH-(graphValue/max)*plotH;
+        const y=top+plotH-(d.value/max)*plotH;
         const missing=!d.available;
         const barY=missing?top+plotH-10:(d.value>0?y:top+plotH-3);
         const barH=missing?10:Math.max(3,top+plotH-y);
@@ -205,9 +194,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
         period,
         invoice,
         value:metricValue(invoice,metric),
-        contracted:values(invoice).contracted,
-        pfUnknownPenalized:values(invoice).pfUnknownPenalized,
-        penalized:values(invoice).penalized
+        contracted:values(invoice).contracted
       }));
   },[rows,metric]);
 
@@ -234,15 +221,14 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
 
       {data.map((d,index)=>{
         const x=left+index*slot+(slot-bw)/2;
-        const graphValue=metric==="pf"&&d.pfUnknownPenalized?0.95:d.value;
-        const y=top+plotH-(graphValue/max)*plotH;
+        const y=top+plotH-(d.value/max)*plotH;
         return <g
-          className={`invoice-analysis-bar${metric==="pf"&&((d.value>0&&d.value<.95)||d.pfUnknownPenalized)?" bad-pf":""}${metric==="pf"&&d.value>=.95&&!d.pfUnknownPenalized?" good-pf":""}${metric==="pf"&&d.pfUnknownPenalized?" pf-unknown-penalty":""}${selectedPeriod===d.period?" selected":""}`}
+          className={`invoice-analysis-bar${metric==="pf"&&d.value>0&&d.value<.95?" bad-pf":""}${metric==="pf"&&d.value>=.95?" good-pf":""}${selectedPeriod===d.period?" selected":""}`}
           key={d.period}
           onClick={()=>onPeriod(d.period)}
         >
           <rect x={x} y={y} width={bw} height={Math.max(2,top+plotH-y)} rx="5">
-            <title>{metric==="pf"&&d.pfUnknownPenalized?`${labelPeriod(d.period)} · Penalización de factor de potencia · cos φ no informado`: `${labelPeriod(d.period)} · ${fmt(metric,d.value)}`}</title>
+            <title>{labelPeriod(d.period)} · {fmt(metric,d.value)}</title>
           </rect>
           {(index%3===0||index===data.length-1)&&
             <text x={x+bw/2} y={height-22} textAnchor="middle">{labelPeriod(d.period)}</text>}
@@ -383,7 +369,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
         <article className={contractedBand.peak>0?"warn":""}><span>Potencia contratada punta</span><b>{contractedBand.peak>0?`${nf.format(contractedBand.peak)} kW`:"S/D"}</b><small>capacidad convenida en horas punta</small></article>
         <article className={contractedBand.offPeak>0?"warn":""}><span>Potencia contratada fuera punta</span><b>{contractedBand.offPeak>0?`${nf.format(contractedBand.offPeak)} kW`:"S/D"}</b><small>capacidad convenida en resto + valle</small></article>
       </>:<article className={excess>0?"warn":""}><span>Potencia contratada</span><b>{nf.format(v.contracted)} kW</b><small>{excess>0?`${nf.format(excess)} kW por encima de la demanda`:"sin sobrante detectado"}</small></article>}
-        <article className={v.pf>0&&v.pf<.95?"warn":""}><span>Factor de potencia</span><b>{v.pf?v.pf.toFixed(3):"S/D"}</b><small>{v.surcharge>0?`recargo ${v.surcharge}%`:v.penalized?"penalización de factor de potencia facturada":"sin recargo detectado"}</small></article>
+        <article className={v.pf>0&&v.pf<.95?"warn":""}><span>Factor de potencia</span><b>{v.pf?v.pf.toFixed(3):"S/D"}</b><small>{v.surcharge>0?`recargo ${v.surcharge}%`:"sin recargo detectado"}</small></article>
         <article><span>Importe factura</span><b>{money.format(Number(selected.total_amount||0))}</b><small>importe total</small></article>
         <article className="saving"><span>Ahorro potencial</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} anualizado</small></article>
       </div>
@@ -566,7 +552,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

@@ -1,5 +1,4 @@
-from math import sqrt
-from fastapi import APIRouter, Depends, HTTPException, Query
+﻿from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
@@ -8,6 +7,9 @@ from ..db import admin_db
 router = APIRouter(tags=["Facturas"])
 
 
+# No usar "*" en el listado. La tabla invoices contiene raw_text con el texto
+# completo de cada PDF. Traerlo para miles de facturas agotaba los 512 MB de
+# Render aunque el front solamente necesitara los datos resumidos.
 INVOICE_LIST_SELECT = (
     "id,organization_id,meter_id,invoice_number,"
     "period_start,period_end,issue_date,due_date,current_tariff_code,"
@@ -23,82 +25,6 @@ INVOICE_LIST_SELECT = (
     "invoice_lines(concept_code,description,quantity,unit_price,net_amount)"
 )
 
-
-def _num(value):
-    try:
-        return float(value or 0)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _resolve_power_factor(invoice: dict) -> dict:
-    """
-    Resuelve el factor de potencia SIN modificar la base:
-
-    1. power_factor informado por EPEN.
-    2. Si falta, se calcula desde tangent_phi:
-         cos(phi) = 1 / sqrt(1 + tan(phi)^2)
-    3. Si no hay valor/tangente pero existe recargo o concepto COS,
-       se marca power_factor_penalized=True sin inventar un cos(phi).
-
-    Los campos originales permanecen intactos.
-    """
-    measurements = invoice.get("invoice_measurements") or []
-    lines = invoice.get("invoice_lines") or []
-
-    cos_charge = sum(
-        max(0.0, _num(line.get("net_amount")))
-        for line in lines
-        if str(line.get("concept_code") or "").upper().strip() == "COS"
-    )
-    line_penalized = cos_charge > 0
-
-    resolved_values = []
-    any_penalty = line_penalized
-
-    for measurement in measurements:
-        reported = _num(measurement.get("power_factor"))
-        tangent = _num(measurement.get("tangent_phi"))
-        surcharge = _num(measurement.get("reactive_surcharge_percent"))
-
-        resolved = None
-        source = None
-
-        if reported > 0:
-            resolved = reported
-            source = "reported"
-        elif tangent > 0:
-            resolved = 1.0 / sqrt(1.0 + tangent * tangent)
-            source = "tangent_phi"
-
-        penalized = surcharge > 0 or line_penalized
-        any_penalty = any_penalty or penalized
-
-        measurement["resolved_power_factor"] = (
-            round(resolved, 6) if resolved is not None else None
-        )
-        measurement["power_factor_source"] = source
-        measurement["power_factor_penalized"] = penalized
-
-        if resolved is not None and resolved > 0:
-            resolved_values.append(resolved)
-
-    # Si una factura no trae medición utilizable, igualmente devolvemos
-    # el estado de penalización a nivel factura.
-    invoice["resolved_power_factor"] = (
-        round(min(resolved_values), 6) if resolved_values else None
-    )
-    invoice["power_factor_penalized"] = any_penalty
-    invoice["power_factor_value_available"] = bool(resolved_values)
-    invoice["power_factor_charge_amount"] = round(cos_charge, 2)
-
-    return invoice
-
-
-def _resolve_rows(rows):
-    return [_resolve_power_factor(row) for row in rows]
-
-
 @router.get("/organizations/{organization_id}/invoices")
 def invoices(
     organization_id: str,
@@ -108,6 +34,8 @@ def invoices(
 ):
     require_org(user.id, organization_id)
 
+    # PostgREST limita el tamaÃ±o de cada respuesta. Se pagina en bloques chicos
+    # y se devuelve un Ãºnico listado compacto, suficiente para tabla y grÃ¡ficos.
     rows = []
     page_size = 1000
     db = admin_db()
@@ -130,12 +58,12 @@ def invoices(
         rows.extend(page)
         if len(page) < size:
             break
-
-    return _resolve_rows(rows)
+    return rows
 
 
 @router.get("/invoices/{invoice_id}")
 def invoice(invoice_id: str, user: CurrentUser = Depends(current_user)):
+    # El contenido completo se consulta solamente al abrir una factura.
     data = (
         admin_db()
         .table("invoices")
@@ -148,7 +76,7 @@ def invoice(invoice_id: str, user: CurrentUser = Depends(current_user)):
     if not data:
         raise HTTPException(404, "Factura inexistente")
     require_org(user.id, data[0]["organization_id"])
-    return _resolve_power_factor(data[0])
+    return data[0]
 
 
 @router.delete("/invoices/{invoice_id}", status_code=204)
@@ -166,3 +94,4 @@ def delete_invoice(invoice_id: str, user: CurrentUser = Depends(current_user)):
         raise HTTPException(404, "Factura inexistente")
     require_org(user.id, data[0]["organization_id"], write=True)
     admin_db().table("invoices").delete().eq("id", invoice_id).execute()
+

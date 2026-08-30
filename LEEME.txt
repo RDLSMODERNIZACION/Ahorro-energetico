@@ -1,33 +1,49 @@
-EPEN RESUMEN BT-MT V19
+EPEN FACTOR DE POTENCIA V20
 
-PROBLEMA
-El resumen general mostraba ~26,8 M/mes en Cambio tarifario, pero faltaba
-la última oportunidad BT->MT corregida para:
+Antes de modificar se verificó la base del medidor 19676418 / TIERRA MUNICIPALIDAD.
 
-Medidor 502105395
-Planta de agua Nueva, Vieja y Vivero
+DATOS REALES:
+Junio 2026:
+- power_factor = 0,8461
+- tangent_phi = 0,63
+- recargo = 22,5%
+- COS facturado = $745.028,55
 
-La fila individual ya podía usar el fallback epenOptimization.mt,
-pero el dashboard general sólo sumaba advancedTariffSummary.monthly_saving.
+Julio 2026:
+- power_factor = NULL
+- tangent_phi = NULL
+- COS facturado = $2.109.274,68
 
-V19:
-- toma todas las filas valorizadas del resumen avanzado;
-- detecta qué medidores ya están incluidos;
-- para medidores del período que NO estén incluidos:
-    1. suma epenOptimization.mt.monthly_saving_before_taxes;
-    2. si no hay MT, usa epenOptimization.t4.monthly_saving_before_taxes;
-- evita doble conteo por meter_id;
-- actualiza el contador de suministros valorizados;
-- actualiza el texto del card para indicar que incluye T4 y BT->MT.
+Agosto 2026:
+- power_factor = NULL
+- tangent_phi = 1,43
+- recargo = 100%
+- COS facturado = $2.188.847,47
 
-Para 502105395 debería agregar aproximadamente:
-~ $15,6 millones/mes antes de impuestos.
+REGLA NUEVA DEL BACKEND:
+1. Si power_factor > 0: usarlo.
+2. Si falta y tangent_phi > 0:
+   cos(phi) = 1 / sqrt(1 + tangent_phi^2)
+3. Si no hay FP ni tangente pero hay reactive_surcharge_percent > 0 o línea COS:
+   marcar power_factor_penalized = true.
+   NO se inventa un cos(phi).
+
+El backend NO modifica Supabase.
+Agrega campos derivados a la respuesta de /invoices:
+- resolved_power_factor
+- power_factor_source
+- power_factor_penalized
+- power_factor_value_available
+- power_factor_charge_amount
+
+FRONT:
+- usa resolved_power_factor;
+- agosto queda aproximadamente 0,573 y rojo;
+- julio aparece rojo punteado indicando penalización con FP S/D;
+- tabla también indica "Penalizado · FP S/D".
 
 INSTALAR:
-.\APLICAR_EPEN_RESUMEN_BTMT_V19.ps1
+.\APLICAR_EPEN_FACTOR_POTENCIA_V20.ps1
 
-Luego:
-cd front
-npm run dev
-
-Esta versión es FRONTEND; no necesita cambios adicionales de backend si V17 ya está desplegada.
+IMPORTANTE:
+Deploy backend en Render.

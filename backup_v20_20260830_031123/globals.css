@@ -1800,12 +1800,3 @@ td small {
   .invoice-tariff-period-head{flex-direction:column}
   .invoice-tariff-period-head>div:last-child{width:100%;text-align:left}
 }
-
-/* EPEN POWER FACTOR V20 */
-.invoice-analysis-bar.pf-unknown-penalty rect{
-  fill:#ef6a5b!important;
-  fill-opacity:.34;
-  stroke:#d94b3d;
-  stroke-width:2;
-  stroke-dasharray:5 4;
-}
