@@ -1682,29 +1682,3 @@ td small {
 .invoice-tariff-empty{grid-column:1/-1;padding:28px;text-align:center;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;background:#f8fafc}
 .invoice-tariff-tab-note{margin-top:13px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px}
 @media(max-width:1100px){.invoice-tariff-options{grid-template-columns:1fr}.invoice-tariff-tab-summary{grid-template-columns:1fr}}
-
-/* EPEN ADVANCED V5 */
-.tariff-history-view{padding:18px 22px 24px}
-.invoice-tariff-history-head{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;margin-bottom:18px}
-.invoice-tariff-history-head>div{display:grid;gap:4px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
-.invoice-tariff-history-head>div:first-child{background:#ecfdf5;border-color:#a7f3d0}
-.invoice-tariff-history-head>div.proposed{background:#f0fdf4;border-color:#bbf7d0}
-.invoice-tariff-history-head span{font-size:10px;font-weight:900;letter-spacing:.07em;color:#64748b}
-.invoice-tariff-history-head b{font-size:20px;color:#0f172a}
-.invoice-tariff-history-head>div:first-child b,.invoice-tariff-history-head>div.proposed b{color:#047857}
-.invoice-tariff-history-head small{font-size:11px;color:#64748b}
-.invoice-tariff-history-title{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 2px 8px}
-.invoice-tariff-history-title h4{margin:0 0 3px;font-size:15px;color:#0f172a}
-.invoice-tariff-history-title p{margin:0;color:#64748b;font-size:11px}
-.invoice-tariff-history-title strong{display:grid;text-align:right;color:#047857;font-size:18px}
-.invoice-tariff-history-title strong small{font-size:10px;color:#94a3b8;font-weight:600}
-.tariff-saving-chart-wrap{margin-top:2px}
-.tariff-saving-chart .tariff-saving-bar rect{fill:#10b981}
-.tariff-saving-chart .tariff-saving-bar.selected rect{fill:#047857}
-.tariff-saving-chart .tariff-saving-bar.zero rect{fill:#cbd5e1}
-.invoice-tariff-history-foot{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
-.invoice-tariff-history-foot>div{display:grid;gap:3px;padding:10px 12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0}
-.invoice-tariff-history-foot span{font-size:10px;color:#64748b;font-weight:800}
-.invoice-tariff-history-foot b{font-size:13px;color:#0f172a}
-.invoice-tariff-history-foot>div:nth-child(3) b,.invoice-tariff-history-foot>div:nth-child(4) b{color:#047857}
-@media(max-width:1050px){.invoice-tariff-history-head{grid-template-columns:1fr}.invoice-tariff-history-foot{grid-template-columns:repeat(2,minmax(0,1fr))}}

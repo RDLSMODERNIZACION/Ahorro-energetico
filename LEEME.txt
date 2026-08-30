@@ -1,27 +1,27 @@
-EPEN OPTIMIZACION V4
+EPEN OPTIMIZACION V5
 
-CAMBIO DE DISEÑO SOLICITADO
+Corrige la pestaña AHORRO TARIFARIO.
 
-- El cuadro grande "ANÁLISIS TARIFARIO AVANZADO EPEN" se elimina de arriba.
-- Dentro de "Evolución histórica del medidor" se agrega una quinta pestaña:
-  AHORRO TARIFARIO
+Ahora la pestaña muestra el importe mensual que se habría ahorrado cambiando la categoría tarifaria en cada factura.
 
-Al abrir AHORRO TARIFARIO se muestra el análisis de la factura seleccionada:
-- Cambio de categoría tarifaria, si existe.
-- Optimización T3 punta/fuera de punta, si es T3/T3A.
-- Cambio T3→T4, únicamente si corresponde.
-- BT→MT, únicamente si el suministro está actualmente en BT.
+Incluye:
+- Ahorro del mes seleccionado.
+- Costo simulado con tarifa actual.
+- Costo simulado con tarifa propuesta.
+- Tarifa actual -> tarifa propuesta.
+- Gráfico histórico de ahorro mensual, hasta 24 meses.
+- Ahorro anualizado del mes seleccionado.
 
-Para un T3A-MT candidato T4:
-se mostrará T3 por franja + T4-MT.
-NO se mostrará BT→MT.
+Al tocar una barra del gráfico se selecciona ese mes/factura.
+
+IMPORTANTE:
+Este gráfico usa el resultado tariffSavings que ya calcula el backend para cada período.
+No suma T4 ni BT->MT en este gráfico: muestra exclusivamente el ahorro por CAMBIO DE TARIFA PROPUESTO de la factura.
 
 REQUISITO:
-Tener aplicada la V3.
+Tener aplicada la V4.
 
 INSTALACIÓN:
-Descomprimir en la raíz de Ahorro-energetico y ejecutar:
+Descomprimir en la raíz del repositorio y ejecutar:
 
-.\APLICAR_EPEN_OPTIMIZACION_V4.ps1
-
-Después reiniciar el frontend.
+.\APLICAR_EPEN_OPTIMIZACION_V5.ps1

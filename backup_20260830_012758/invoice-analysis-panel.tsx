@@ -29,7 +29,7 @@ type Invoice={
   tariff_name?:string;voltage_level?:string;contracted_kw_peak?:number;contracted_kw_off_peak?:number;vat_amount?:number;previous_debt_amount?:number;
   meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];
 };
-type TariffSaving={meter_id:string;billing_period:string;current_tariff?:string;recommended_tariff?:string;current_cost_with_vat?:number;recommended_cost_with_vat?:number;monthly_saving_with_vat:number;annual_saving_with_vat?:number};
+type TariffSaving={meter_id:string;billing_period:string;monthly_saving_with_vat:number};
 type Metric="kwh"|"amount"|"demand"|"pf"|"tariff";
 
 const nf=new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
@@ -70,42 +70,6 @@ function fmt(metric:Metric,value:number){
   if(metric==="demand")return `${nf.format(value)} kW`;
   if(metric==="pf")return value?value.toFixed(3):"S/D";
   return `${nf.format(value)} kWh`;
-}
-function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:TariffSaving[];selectedPeriod:string;onPeriod:(p:string)=>void}){
-  const data=useMemo(()=>{
-    const map=new Map<string,TariffSaving>();
-    for(const row of rows){
-      const p=String(row.billing_period||"").slice(0,7);
-      if(!p)continue;
-      map.set(p,row);
-    }
-    return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).slice(-24).map(([period,row])=>({
-      period,
-      row,
-      value:Math.max(0,Number(row.monthly_saving_with_vat||0))
-    }));
-  },[rows]);
-  const width=1280,height=330,left=84,right=28,top=28,bottom=54,plotW=width-left-right,plotH=height-top-bottom;
-  const max=Math.max(1,...data.map(d=>d.value))*1.10;
-  const slot=plotW/Math.max(1,data.length),bw=Math.max(12,slot*.58);
-  return <div className="invoice-analysis-chart-wrap tariff-saving-chart-wrap">
-    <svg viewBox={`0 0 ${width} ${height}`} className="invoice-analysis-chart tariff-saving-chart">
-      {[0,.25,.5,.75,1].map(step=>{
-        const y=top+plotH*(1-step);
-        return <g key={step}><line x1={left} x2={width-right} y1={y} y2={y}/><text x={left-10} y={y+4} textAnchor="end">{money.format(max*step)}</text></g>
-      })}
-      {data.map((d,index)=>{
-        const x=left+index*slot+(slot-bw)/2;
-        const y=top+plotH-(d.value/max)*plotH;
-        return <g className={`invoice-analysis-bar tariff-saving-bar${selectedPeriod===d.period?" selected":""}${d.value<=0?" zero":""}`} key={d.period} onClick={()=>onPeriod(d.period)}>
-          <rect x={x} y={d.value>0?y:top+plotH-2} width={bw} height={Math.max(2,top+plotH-y)} rx="5">
-            <title>{labelPeriod(d.period)} · ahorro {money.format(d.value)}</title>
-          </rect>
-          {(index%3===0||index===data.length-1)&&<text x={x+bw/2} y={height-22} textAnchor="middle">{labelPeriod(d.period)}</text>}
-        </g>
-      })}
-    </svg>
-  </div>
 }
 function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void}){
   const data=useMemo(()=>{
@@ -228,51 +192,75 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
             <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button><button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Ahorro tarifario</button>
           </div>
         </div>
-        {metric==="tariff"?<div className="invoice-tariff-tab tariff-history-view">
-          {(()=>{
-            const meterTariffRows=tariffSavings.filter(x=>x.meter_id===selected.meter_id);
-            const selectedTariff=meterTariffRows.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
-            const selectedSaving=Number(selectedTariff?.monthly_saving_with_vat||0);
-            const currentCost=Number(selectedTariff?.current_cost_with_vat||0);
-            const proposedCost=Number(selectedTariff?.recommended_cost_with_vat||0);
-            const currentTariff=selectedTariff?.current_tariff||selected.current_tariff_code||"S/D";
-            const proposedTariff=selectedTariff?.recommended_tariff||"Sin cambio propuesto";
-            return <>
-              <div className="invoice-tariff-history-head">
-                <div>
-                  <span>AHORRO TARIFARIO DEL MES SELECCIONADO</span>
-                  <b>{money.format(selectedSaving)}</b>
-                  <small>{periodOf(selected)} · {currentTariff} → {proposedTariff}</small>
-                </div>
-                <div>
-                  <span>FACTURA ACTUAL SIMULADA</span>
-                  <b>{currentCost>0?money.format(currentCost):"S/D"}</b>
-                  <small>{currentTariff}</small>
-                </div>
-                <div className="proposed">
-                  <span>FACTURA CON TARIFA PROPUESTA</span>
-                  <b>{proposedCost>0?money.format(proposedCost):"S/D"}</b>
-                  <small>{proposedTariff}</small>
-                </div>
+        {metric==="tariff"?<div className="invoice-tariff-tab">
+          <div className="invoice-tariff-tab-summary">
+            <div>
+              <span>FACTURA ANALIZADA</span>
+              <b>{periodOf(selected)}</b>
+              <small>{selected.current_tariff_code||"S/D"} · {currentVoltage||"S/D"}</small>
+            </div>
+            <div>
+              <span>AHORRO TARIFARIO PROPUESTO</span>
+              <b>{money.format(
+                Math.max(
+                  tariffSaving,
+                  Number(optimization?.t4?.monthly_saving_before_taxes||0),
+                  currentVoltage==="BT"?Number(optimization?.mt?.monthly_saving_before_taxes||0):0,
+                  Number(optimization?.t3?.monthly_saving_before_taxes||0)
+                )
+              )}</b>
+              <small>mensual estimado · según la mejor alternativa aplicable</small>
+            </div>
+          </div>
+
+          <div className="invoice-tariff-options">
+            {tariffSaving>0&&<article className="recommended">
+              <span>CAMBIO DE CATEGORÍA</span>
+              <h4>{selected.current_tariff_code||"Actual"} → categoría recomendada</h4>
+              <b>{money.format(tariffSaving)}/mes</b>
+              <small>Simulación tarifaria del período seleccionado.</small>
+            </article>}
+
+            {isT3&&optimization&&<article className={Number(optimization.t3.monthly_saving_before_taxes||0)>0?"recommended":""}>
+              <span>T3 · POTENCIA POR FRANJA</span>
+              <h4>Punta / fuera de punta</h4>
+              <div className="invoice-tariff-values">
+                <p><small>Contratada</small><b>{contractedBand.peak>0?nf.format(contractedBand.peak):"S/D"} / {contractedBand.offPeak>0?nf.format(contractedBand.offPeak):"S/D"} kW</b></p>
+                <p><small>Recomendada</small><b>{optimization.t3.recommended_peak_kw>0?nf.format(optimization.t3.recommended_peak_kw):"S/D"} / {optimization.t3.recommended_off_peak_kw>0?nf.format(optimization.t3.recommended_off_peak_kw):"S/D"} kW</b></p>
               </div>
+              <b>{optimization.t3.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t3.monthly_saving_before_taxes))}/mes`:"Sin ahorro valorizado"}</b>
+              <small>{contractedBand.offPeak<=0?"La factura no informa claramente la potencia contratada fuera de punta.":"Comparación con las máximas registradas por franja."}</small>
+            </article>}
 
-              <div className="invoice-tariff-history-title">
-                <div><h4>Ahorro mensual histórico por cambio de tarifa</h4><p>Cada barra muestra cuánto se habría ahorrado en ese mes aplicando la categoría tarifaria recomendada para ese período.</p></div>
-                <strong>{selectedSaving>0?money.format(selectedSaving):"Sin ahorro"}<small>mes seleccionado</small></strong>
+            {optimization?.t4.status==="candidate"&&<article className="recommended">
+              <span>CAMBIO T3 → T4</span>
+              <h4>{selected.current_tariff_code||"T3"} → {optimization.t4.target_tariff||"T4"}</h4>
+              <div className="invoice-tariff-values">
+                <p><small>Costo actual simulado</small><b>{optimization.t4.current_t3_cost_before_taxes!=null?money.format(Number(optimization.t4.current_t3_cost_before_taxes)):"S/D"}</b></p>
+                <p><small>Costo T4 simulado</small><b>{optimization.t4.t4_cost_before_taxes!=null?money.format(Number(optimization.t4.t4_cost_before_taxes)):"S/D"}</b></p>
               </div>
+              <b>{optimization.t4.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t4.monthly_saving_before_taxes))}/mes`:"Requiere validación"}</b>
+              <small>{optimization.t4.months_over_100kw_last12}/12 meses con demanda ≥100 kW · requiere contrato EPEN.</small>
+            </article>}
 
-              <TariffSavingTrend rows={meterTariffRows} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>
-
-              <div className="invoice-tariff-history-foot">
-                <div><span>Tarifa actual</span><b>{currentTariff}</b></div>
-                <div><span>Tarifa propuesta</span><b>{proposedTariff}</b></div>
-                <div><span>Ahorro mensual</span><b>{money.format(selectedSaving)}</b></div>
-                <div><span>Ahorro anualizado</span><b>{money.format(selectedSaving*12)}</b></div>
+            {currentVoltage==="BT"&&optimization&&["strong","candidate","preliminary"].includes(optimization.mt.status)&&<article className="recommended">
+              <span>CAMBIO DE NIVEL DE TENSIÓN</span>
+              <h4>BT → MT</h4>
+              <div className="invoice-tariff-values">
+                <p><small>BT simulado</small><b>{optimization.mt.current_bt_cost_before_taxes!=null?money.format(Number(optimization.mt.current_bt_cost_before_taxes)):"S/D"}</b></p>
+                <p><small>MT simulado</small><b>{optimization.mt.simulated_mt_cost_before_taxes!=null?money.format(Number(optimization.mt.simulated_mt_cost_before_taxes)):"S/D"}</b></p>
               </div>
+              <b>{optimization.mt.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.mt.monthly_saving_before_taxes))}/mes`:"Requiere factibilidad"}</b>
+              <small>Solo se muestra porque este suministro está actualmente en Baja Tensión.</small>
+            </article>}
 
-              {!selectedTariff&&<div className="invoice-tariff-empty">No hay simulación de cambio tarifario valorizada para esta factura/período.</div>}
-            </>;
-          })()}
+            {!tariffSaving&&!(isT3&&optimization)&&optimization?.t4.status!=="candidate"&&!(currentVoltage==="BT"&&optimization&&["strong","candidate","preliminary"].includes(optimization.mt.status))&&
+              <div className="invoice-tariff-empty">No se detectó un cambio tarifario valorizado para esta factura.</div>}
+          </div>
+
+          <div className="invoice-tariff-tab-note">
+            Los escenarios T3/T4/BT→MT se muestran antes de impuestos. T4 y el cambio de nivel de tensión requieren validación de EPEN.
+          </div>
         </div>:<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}
       </section>
 
@@ -327,7 +315,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 
