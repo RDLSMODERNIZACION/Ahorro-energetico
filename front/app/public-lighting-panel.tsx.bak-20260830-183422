@@ -1,0 +1,325 @@
+﻿"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { InvoiceAnalysisPanel } from "./invoice-analysis-panel";
+import "./public-lighting-panel.css";
+
+const API = "https://ahorro-energetico.onrender.com";
+const money = new Intl.NumberFormat("es-AR", { style:"currency", currency:"ARS", maximumFractionDigits:0 });
+const number = new Intl.NumberFormat("es-AR", { maximumFractionDigits:0 });
+
+type PLHistory = {
+  billing_period:string;
+  active_energy_kwh?:number|null;
+  total_amount?:number|null;
+  tariff_code?:string|null;
+  invoice_number?:string|null;
+};
+
+type PLRow = {
+  public_lighting_meter_id:string;
+  supply_number?:string;
+  supply_contract?:string;
+  meter_number?:string;
+  address?:string;
+  billing_period:string;
+  invoice_id?:string|null;
+  invoice_number?:string|null;
+  active_energy_kwh?:number|null;
+  average_12m_kwh?:number|null;
+  previous_kwh?:number|null;
+  change_percent?:number|null;
+  total_amount?:number|null;
+  tariff_code?:string|null;
+  validation_status?:string|null;
+  analysis_status:"normal"|"warning"|"critical"|"missing";
+  analysis_reasons:string[];
+  constant_consumption:boolean;
+  history:PLHistory[];
+};
+
+type PLResponse = {
+  billing_period:string;
+  periods:string[];
+  summary:{
+    expected:number; received:number; missing:number; total_kwh:number; total_amount:number;
+    anomalies:number; warnings:number; critical:number;
+  };
+  rows:PLRow[];
+};
+
+type DetailMetric = "summary"|"kwh"|"amount"|"tariff";
+
+async function getAnalysis(session:Session, organizationId:string, period?:string):Promise<PLResponse>{
+  const qs=period?`?billing_period=${period}`:"";
+  const r=await fetch(`${API}/api/organizations/${organizationId}/public-lighting/analysis${qs}`,{
+    cache:"no-store", headers:{Authorization:`Bearer ${session.access_token}`}
+  });
+  if(!r.ok) throw new Error(await r.text()||`Error ${r.status}`);
+  return r.json();
+}
+
+function statusLabel(row:PLRow){
+  if(row.analysis_status==="critical") return "Revisar urgente";
+  if(row.analysis_status==="warning") return "Revisar";
+  if(row.analysis_status==="missing") return "Sin factura";
+  return "Normal";
+}
+function monthLabel(p:string){
+  const [y,m]=p.split("-").map(Number);
+  return new Date(y,m-1,1).toLocaleString("es-AR",{month:"short",year:"2-digit"}).replace(".","");
+}
+
+function IndividualAnalysis({row,onClose}:{row:PLRow;onClose:()=>void}){
+  const [metric,setMetric]=useState<DetailMetric>("summary");
+  const ordered=useMemo(()=>[...row.history].sort((a,b)=>a.billing_period.localeCompare(b.billing_period)),[row.history]);
+  const latestPeriod=ordered.at(-1)?.billing_period||row.billing_period;
+  const [selectedPeriod,setSelectedPeriod]=useState(latestPeriod);
+
+  useEffect(()=>{setSelectedPeriod(latestPeriod);setMetric("summary")},[row.public_lighting_meter_id,latestPeriod]);
+
+  const selected=ordered.find(x=>x.billing_period===selectedPeriod)||ordered.at(-1);
+  const maxKwh=Math.max(1,...ordered.map(x=>Number(x.active_energy_kwh||0)));
+  const maxAmount=Math.max(1,...ordered.map(x=>Number(x.total_amount||0)));
+
+  return <div className="pl-analysis-backdrop" onClick={onClose}>
+    <aside className="pl-analysis-drawer" onClick={e=>e.stopPropagation()}>
+      <header className="pl-analysis-head">
+        <div>
+          <small>ANÁLISIS INDIVIDUAL · ALUMBRADO PÚBLICO</small>
+          <h2>{row.address||"Sin ubicación"}</h2>
+          <p>Medidor {row.meter_number||"S/D"} · Suministro {row.supply_number||"S/D"}</p>
+        </div>
+        <button onClick={onClose}>×</button>
+      </header>
+
+      <div className="pl-analysis-tabs">
+        <button className={metric==="summary"?"active":""} onClick={()=>setMetric("summary")}>Resumen</button>
+        <button className={metric==="kwh"?"active":""} onClick={()=>setMetric("kwh")}>Consumo</button>
+        <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
+        <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifa</button>
+      </div>
+
+      <section className="pl-detail-kpis-v3">
+        <article><span>Período</span><b>{selected?.billing_period||"—"}</b></article>
+        <article><span>Consumo</span><b>{selected?.active_energy_kwh==null?"—":`${number.format(selected.active_energy_kwh)} kWh`}</b></article>
+        <article><span>Importe</span><b>{selected?.total_amount==null?"—":money.format(selected.total_amount)}</b></article>
+        <article className={row.analysis_status!=="normal"?"alert":""}><span>Estado</span><b>{statusLabel(row)}</b></article>
+      </section>
+
+      {metric==="summary"&&<>
+        <section className="pl-analysis-card">
+          <div className="pl-analysis-card-title"><div><h3>Diagnóstico</h3><p>Lectura automática del período controlado.</p></div></div>
+          <div className="pl-diagnosis">
+            {row.analysis_reasons.length?row.analysis_reasons.map((r,i)=><div key={i}><i>!</i><span>{r}</span></div>):<div className="good"><i>✓</i><span>Sin observaciones relevantes para este suministro.</span></div>}
+          </div>
+        </section>
+
+        <section className="pl-analysis-card">
+          <div className="pl-analysis-card-title"><div><h3>Resumen del suministro</h3><p>Comparación contra su propio histórico.</p></div></div>
+          <dl className="pl-summary-dl">
+            <div><dt>Promedio 12 meses</dt><dd>{row.average_12m_kwh==null?"—":`${number.format(row.average_12m_kwh)} kWh`}</dd></div>
+            <div><dt>Mes anterior</dt><dd>{row.previous_kwh==null?"—":`${number.format(row.previous_kwh)} kWh`}</dd></div>
+            <div><dt>Variación mensual</dt><dd>{row.change_percent==null?"—":`${row.change_percent>0?"+":""}${row.change_percent}%`}</dd></div>
+            <div><dt>Tarifa</dt><dd>{row.tariff_code||"S/D"}</dd></div>
+            <div><dt>Factura</dt><dd>{row.invoice_number||"S/D"}</dd></div>
+            <div><dt>Histórico disponible</dt><dd>{ordered.length} meses</dd></div>
+          </dl>
+        </section>
+      </>}
+
+      {(metric==="kwh"||metric==="amount")&&<section className="pl-analysis-card">
+        <div className="pl-analysis-card-title">
+          <div>
+            <h3>{metric==="kwh"?"Histórico de consumo":"Histórico de importe"}</h3>
+            <p>Hasta 24 meses. Tocá una barra para seleccionar el período.</p>
+          </div>
+          <b>{metric==="kwh"
+            ? (selected?.active_energy_kwh==null?"—":`${number.format(selected.active_energy_kwh)} kWh`)
+            : (selected?.total_amount==null?"—":money.format(selected.total_amount))}
+          </b>
+        </div>
+        <div className={`pl-chart-v3 ${metric}`}>
+          {ordered.map(h=>{
+            const val=metric==="kwh"?Number(h.active_energy_kwh||0):Number(h.total_amount||0);
+            const max=metric==="kwh"?maxKwh:maxAmount;
+            const pct=Math.max(2,(val/max)*100);
+            return <button key={h.billing_period} className={selectedPeriod===h.billing_period?"active":""} onClick={()=>setSelectedPeriod(h.billing_period)} title={`${h.billing_period} · ${metric==="kwh"?`${number.format(val)} kWh`:money.format(val)}`}>
+              <span className="bar-wrap"><i style={{height:`${pct}%`}}/></span>
+              <small>{monthLabel(h.billing_period)}</small>
+            </button>
+          })}
+        </div>
+        <div className="pl-selected-period">
+          <div><span>Período seleccionado</span><b>{selected?.billing_period||"—"}</b></div>
+          <div><span>Factura</span><b>{selected?.invoice_number||"S/D"}</b></div>
+          <div><span>Consumo</span><b>{selected?.active_energy_kwh==null?"—":`${number.format(selected.active_energy_kwh)} kWh`}</b></div>
+          <div><span>Importe</span><b>{selected?.total_amount==null?"—":money.format(selected.total_amount)}</b></div>
+        </div>
+      </section>}
+
+      {metric==="tariff"&&<section className="pl-analysis-card">
+        <div className="pl-analysis-card-title"><div><h3>Histórico tarifario</h3><p>Tarifa informada en cada factura disponible.</p></div></div>
+        <div className="pl-tariff-list">
+          {[...ordered].reverse().map(h=><button key={`${h.billing_period}-${h.invoice_number}`} className={selectedPeriod===h.billing_period?"active":""} onClick={()=>setSelectedPeriod(h.billing_period)}>
+            <b>{h.billing_period}</b><span>{h.tariff_code||"S/D"}</span><small>{h.invoice_number||"Sin factura"}</small><em>{h.total_amount==null?"—":money.format(h.total_amount)}</em>
+          </button>)}
+        </div>
+        {row.tariff_code!=="T1AP"&&<div className="pl-tariff-warning">Este suministro no figura actualmente como T1AP en el período seleccionado. Se muestra para revisión; no se supone automáticamente que un cambio de tarifa genere ahorro.</div>}
+      </section>}
+    </aside>
+  </div>
+}
+
+export function PublicLightingPanel({session,organizationId,invoices,tariffSavings,epenOptimization}:{session:Session;organizationId:string;invoices:any[];tariffSavings:any[];epenOptimization:any[]}){
+  const [data,setData]=useState<PLResponse|null>(null);
+  const [period,setPeriod]=useState("");
+  const [search,setSearch]=useState("");
+  const [status,setStatus]=useState("all");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [selected,setSelected]=useState<PLRow|null>(null);
+
+  useEffect(()=>{
+    if(!organizationId)return;
+    let cancelled=false;
+    setLoading(true);setError("");
+    getAnalysis(session,organizationId,period||undefined)
+      .then(result=>{
+        if(cancelled)return;
+        setData(result);
+        // Al entrar por primera vez, SIEMPRE adopta el último período disponible del backend.
+        if(!period && result.billing_period) setPeriod(result.billing_period);
+      })
+      .catch(e=>!cancelled&&setError(e instanceof Error?e.message:"No se pudo cargar Alumbrado Público"))
+      .finally(()=>!cancelled&&setLoading(false));
+    return()=>{cancelled=true};
+  },[session,organizationId,period]);
+
+  const rows=useMemo(()=>{
+    if(!data)return[];
+    const q=search.trim().toLowerCase();
+    return data.rows.filter(row=>{
+      if(status!=="all"&&row.analysis_status!==status)return false;
+      if(!q)return true;
+      return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number].some(v=>String(v||"").toLowerCase().includes(q));
+    });
+  },[data,search,status]);  const apHistoryInvoices=selected?[...selected.history].map((h,index)=>({
+    id:`ap-${selected.public_lighting_meter_id}-${h.billing_period}-${index}`,
+    meter_id:`ap-${selected.public_lighting_meter_id}`,
+    invoice_number:h.invoice_number||undefined,
+    billing_period:h.billing_period,
+    period_start:`${h.billing_period}-01`,
+    period_end:`${h.billing_period}-28`,
+    total_amount:Number(h.total_amount||0),
+    current_tariff_code:h.tariff_code||selected.tariff_code||undefined,
+    tariff_name:h.tariff_code||selected.tariff_code||undefined,
+    meters:{
+      id:`ap-${selected.public_lighting_meter_id}`,
+      tracking_code:`AP-${selected.public_lighting_meter_id}`,
+      meter_number:selected.meter_number||undefined,
+      supply_number:selected.supply_number||undefined,
+      service_name:selected.address||"Alumbrado público",
+      current_tariff_code:h.tariff_code||selected.tariff_code||undefined,
+      sites:{name:selected.address||"Alumbrado público",address:selected.address||undefined}
+    },
+    invoice_measurements:[{
+      active_energy_kwh:Number(h.active_energy_kwh||0),
+      measurement_type:"Alumbrado público",
+      meter_number:selected.meter_number||undefined
+    }],
+    invoice_lines:[]
+  })):[];
+
+  const apSelectedInvoice=selected?(
+    apHistoryInvoices.find(i=>String(i.billing_period).slice(0,7)===String(selected.billing_period).slice(0,7))
+    ||apHistoryInvoices.at(-1)
+    ||{
+      id:`ap-${selected.public_lighting_meter_id}-${selected.billing_period}`,
+      meter_id:`ap-${selected.public_lighting_meter_id}`,
+      invoice_number:selected.invoice_number||undefined,
+      billing_period:selected.billing_period,
+      period_start:`${selected.billing_period}-01`,
+      period_end:`${selected.billing_period}-28`,
+      total_amount:Number(selected.total_amount||0),
+      current_tariff_code:selected.tariff_code||undefined,
+      meters:{
+        id:`ap-${selected.public_lighting_meter_id}`,
+        tracking_code:`AP-${selected.public_lighting_meter_id}`,
+        meter_number:selected.meter_number||undefined,
+        supply_number:selected.supply_number||undefined,
+        service_name:selected.address||"Alumbrado público",
+        current_tariff_code:selected.tariff_code||undefined,
+        sites:{name:selected.address||"Alumbrado público",address:selected.address||undefined}
+      },
+      invoice_measurements:[{
+        active_energy_kwh:Number(selected.active_energy_kwh||0),
+        measurement_type:"Alumbrado público",
+        meter_number:selected.meter_number||undefined
+      }],
+      invoice_lines:[]
+    }
+  ):null;
+
+
+
+  if(error)return <section className="panel pl-error">{error}</section>;
+  if(!data)return <section className="panel pl-loading">{loading?"Analizando Alumbrado Público…":"Sin datos"}</section>;
+
+  return <div className="pl-module">
+    <section className="pl-kpis">
+      <article><span>PERÍODO CONTROLADO</span><strong>{data.billing_period}</strong><small>último mes disponible al ingresar</small></article>
+      <article><span>FACTURAS ESPERADAS</span><strong>{data.summary.expected}</strong><small>suministros del padrón AP</small></article>
+      <article className="green"><span>FACTURAS RECIBIDAS</span><strong>{data.summary.received}</strong><small>{data.summary.missing} faltantes</small></article>
+      <article className={data.summary.anomalies?"alert":""}><span>REQUIEREN REVISIÓN</span><strong>{data.summary.anomalies}</strong><small>{data.summary.critical} críticas · {data.summary.warnings} alertas</small></article>
+    </section>
+
+    <section className="panel pl-summary-strip">
+      <div><span>Consumo del mes</span><b>{number.format(data.summary.total_kwh)} kWh</b></div>
+      <div><span>Importe facturado</span><b>{money.format(data.summary.total_amount)}</b></div>
+      <div><span>Promedio por factura</span><b>{data.summary.received?number.format(data.summary.total_kwh/data.summary.received):0} kWh</b></div>
+      <div><span>Cobertura</span><b>{data.summary.expected?Math.round(data.summary.received/data.summary.expected*100):0}%</b></div>
+    </section>
+
+    <section className="panel">
+      <div className="panel-title pl-title"><div><h2>Análisis mensual de Alumbrado Público</h2><p>Consumo · costo · variación · anomalías · tarifa</p></div></div>
+      <div className="pl-filters">
+        <label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>{data.periods.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
+        <label>Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="critical">Críticos</option><option value="warning">Revisar</option><option value="missing">Sin factura</option><option value="normal">Normales</option></select></label>
+        <label className="pl-search">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro o dirección"/></label>
+        <button onClick={()=>{setSearch("");setStatus("all")}}>Limpiar</button>
+      </div>
+
+      <div className="pl-table-scroll"><div className="pl-table">
+        <div className="pl-row pl-head"><span>MEDIDOR / SUMINISTRO</span><span>UBICACIÓN</span><span>CONSUMO</span><span>PROM. 12M</span><span>VARIACIÓN</span><span>IMPORTE</span><span>TARIFA</span><span>ANÁLISIS</span></div>
+        {rows.map(row=><button className={`pl-row pl-data ${row.analysis_status}`} key={row.public_lighting_meter_id} onClick={()=>setSelected(row)}>
+          <span><b>Medidor {row.meter_number||"S/D"}</b><small>Suministro {row.supply_number||"S/D"}</small></span>
+          <span><b>{row.address||"Sin dirección"}</b><small>{row.invoice_number?`Factura ${row.invoice_number}`:"Sin factura del período"}</small></span>
+          <span><b>{row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</b><small>{row.previous_kwh==null?"Sin mes anterior":`Anterior ${number.format(row.previous_kwh)} kWh`}</small></span>
+          <span><b>{row.average_12m_kwh==null?"—":`${number.format(row.average_12m_kwh)} kWh`}</b><small>histórico previo</small></span>
+          <span><b className={(row.change_percent||0)>50||(row.change_percent||0)<-50?"pl-danger":""}>{row.change_percent==null?"—":`${row.change_percent>0?"+":""}${row.change_percent}%`}</b><small>vs. mes anterior</small></span>
+          <span><b>{row.total_amount==null?"—":money.format(row.total_amount)}</b><small>facturado</small></span>
+          <span><b className={`pl-tariff ${row.tariff_code!=="T1AP"?"review":""}`}>{row.tariff_code||"S/D"}</b><small>EPEN</small></span>
+          <span><em className={`pl-status ${row.analysis_status}`}>{statusLabel(row)}</em><small>{row.analysis_reasons[0]||"Sin observaciones"}</small></span>
+        </button>)}
+        {!rows.length&&<div className="pl-empty">No hay registros para esos filtros.</div>}
+      </div></div>
+    </section>
+
+    {selected&&apSelectedInvoice&&<InvoiceAnalysisPanel
+      invoice={apSelectedInvoice}
+      history={apHistoryInvoices.length?apHistoryInvoices:[apSelectedInvoice]}
+      tariffSavings={[]}
+      optimization={undefined}
+      onClose={()=>setSelected(null)}
+      backLabel="← Volver a Alumbrado Público"
+      analysisLabel="ANÁLISIS INDIVIDUAL · ALUMBRADO PÚBLICO"
+      allowNameEdit={false}
+      simpleTariffHistory={selected.history}
+      hideLocationEditor={true}
+    />}
+  </div>;
+}
+
+
