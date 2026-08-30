@@ -1,40 +1,33 @@
-EPEN FILA BT-MT V18
+EPEN RESUMEN BT-MT V19
 
-Caso:
+PROBLEMA
+El resumen general mostraba ~26,8 M/mes en Cambio tarifario, pero faltaba
+la última oportunidad BT->MT corregida para:
+
 Medidor 502105395
 Planta de agua Nueva, Vieja y Vivero
 
-Datos verificados para agosto 2026:
-T3A-BT REAL comparable: $44.525.895,56
+La fila individual ya podía usar el fallback epenOptimization.mt,
+pero el dashboard general sólo sumaba advancedTariffSummary.monthly_saving.
 
-T3A-MT simulado con Res. 041/2026:
-- DEP: 309 kW x $24.291,44
-- EPI: 14.903 kWh x $322,223
-- ERE: 35.989 kWh x $315,722
-- EVA: 16.273 kWh x $320,440
+V19:
+- toma todas las filas valorizadas del resumen avanzado;
+- detecta qué medidores ya están incluidos;
+- para medidores del período que NO estén incluidos:
+    1. suma epenOptimization.mt.monthly_saving_before_taxes;
+    2. si no hay MT, usa epenOptimization.t4.monthly_saving_before_taxes;
+- evita doble conteo por meter_id;
+- actualiza el contador de suministros valorizados;
+- actualiza el texto del card para indicar que incluye T4 y BT->MT.
 
-T3A-MT simulado aproximado: $28.885.183,51
-
-Ahorro BT->MT:
-$15.640.712,05 / mes antes de impuestos.
-
-PROBLEMA
-La fila sólo buscaba advancedTariffSummary por meter_id.
-Si el resumen no devolvía esa fila como available, ignoraba la oportunidad
-aunque epenOptimization ya la hubiera detectado.
-
-V18 usa esta prioridad:
-1. tariff-saving-summary por meter_id;
-2. match por meter_number / supply_number;
-3. epenOptimization.mt.monthly_saving_before_taxes;
-4. epenOptimization.t4.monthly_saving_before_taxes;
-5. cálculo legacy.
-
-De esta manera una insignia BT -> MT no debería volver a quedar sin ahorro valorizado.
+Para 502105395 debería agregar aproximadamente:
+~ $15,6 millones/mes antes de impuestos.
 
 INSTALAR:
-.\APLICAR_EPEN_FILA_BTMT_V18.ps1
+.\APLICAR_EPEN_RESUMEN_BTMT_V19.ps1
 
 Luego:
 cd front
 npm run dev
+
+Esta versión es FRONTEND; no necesita cambios adicionales de backend si V17 ya está desplegada.

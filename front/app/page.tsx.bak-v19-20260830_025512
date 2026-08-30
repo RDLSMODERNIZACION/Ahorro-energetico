@@ -375,52 +375,15 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
   const dashboardPowerMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoicePowerSaving(i).amount,0);
   const dashboardReactiveMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoiceReactiveSaving(i),0);
   const legacyDashboardRateMonthly=tariffSavings.filter(x=>String(x.billing_period).slice(0,7)===dashboardPeriod).reduce((sum,x)=>sum+Number(x.monthly_saving_with_vat||0),0);
-
-  const dashboardAdvancedRows=advancedTariffSummary?.billing_period===dashboardPeriod
-    ?advancedTariffSummary.meters.filter(x=>x.available&&Number(x.monthly_saving||0)>0)
-    :[];
-
-  const dashboardAdvancedMeterIds=new Set(dashboardAdvancedRows.map(x=>x.meter_id));
-
-  const dashboardOptimizationFallbackRows=dashboardInvoices.map(i=>{
-    if(dashboardAdvancedMeterIds.has(i.meter_id))return null;
-
-    const opt=epenOptimization.find(x=>x.meter_id===i.meter_id);
-    if(!opt)return null;
-
-    const mtSaving=["strong","candidate","preliminary"].includes(opt.mt.status)
-      ?Number(opt.mt.monthly_saving_before_taxes||0)
-      :0;
-
-    const t4Saving=opt.t4.status==="candidate"
-      ?Number(opt.t4.monthly_saving_before_taxes||0)
-      :0;
-
-    const saving=mtSaving>0?mtSaving:t4Saving;
-    if(saving<=0)return null;
-
-    return{
-      meter_id:i.meter_id,
-      monthly_saving:saving,
-      scenario:mtSaving>0?"mt":"t4"
-    };
-  }).filter((x):x is {meter_id:string;monthly_saving:number;scenario:"mt"|"t4"}=>Boolean(x));
-
-  const dashboardOptimizationFallbackMonthly=dashboardOptimizationFallbackRows.reduce((sum,x)=>sum+x.monthly_saving,0);
-
   const dashboardRateMonthly=advancedTariffSummary?.billing_period===dashboardPeriod
-    ?Number(advancedTariffSummary.monthly_saving||0)+dashboardOptimizationFallbackMonthly
-    :legacyDashboardRateMonthly+dashboardOptimizationFallbackMonthly;
-
-  const dashboardTariffValuedCount=
-    dashboardAdvancedRows.length+
-    dashboardOptimizationFallbackRows.length;
+    ?Number(advancedTariffSummary.monthly_saving||0)
+    :legacyDashboardRateMonthly;
   const dashboardTotalMonthly=dashboardPowerMonthly+dashboardReactiveMonthly+dashboardRateMonthly;
   const dashboardOpportunityIds=new Set<string>();
   for(const i of dashboardInvoices){
     const hasPower=invoicePowerSaving(i).amount>0;
     const hasReactive=invoiceReactiveSaving(i)>0;
-    const hasTariff=dashboardAdvancedMeterIds.has(i.meter_id)||dashboardOptimizationFallbackRows.some(x=>x.meter_id===i.meter_id)||(advancedTariffSummary?.billing_period!==dashboardPeriod&&tariffSavings.some(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===dashboardPeriod&&Number(x.monthly_saving_with_vat||0)>0));
+    const hasTariff=advancedTariffSummary?.billing_period===dashboardPeriod?advancedTariffSummary.meters.some(x=>x.meter_id===i.meter_id&&x.available&&Number(x.monthly_saving||0)>0):tariffSavings.some(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===dashboardPeriod&&Number(x.monthly_saving_with_vat||0)>0);
     if(hasPower||hasReactive||hasTariff)dashboardOpportunityIds.add(i.meter_id);
   }
   const dashboardLowPf=dashboardInvoices.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).length;
@@ -510,7 +473,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
         <span>Cambio tarifario</span>
         <strong>{money.format(dashboardRateMonthly*12)}</strong>
         <small>{money.format(dashboardRateMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>{advancedTariffSummary?.billing_period===dashboardPeriod?`Cambio tarifario valorizado · ${dashboardTariffValuedCount} suministro(s) · incluye T3/T3A→T4 y BT→MT.`:"Diferencia contra la categoría recomendada para ese período."}</p>
+        <p>{advancedTariffSummary?.billing_period===dashboardPeriod?`T3/T3A real vs T4 simulada · ${advancedTariffSummary.valued_count} suministro(s) valorizado(s).`:"Diferencia contra la categoría recomendada para ese período."}</p>
       </article>
       <article className="saving-total">
         <span>Ahorro total propuesto</span>
@@ -685,7 +648,6 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
-
 
 
 
