@@ -1,19 +1,17 @@
-EPEN OPTIMIZACION V6
+FIX PARSE V6
 
-La pestaña AHORRO TARIFARIO ahora mantiene el mismo diseño que:
-- Consumo
-- Importe
-- Demanda
-- Factor de potencia
+Corrige el error:
+Unexpected token en invoice-analysis-panel.tsx línea ~222.
 
-Es un gráfico de BARRAS VERTICALES de hasta 24 meses.
-Cada barra = ahorro mensual que habría tenido la factura si se aplicaba la tarifa propuesta.
+La V6 dejó duplicado el tramo final del operador ternario:
+... />}:<InvoiceTrend ... />}
 
-Al tocar una barra se selecciona ese mes.
+Debe quedar una sola rama else:
+... />}
 
-Se eliminó el estilo de tarjetas grandes de la V5 para que visualmente sea consistente con el gráfico histórico existente.
+Ejecutar desde la raíz:
+.\APLICAR_FIX_PARSE_V6.ps1
 
-REQUISITO: V5 aplicada.
-
-Ejecutar:
-.\APLICAR_EPEN_OPTIMIZACION_V6.ps1
+Luego:
+cd front
+npm run dev

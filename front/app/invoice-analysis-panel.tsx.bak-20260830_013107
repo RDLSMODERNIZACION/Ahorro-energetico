@@ -219,7 +219,7 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
             </div>
             <TariffSavingTrend rows={meterTariffRows} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>
           </div>;
-        })():<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}
+        })():<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}:<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}
       </section>
 
       <div className="invoice-analysis-grid">
@@ -273,7 +273,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 
