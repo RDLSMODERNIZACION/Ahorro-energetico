@@ -1,49 +1,29 @@
-EPEN FACTOR DE POTENCIA V20
+FIX V20 METRIC
 
-Antes de modificar se verificó la base del medidor 19676418 / TIERRA MUNICIPALIDAD.
+Error:
+ReferenceError: metric is not defined
+en TariffSavingTrend.
 
-DATOS REALES:
-Junio 2026:
-- power_factor = 0,8461
-- tangent_phi = 0,63
-- recargo = 22,5%
-- COS facturado = $745.028,55
+Causa:
+La V20 hizo un reemplazo global de:
+const y=...
 
-Julio 2026:
-- power_factor = NULL
-- tangent_phi = NULL
-- COS facturado = $2.109.274,68
+y agregó por accidente esta línea también dentro del gráfico tarifario:
 
-Agosto 2026:
-- power_factor = NULL
-- tangent_phi = 1,43
-- recargo = 100%
-- COS facturado = $2.188.847,47
+const graphValue=metric==="pf"&&d.pfUnknownPenalized?0.95:d.value;
 
-REGLA NUEVA DEL BACKEND:
-1. Si power_factor > 0: usarlo.
-2. Si falta y tangent_phi > 0:
-   cos(phi) = 1 / sqrt(1 + tangent_phi^2)
-3. Si no hay FP ni tangente pero hay reactive_surcharge_percent > 0 o línea COS:
-   marcar power_factor_penalized = true.
-   NO se inventa un cos(phi).
+TariffSavingTrend no tiene variable `metric`.
 
-El backend NO modifica Supabase.
-Agrega campos derivados a la respuesta de /invoices:
-- resolved_power_factor
-- power_factor_source
-- power_factor_penalized
-- power_factor_value_available
-- power_factor_charge_amount
+Este fix:
+- elimina esa línea SOLO dentro de TariffSavingTrend;
+- restaura:
+  const y=top+plotH-(d.value/max)*plotH;
+- no toca InvoiceTrend;
+- conserva la nueva lógica de factor de potencia.
 
-FRONT:
-- usa resolved_power_factor;
-- agosto queda aproximadamente 0,573 y rojo;
-- julio aparece rojo punteado indicando penalización con FP S/D;
-- tabla también indica "Penalizado · FP S/D".
+Ejecutar:
+.\APLICAR_FIX_V20_METRIC.ps1
 
-INSTALAR:
-.\APLICAR_EPEN_FACTOR_POTENCIA_V20.ps1
-
-IMPORTANTE:
-Deploy backend en Render.
+Luego:
+cd front
+npm run dev

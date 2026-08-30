@@ -161,7 +161,8 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
 
       {data.map((d,index)=>{
         const x=left+index*slot+(slot-bw)/2;
-        const y=top+plotH-(d.value/max)*plotH;
+        const graphValue=metric==="pf"&&d.pfUnknownPenalized?0.95:d.value;
+        const y=top+plotH-(graphValue/max)*plotH;
         const missing=!d.available;
         const barY=missing?top+plotH-10:(d.value>0?y:top+plotH-3);
         const barH=missing?10:Math.max(3,top+plotH-y);
@@ -565,7 +566,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 
