@@ -1,32 +1,40 @@
-EPEN RESUMEN GENERAL V14
+EPEN TABLA FACTURAS V15
 
 PROBLEMA
-La tarjeta "Cambio tarifario" del resumen general seguía usando:
-tariffSavings.monthly_saving_with_vat
+La fila de Facturas seguía calculando el ahorro tarifario desde:
+- tariffSavings viejo
+- tariff assessments viejos
 
-Ese es el cálculo tarifario viejo.
+Aunque mostraba la insignia APTO T4 desde epenOptimization.
 
-Mientras que el análisis individual ya usa:
-T3/T3A REAL facturada - T4 simulada
+Por eso en "Medidas de ahorro" aparecía solamente:
+Potencia contratada
 
-Por eso los valores no coincidían.
+y el ahorro anual era sólo:
+$2.463.152 x 12 = $29.557.824
 
-V14 agrega:
-GET /api/organizations/{organization_id}/tariff-saving-summary?period=YYYY-MM
+V15 conecta esa fila con AdvancedTariffSummary (endpoint V14).
 
-El endpoint:
-- analiza todos los medidores del período;
-- aplica el mismo criterio T4 del análisis individual;
-- usa T3/T3A REAL desde invoice_lines;
-- simula T4 con el cuadro oficial;
-- suma sólo ahorros valorizados;
-- no extrapola meses sin cuadro oficial.
+Ahora para cada factura del período:
+- busca el mismo medidor en tariff-saving-summary;
+- si tiene ahorro T3/T3A real -> T4 simulado, lo usa;
+- muestra la medida "T3A -> T4-MT";
+- suma ese ahorro mensual a potencia y factor de potencia;
+- anualiza el total.
 
-La tarjeta del dashboard "Cambio tarifario" ahora usa ese total.
-También el total general incorpora ese mismo valor.
+También cambia el encabezado:
+"Ahorro anual estimado (IVA 30%)"
+a
+"Ahorro anual estimado"
+
+porque el ahorro T4 se calcula antes de impuestos, mientras potencia/reactiva conservan el factor 1,30.
+
+REQUISITO:
+Backend V14/V13 desplegado en Render.
 
 INSTALAR:
-.\APLICAR_EPEN_RESUMEN_GENERAL_V14.ps1
+.\APLICAR_EPEN_TABLA_FACTURAS_V15.ps1
 
-IMPORTANTE:
-Hay cambios de backend. Deploy en Render obligatorio.
+Luego:
+cd front
+npm run dev
