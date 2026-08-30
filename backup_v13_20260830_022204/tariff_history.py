@@ -5,11 +5,14 @@ from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
 from .epen_optimization import (
     _simulate, _max_demand, _contracted, _period, _voltage_key,
-    _tariff_key, _active_kwh, _rate_set, _d,
+    _tariff_key, _active_kwh,
 )
 
 router = APIRouter(tags=["Optimización EPEN"])
 
+# Conceptos que representan el costo tarifario comparable.
+# Se excluyen impuestos, deuda, fondos/cargos extraordinarios y otros conceptos
+# que no desaparecen por cambiar de T3/T3A a T4.
 COMPARABLE_TARIFF_CODES = {
     "CFI", "DEM", "DEP", "DFP",
     "EPI", "ERE", "EVA", "ECO",
@@ -18,6 +21,7 @@ COMPARABLE_TARIFF_CODES = {
 
 
 def _one_invoice_per_period(invoices):
+    """Conserva la factura energética principal de cada período."""
     by_period = {}
     for invoice in invoices:
         period = _period(invoice)
@@ -30,6 +34,13 @@ def _one_invoice_per_period(invoices):
 
 
 def _actual_tariff_cost(invoice):
+    """
+    Costo REAL facturado de la tarifa vigente.
+
+    No reconstruye T3/T3A con tariff_rates.
+    Suma directamente net_amount de los conceptos tarifarios comparables
+    presentes en invoice_lines.
+    """
     total = Decimal("0")
     components = []
 
@@ -43,8 +54,8 @@ def _actual_tariff_cost(invoice):
         components.append({
             "code": code,
             "description": line.get("description"),
-            "quantity": float(_d(line.get("quantity"))) if line.get("quantity") is not None else None,
-            "unit_price": float(_d(line.get("unit_price"))) if line.get("unit_price") is not None else None,
+            "quantity": line.get("quantity"),
+            "unit_price": line.get("unit_price"),
             "net_amount": float(amount),
         })
 
@@ -54,54 +65,17 @@ def _actual_tariff_cost(invoice):
     return total.quantize(Decimal("0.01")), components
 
 
-def _proposed_t4_components(rates_rows, invoice, tariff, voltage, capacity_kw):
-    period = _period(invoice)
-    rates, schedule = _rate_set(rates_rows, period, tariff, voltage, capacity_kw)
-    if not rates:
-        return None, [], schedule
-
-    active = _active_kwh(invoice)
-    components = []
-    total = Decimal("0")
-
-    def add(code, quantity, unit_price, label):
-        nonlocal total
-        if unit_price is None:
-            return
-        amount = _d(quantity) * _d(unit_price)
-        total += amount
-        components.append({
-            "code": code,
-            "description": label,
-            "quantity": float(_d(quantity)),
-            "unit_price": float(_d(unit_price)),
-            "net_amount": float(amount.quantize(Decimal("0.01"))),
-        })
-
-    if "CFI" in rates:
-        total += rates["CFI"]
-        components.append({
-            "code": "CFI",
-            "description": "Cargo fijo T4",
-            "quantity": 1.0,
-            "unit_price": float(rates["CFI"]),
-            "net_amount": float(rates["CFI"]),
-        })
-
-    if "DEM" in rates:
-        add("DEM", capacity_kw, rates["DEM"], "Demanda / capacidad T4")
-
-    if "ECO" in rates:
-        add("ECO", active, rates["ECO"], "Energía T4")
-
-    if "CAV" in rates:
-        add("CAV", active, rates["CAV"], "Cargo adicional variable")
-
-    return total.quantize(Decimal("0.01")), components, schedule
-
-
 @router.get("/meters/{meter_id}/tariff-saving-history")
 def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_user)):
+    """
+    Histórico mensual T3/T3A REAL facturada vs T4 simulada.
+
+    Fórmula:
+        ahorro = subtotal tarifario real T3/T3A - subtotal T4 simulado
+
+    El lado actual usa invoice_lines reales.
+    Sólo se simula la tarifa propuesta T4.
+    """
     db = admin_db()
 
     meter_rows = db.table("meters").select(
@@ -172,20 +146,28 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
 
         peak_kw, off_kw = _contracted(invoice)
         demand = _max_demand(invoice)
+
         if peak_kw <= 0:
             peak_kw = demand
 
         unique_kw = max(peak_kw, off_kw, demand)
         target = "T4-MT" if inv_voltage == "MT" else "T4-AT"
 
+        # ACTUAL: factura real, no simulada.
         actual_cost, actual_components = _actual_tariff_cost(invoice)
-        proposed_cost, proposed_components, proposed_schedule = _proposed_t4_components(
-            rates, invoice, target, inv_voltage, unique_kw
+
+        # PROPUESTA: sólo T4 se simula.
+        proposed_cost, proposed_schedule = _simulate(
+            rates, invoice, target, inv_voltage, unique_kw, Decimal("0")
         )
 
         available = actual_cost is not None and proposed_cost is not None
 
         if not available:
+            reason = (
+                "missing_actual_tariff_lines" if actual_cost is None
+                else "missing_tariff_schedule"
+            )
             points.append({
                 "billing_period": period,
                 "current_tariff": tariff,
@@ -196,13 +178,10 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
                 "annualized_saving": 0.0,
                 "capacity_kw": float(unique_kw),
                 "available": False,
-                "reason": "missing_actual_tariff_lines" if actual_cost is None else "missing_tariff_schedule",
+                "reason": reason,
                 "current_cost_source": "actual_invoice_lines",
                 "current_components": actual_components,
-                "proposed_components": proposed_components,
-                "resolution_number": None if not proposed_schedule else proposed_schedule.get("resolution_number"),
-                "billing_month": None if not proposed_schedule else proposed_schedule.get("billing_month"),
-                "consumption_month": None if not proposed_schedule else proposed_schedule.get("consumption_month"),
+                "resolution_number": None,
             })
             continue
 
@@ -221,10 +200,7 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
             "reason": None,
             "current_cost_source": "actual_invoice_lines",
             "current_components": actual_components,
-            "proposed_components": proposed_components,
             "resolution_number": (proposed_schedule or {}).get("resolution_number"),
-            "billing_month": (proposed_schedule or {}).get("billing_month"),
-            "consumption_month": (proposed_schedule or {}).get("consumption_month"),
         })
 
     return {

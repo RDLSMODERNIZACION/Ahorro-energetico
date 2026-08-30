@@ -1,58 +1,30 @@
-EPEN AHORRO REAL V12
+EPEN DETALLE TARIFARIO V13
 
-CAMBIO DE METODOLOGIA
+Al tocar una barra dentro de Ahorro tarifario se abre debajo el detalle del período.
 
-ANTES:
-T3/T3A simulada - T4 simulada
+MUESTRA
+- período seleccionado;
+- tarifa actual -> tarifa propuesta;
+- ahorro mensual;
+- costo REAL actual;
+- costo T4 simulado;
+- resolución EPEN utilizada;
+- mes de facturación y consumo;
+- conceptos reales de la factura (DEP/EPI/ERE/EVA/CAV/etc.);
+- componentes T4 simulados (DEM/ECO/CAV si corresponde);
+- cantidad;
+- precio unitario;
+- importe;
+- fórmula final:
+  T3/T3A real - T4 simulada = ahorro.
 
-AHORA:
-T3/T3A REAL FACTURADA - T4 simulada
-
-Para el costo actual se toman directamente los net_amount de invoice_lines:
-- CFI
-- DEM
-- DEP
-- DFP
-- EPI
-- ERE
-- EVA
-- ECO
-- CAV
-
-Se excluyen conceptos que no corresponden al cambio tarifario:
-- impuestos
-- deuda anterior
-- fondos
-- cargos extraordinarios
-- CEA
-- FFR
-- etc.
-
-EJEMPLO AGOSTO 2026 - medidor 3497324
-
-T3A REAL comparable:
-EPI = 16.821.329,49
-ERE = 75.865.470,82
-EVA =  3.076.224,00
-DEP = 12.388.634,40
-CAV =     45.888,38
----------------------
-TOTAL = 108.197.547,09
-
-T4-MT simulada:
-DEM = 510 kW x 28.661,50
-ECO = 302.096 kWh x 241,093
-TOTAL = 87.450.596,33
-
-AHORRO TARIFARIO:
-108.197.547,09 - 87.450.596,33
-= 20.746.950,76 ARS / mes
-antes de impuestos.
-
-Luego la app suma por separado el ahorro de potencia si corresponde.
+Si falta cuadro T4:
+- no extrapola valores;
+- indica exactamente que falta el cuadro oficial del período;
+- mantiene el mes sin valorizar.
 
 INSTALAR:
-.\APLICAR_EPEN_AHORRO_REAL_V12.ps1
+.\APLICAR_EPEN_DETALLE_TARIFARIO_V13.ps1
 
 IMPORTANTE:
-El cambio es de backend. Hay que desplegar Render.
+El backend cambió y debe desplegarse en Render.

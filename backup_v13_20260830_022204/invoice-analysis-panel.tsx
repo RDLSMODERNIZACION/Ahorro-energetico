@@ -41,14 +41,6 @@ type AdvancedTariffHistoryPoint={
   capacity_kw:number;
   available?:boolean;
   reason?:string|null;
-  resolution_number?:string|null;
-  billing_month?:string|null;
-  consumption_month?:string|null;
-  current_cost_source?:string;
-  current_components?:Array<{code:string;description?:string;quantity?:number|null;unit_price?:number|null;net_amount:number}>;
-  proposed_components?:Array<{code:string;description?:string;quantity?:number|null;unit_price?:number|null;net_amount:number}>;
-  available?:boolean;
-  reason?:string|null;
 };
 type AdvancedTariffHistoryResponse={
   meter_id:string;
@@ -405,98 +397,18 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
             available:x.available!==false
           }));
 
-          const chartRows=advancedRows.length?advancedRows:legacyRows;
-          const detail=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
+          const chartRows=advancedRows.some(x=>x.monthly_saving>0) ? advancedRows : legacyRows;
 
-          return <div className="invoice-tariff-detail-view">
-            <TariffSavingTrend
-              rows={chartRows}
-              selectedPeriod={periodOf(selected)}
-              onPeriod={setSelectedPeriod}
-            />
-
-            <div className="invoice-tariff-period-detail">
-              <div className="invoice-tariff-period-head">
-                <div>
-                  <span>DETALLE DEL PERÍODO</span>
-                  <h4>{periodOf(selected)} · {detail?.current_tariff||selected.current_tariff_code||"Actual"} → {detail?.recommended_tariff||"T4"}</h4>
-                  <p>{detail?.available===false?"No se puede valorizar este mes porque falta el cuadro oficial T4 correspondiente.":"Comparación entre lo realmente facturado y la tarifa T4 simulada del mismo período."}</p>
-                </div>
-                <div className={detail?.available===false?"missing":"saving"}>
-                  <span>AHORRO TARIFARIO</span>
-                  <b>{detail?.available===false?"S/D":money.format(Number(detail?.monthly_saving||0))}</b>
-                  <small>{detail?.available===false?"Falta cuadro tarifario":`${money.format(Number(detail?.annualized_saving||0))} anualizado`}</small>
-                </div>
-              </div>
-
-              {detail?.available!==false&&detail&&<>
-                <div className="invoice-tariff-summary-grid">
-                  <article>
-                    <span>TARIFA ACTUAL REAL</span>
-                    <b>{money.format(Number(detail.current_cost||0))}</b>
-                    <small>Subtotal real tomado de invoice_lines</small>
-                  </article>
-                  <article>
-                    <span>T4 SIMULADA</span>
-                    <b>{money.format(Number(detail.recommended_cost||0))}</b>
-                    <small>{detail.recommended_tariff} · {nf.format(Number(detail.capacity_kw||0))} kW</small>
-                  </article>
-                  <article>
-                    <span>CUADRO OFICIAL APLICADO</span>
-                    <b>{detail.resolution_number||"S/D"}</b>
-                    <small>Facturación {String(detail.billing_month||periodOf(selected)).slice(0,7)} · Consumo {String(detail.consumption_month||"S/D").slice(0,7)}</small>
-                  </article>
-                </div>
-
-                <div className="invoice-tariff-comparison-grid">
-                  <div>
-                    <h5>{detail.current_tariff} real facturada</h5>
-                    <table>
-                      <thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio</th><th>Importe</th></tr></thead>
-                      <tbody>{(detail.current_components||[]).map((row,index)=><tr key={`${row.code}-${index}`}>
-                        <td><b>{row.code}</b><small>{row.description||""}</small></td>
-                        <td>{row.quantity==null?"—":dec.format(Number(row.quantity))}</td>
-                        <td>{row.unit_price==null?"—":money.format(Number(row.unit_price))}</td>
-                        <td><b>{money.format(Number(row.net_amount||0))}</b></td>
-                      </tr>)}</tbody>
-                    </table>
-                  </div>
-
-                  <div>
-                    <h5>{detail.recommended_tariff} simulada</h5>
-                    <table>
-                      <thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio oficial</th><th>Importe</th></tr></thead>
-                      <tbody>{(detail.proposed_components||[]).map((row,index)=><tr key={`${row.code}-${index}`}>
-                        <td><b>{row.code}</b><small>{row.description||""}</small></td>
-                        <td>{row.quantity==null?"—":dec.format(Number(row.quantity))}</td>
-                        <td>{row.unit_price==null?"—":money.format(Number(row.unit_price))}</td>
-                        <td><b>{money.format(Number(row.net_amount||0))}</b></td>
-                      </tr>)}</tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="invoice-tariff-formula">
-                  <span>FÓRMULA DEL AHORRO</span>
-                  <b>{money.format(Number(detail.current_cost||0))} − {money.format(Number(detail.recommended_cost||0))} = {money.format(Number(detail.monthly_saving||0))}</b>
-                  <small>Actual real facturada − T4 simulada · antes de impuestos</small>
-                </div>
-              </>}
-
-              {detail?.available===false&&<div className="invoice-tariff-missing-detail">
-                <b>Falta el cuadro oficial {detail.recommended_tariff} para {periodOf(selected)}</b>
-                <span>La factura actual sí está cargada. No se extrapola el precio de otro mes: el ahorro queda sin valorizar hasta incorporar el cuadro tarifario oficial correspondiente.</span>
-              </div>}
-            </div>
-          </div>;
+          return <TariffSavingTrend
+            rows={chartRows}
+            selectedPeriod={periodOf(selected)}
+            onPeriod={setSelectedPeriod}
+          />;
         })() : (
           <InvoiceTrend
             rows={sorted}
             metric={metric}
             selectedPeriod={periodOf(selected)}
-            onPeriod={setSelectedPeriod}
-          />
-        )}
             onPeriod={setSelectedPeriod}
           />
         )}
@@ -552,7 +464,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 
