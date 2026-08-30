@@ -96,33 +96,15 @@ export function PublicLightingPanel({
 
   useEffect(()=>{
     if(!organizationId)return;
-
     let cancelled=false;
     setLoading(true);
     setError("");
 
-    // Si period está vacío, el backend debe resolver el último período disponible.
-    // Una vez cargado, adoptamos SIEMPRE data.periods[0] (orden descendente)
-    // como período inicial real.
     getAnalysis(session,organizationId,period||undefined)
       .then(result=>{
         if(cancelled)return;
-
-        const latest=(result.periods||[])[0]||result.billing_period||"";
-
-        // Primera entrada al módulo:
-        // ignoramos cualquier billing_period viejo que pudiera venir cacheado
-        // y fijamos el último período real disponible.
-        if(!period && latest && result.billing_period!==latest){
-          setPeriod(latest);
-          return;
-        }
-
         setData(result);
-
-        if(!period && latest){
-          setPeriod(latest);
-        }
+        if(!period && result.billing_period) setPeriod(result.billing_period);
       })
       .catch(e=>!cancelled&&setError(e instanceof Error?e.message:"No se pudo cargar Alumbrado Público"))
       .finally(()=>!cancelled&&setLoading(false));
@@ -303,5 +285,4 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
 
