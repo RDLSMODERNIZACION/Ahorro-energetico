@@ -1,21 +1,20 @@
-FIX INVOICETREND V6
+V7 FIX2
 
-La V6 reemplazó accidentalmente el bloque donde estaba definida la función InvoiceTrend.
-Por eso React muestra:
+Corrige el error:
+"No encontré TariffSavingTrend/InvoiceTrend."
 
-ReferenceError: InvoiceTrend is not defined
+La causa es que, después de los fixes anteriores, esas funciones ya no estaban en el orden que esperaba el instalador V7.
 
-Este fix únicamente vuelve a insertar la función InvoiceTrend original usada por:
-- Consumo
-- Importe
-- Demanda
-- Factor de potencia
+Este instalador:
+- detecta/recrea InvoiceTrend si falta;
+- detecta/reemplaza/inserta TariffSavingTrend sin depender del orden;
+- agrega el endpoint histórico T3/T4;
+- conecta la pestaña Ahorro tarifario con el histórico mensual T3A→T4-MT;
+- mantiene barras verticales iguales al resto de gráficos.
 
-No modifica el gráfico de Ahorro tarifario.
+Ejecutar:
+.\APLICAR_EPEN_OPTIMIZACION_V7_FIX2.ps1
 
-Ejecutar desde la raíz:
-.\APLICAR_FIX_INVOICETREND_V6.ps1
-
-Después:
-cd front
-npm run dev
+Luego reiniciar:
+BACKEND
+FRONT
