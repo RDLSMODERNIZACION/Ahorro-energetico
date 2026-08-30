@@ -1,17 +1,21 @@
-FIX PARSE V6
+FIX INVOICETREND V6
 
-Corrige el error:
-Unexpected token en invoice-analysis-panel.tsx línea ~222.
+La V6 reemplazó accidentalmente el bloque donde estaba definida la función InvoiceTrend.
+Por eso React muestra:
 
-La V6 dejó duplicado el tramo final del operador ternario:
-... />}:<InvoiceTrend ... />}
+ReferenceError: InvoiceTrend is not defined
 
-Debe quedar una sola rama else:
-... />}
+Este fix únicamente vuelve a insertar la función InvoiceTrend original usada por:
+- Consumo
+- Importe
+- Demanda
+- Factor de potencia
+
+No modifica el gráfico de Ahorro tarifario.
 
 Ejecutar desde la raíz:
-.\APLICAR_FIX_PARSE_V6.ps1
+.\APLICAR_FIX_INVOICETREND_V6.ps1
 
-Luego:
+Después:
 cd front
 npm run dev
