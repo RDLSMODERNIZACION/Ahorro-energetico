@@ -1,40 +1,29 @@
-AHORRO ENERGETICO - LIMPIEZA GITHUB V9
+REBUILD HELPERS V10
 
-Esta versión se hizo después de revisar el estado ACTUAL de GitHub.
+Este fix no intenta encontrar ni borrar el fragmento huérfano exacto.
 
-Problema exacto encontrado:
-- invoice-analysis-panel.tsx tiene DOS funciones TariffSavingTrend.
-- Una lee monthly_saving (histórico T4).
-- La otra lee monthly_saving_with_vat.
-- La segunda definición pisa la primera y termina convirtiendo a cero los datos T4.
-- Por eso el gráfico mostraba escala $0 / $1 sin barras.
+Hace algo más seguro:
+- toma invoice-analysis-panel.tsx;
+- conserva todo lo anterior a function fmt();
+- conserva todo desde InvoiceAnalysisPanel en adelante;
+- RECONSTRUYE COMPLETAMENTE el bloque intermedio con:
+  1. fmt
+  2. TariffSavingTrend
+  3. InvoiceTrend
 
-Además el GitHub tiene estilos acumulados V4/V5/V6/V7 que ya no son necesarios para el render del gráfico.
+De esta manera desaparecen:
+- fragmentos huérfanos;
+- funciones duplicadas;
+- restos de V6/V7/V9 en esa zona.
 
-V9:
-- elimina todas las TariffSavingTrend existentes;
-- deja UNA sola;
-- reconstruye completa la sección Evolución histórica;
-- Ahorro tarifario se renderiza con el mismo SVG/base visual que Demanda y Factor de potencia;
-- barras verticales, hasta 24 meses, click por mes;
-- prioriza el histórico T3/T3A -> T4;
-- si no hay histórico T4 usa el ahorro tarifario tradicional;
-- elimina del render el caption/tarjetas que desplazaban el gráfico;
-- reinstala tariff_history.py de forma idempotente.
+Al final valida que exista exactamente:
+- 1 fmt
+- 1 TariffSavingTrend
+- 1 InvoiceTrend
 
-Dato verificado en la base:
-medidor 3497324 / suministro 00000243 está en T3A-MT y tiene demanda >100 kW en los últimos 12 meses.
-Por lo tanto no debería verse vacío por falta de elegibilidad T4.
+Ejecutar:
+.\APLICAR_REBUILD_HELPERS_V10.ps1
 
-INSTALACIÓN:
-Descomprimir todo en la raíz de Ahorro-energetico y ejecutar:
-
-.\APLICAR_LIMPIEZA_GITHUB_V9.ps1
-
-Después:
+Luego:
 cd front
 npm run dev
-
-IMPORTANTE:
-El front actual llama a https://ahorro-energetico.onrender.com.
-Para que el histórico T4 aparezca, el backend de Render debe tener desplegado tariff_history.py.
