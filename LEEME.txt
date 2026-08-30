@@ -1,0 +1,30 @@
+ANÁLISIS UNIFICADO DEPENDENCIAS + ALUMBRADO PÚBLICO V2
+=========================================================
+
+Esta versión corrige el error:
+"No encontré el bloque esperado: pestañas del análisis individual"
+
+La V2 usa expresiones regulares y NO depende de que el archivo tenga
+exactamente los mismos espacios, saltos de línea o == / ===.
+
+Resultado:
+- Dependencias:
+  Demanda / Importe / Factor de potencia / Tarifaria
+- Alumbrado Público:
+  abre el MISMO InvoiceAnalysisPanel que Dependencias.
+- El gráfico abre inicialmente en Demanda.
+- No toca backend ni base de datos.
+- Crea backups automáticos.
+
+Aplicación:
+1. Descomprimir el ZIP.
+2. Copiar APLICAR_ANALISIS_UNIFICADO_V2.ps1 a la raíz del repo.
+3. Desde:
+   C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+   ejecutar:
+
+   .\APLICAR_ANALISIS_UNIFICADO_V2.ps1
+
+4. Luego:
+   cd front
+   npm run dev

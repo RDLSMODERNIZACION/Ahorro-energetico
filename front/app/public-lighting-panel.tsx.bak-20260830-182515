@@ -1,8 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { InvoiceAnalysisPanel } from "./invoice-analysis-panel";
 import "./public-lighting-panel.css";
 
 const API = "https://ahorro-energetico.onrender.com";
@@ -172,7 +171,7 @@ function IndividualAnalysis({row,onClose}:{row:PLRow;onClose:()=>void}){
   </div>
 }
 
-export function PublicLightingPanel({session,organizationId,invoices,tariffSavings,epenOptimization}:{session:Session;organizationId:string;invoices:any[];tariffSavings:any[];epenOptimization:any[]}){
+export function PublicLightingPanel({session,organizationId}:{session:Session;organizationId:string}){
   const [data,setData]=useState<PLResponse|null>(null);
   const [period,setPeriod]=useState("");
   const [search,setSearch]=useState("");
@@ -205,22 +204,7 @@ export function PublicLightingPanel({session,organizationId,invoices,tariffSavin
       if(!q)return true;
       return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number].some(v=>String(v||"").toLowerCase().includes(q));
     });
-  },[data,search,status]);  const selectedInvoice=selected?(
-    (selected.invoice_id?invoices.find(i=>String(i.id)===String(selected.invoice_id)):undefined)
-    ||invoices.find(i=>
-      String(i.invoice_number||"")===String(selected.invoice_number||"")
-      &&String(i.billing_period||i.period_start||"").slice(0,7)===String(selected.billing_period||"").slice(0,7)
-    )
-    ||invoices.find(i=>
-      (
-        String(i.meters?.meter_number||"")===String(selected.meter_number||"")
-        ||String(i.meters?.supply_number||"")===String(selected.supply_number||"")
-      )
-      &&String(i.billing_period||i.period_start||"").slice(0,7)===String(selected.billing_period||"").slice(0,7)
-    )
-  ):null;
-
-
+  },[data,search,status]);
 
   if(error)return <section className="panel pl-error">{error}</section>;
   if(!data)return <section className="panel pl-loading">{loading?"Analizando Alumbrado Público…":"Sin datos"}</section>;
@@ -265,14 +249,6 @@ export function PublicLightingPanel({session,organizationId,invoices,tariffSavin
       </div></div>
     </section>
 
-    {selected&&selectedInvoice&&<InvoiceAnalysisPanel
-      invoice={selectedInvoice}
-      history={invoices.filter(i=>i.meter_id===selectedInvoice.meter_id)}
-      tariffSavings={tariffSavings}
-      optimization={epenOptimization.find(x=>x.meter_id===selectedInvoice.meter_id)}
-      onClose={()=>setSelected(null)}
-    />}
-    {selected&&!selectedInvoice&&<IndividualAnalysis row={selected} onClose={()=>setSelected(null)}/>}
+    {selected&&<IndividualAnalysis row={selected} onClose={()=>setSelected(null)}/>}
   </div>;
 }
-
