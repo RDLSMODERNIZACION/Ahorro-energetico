@@ -268,4 +268,3 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
 
 
 
-
