@@ -1,27 +1,40 @@
-REPARACION V8
+AHORRO ENERGETICO - LIMPIEZA GITHUB V9
 
-Este fix ya no intenta parchear el JSX roto línea por línea.
+Esta versión se hizo después de revisar el estado ACTUAL de GitHub.
 
-Reconstruye COMPLETO el bloque:
-Evolución histórica del medidor
+Problema exacto encontrado:
+- invoice-analysis-panel.tsx tiene DOS funciones TariffSavingTrend.
+- Una lee monthly_saving (histórico T4).
+- La otra lee monthly_saving_with_vat.
+- La segunda definición pisa la primera y termina convirtiendo a cero los datos T4.
+- Por eso el gráfico mostraba escala $0 / $1 sin barras.
 
-Mantiene:
-- Consumo
-- Importe
-- Demanda
-- Factor potencia
-- Ahorro tarifario
+Además el GitHub tiene estilos acumulados V4/V5/V6/V7 que ya no son necesarios para el render del gráfico.
 
-Ahorro tarifario usa:
-1. histórico T3/T3A -> T4 si el backend lo devuelve;
-2. si no, el ahorro tarifario tradicional.
+V9:
+- elimina todas las TariffSavingTrend existentes;
+- deja UNA sola;
+- reconstruye completa la sección Evolución histórica;
+- Ahorro tarifario se renderiza con el mismo SVG/base visual que Demanda y Factor de potencia;
+- barras verticales, hasta 24 meses, click por mes;
+- prioriza el histórico T3/T3A -> T4;
+- si no hay histórico T4 usa el ahorro tarifario tradicional;
+- elimina del render el caption/tarjetas que desplazaban el gráfico;
+- reinstala tariff_history.py de forma idempotente.
 
-El objetivo principal de esta versión es eliminar el error:
-Expected `>` but found `<`
+Dato verificado en la base:
+medidor 3497324 / suministro 00000243 está en T3A-MT y tiene demanda >100 kW en los últimos 12 meses.
+Por lo tanto no debería verse vacío por falta de elegibilidad T4.
 
-Ejecutar:
-.\APLICAR_REPARACION_V8.ps1
+INSTALACIÓN:
+Descomprimir todo en la raíz de Ahorro-energetico y ejecutar:
 
-Luego:
+.\APLICAR_LIMPIEZA_GITHUB_V9.ps1
+
+Después:
 cd front
 npm run dev
+
+IMPORTANTE:
+El front actual llama a https://ahorro-energetico.onrender.com.
+Para que el histórico T4 aparezca, el backend de Render debe tener desplegado tariff_history.py.

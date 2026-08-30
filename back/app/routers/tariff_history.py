@@ -20,8 +20,7 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
         return {"meter_id": meter_id, "mode": "none", "points": []}
 
     meter = meter_rows[0]
-    organization_id = meter["organization_id"]
-    require_org(user.id, organization_id)
+    require_org(user.id, meter["organization_id"])
 
     rates = db.table("tariff_rates").select(
         "unit_price,voltage_level,min_capacity_kw,max_capacity_kw,"
@@ -40,7 +39,6 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
     ).eq("meter_id", meter_id).execute().data or []
 
     invoices.sort(key=lambda x: _period(x))
-
     if not invoices:
         return {"meter_id": meter_id, "mode": "none", "points": []}
 
@@ -63,11 +61,11 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
             "current_tariff": current_tariff,
             "recommended_tariff": None,
             "months_over_100kw_last12": months_over_100,
+            "taxes_included": False,
             "points": [],
         }
 
     points = []
-
     for invoice in invoices[-24:]:
         tariff = _tariff_key(invoice.get("current_tariff_code") or current_tariff)
         inv_voltage = _voltage_key(invoice.get("voltage_level") or voltage)
@@ -97,7 +95,6 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
             continue
 
         saving = max(Decimal("0"), current_cost - proposed_cost)
-
         points.append({
             "billing_period": _period(invoice),
             "current_tariff": tariff,

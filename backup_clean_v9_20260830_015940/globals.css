@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 :root {
   --ink: #17211d;
   --muted: #718078;
@@ -1731,19 +1731,6 @@ td small {
 .invoice-tariff-selected-caption span{font-size:10px;color:#64748b}
 .invoice-tariff-selected-caption b{font-size:14px;color:#047857}
 .invoice-tariff-selected-caption small{font-size:9px;color:#94a3b8}
-.invoice-tariff-no-data{height:330px;display:grid;place-content:center;text-align:center;gap:5px;color:#64748b}
-.invoice-tariff-no-data b{font-size:15px;color:#334155}
-.invoice-tariff-no-data span{font-size:11px}
-
-
-/* EPEN CLEAN V9 */
-.invoice-tariff-chart-view{position:static!important}
-.invoice-tariff-selected-caption{display:none!important}
-.tariff-saving-bar rect{fill:#2b9b70}
-.tariff-saving-bar.selected rect{fill:#116b49}
-.invoice-tariff-legend{display:flex;justify-content:flex-end;padding:2px 26px 0;font-size:11px;color:#475569}
-.invoice-tariff-legend span{display:flex;align-items:center;gap:7px}
-.invoice-tariff-legend i{width:13px;height:13px;border-radius:4px;background:#2b9b70}
 .invoice-tariff-no-data{height:330px;display:grid;place-content:center;text-align:center;gap:5px;color:#64748b}
 .invoice-tariff-no-data b{font-size:15px;color:#334155}
 .invoice-tariff-no-data span{font-size:11px}
