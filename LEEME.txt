@@ -1,67 +1,21 @@
-AP LINKED METER FIX V5
-======================
+QUITAR RESUMEN SUPERIOR DE ALUMBRADO PÚBLICO - V6
 
-Revisión hecha contra el GitHub ACTUAL y la base Supabase ACTUAL.
+Elimina únicamente el bloque que muestra:
 
-PROBLEMA ENCONTRADO
--------------------
-El backend actual de GitHub usa:
+- Consumo del mes
+- Importe facturado
+- Promedio por factura
+- Cobertura
 
-public_lighting_meters.meter_id
+No modifica backend.
+No modifica Supabase.
+No modifica GitHub directamente.
 
-pero la base real NO tiene ese campo.
+Aplicar desde la raíz de Ahorro-energetico:
 
-La base tiene:
+.\APLICAR_QUITAR_RESUMEN_AP_V6.ps1
 
-public_lighting_meters.linked_meter_id
+Luego:
 
-y ya está correctamente vinculado:
-81 AP / 81 vinculados.
-
-Además, las facturas históricas AP ya fueron migradas al modelo general:
-meters -> invoices -> invoice_measurements.
-
-QUÉ CORRIGE ESTE ZIP
---------------------
-1. Backend AP:
-   - usa linked_meter_id
-   - deja de intentar escribir meter_id
-   - consulta invoices generales
-   - devuelve meter_id al front como alias del linked_meter_id
-   - calcula consumo, demanda y factor de potencia desde invoice_measurements
-   - usa invoice_lines para detectar penalización COS
-
-2. Front AP:
-   - abre el MISMO InvoiceAnalysisPanel de Dependencias
-   - mantiene:
-       Demanda
-       Importe
-       Factor de potencia
-       Tarifaria
-   - botón: Volver a Alumbrado Público
-   - no muestra editor de nombre/ubicación específico dentro del análisis AP
-
-3. No requiere más cambios en Supabase.
-
-LIMITACIÓN REAL DE LOS DATOS HISTÓRICOS
----------------------------------------
-Las facturas AP antiguas fueron importadas originalmente desde
-public_lighting_invoices. Muchas de esas filas no contenían demanda
-ni factor de potencia.
-
-Por eso:
-- donde invoice_measurements tenga demanda, se mostrará;
-- donde tenga power_factor o tangent_phi, se mostrará/calculará;
-- donde históricamente no exista ese dato, se mostrará S/D.
-
-Esto ya no es una limitación del diseño: es disponibilidad del dato histórico.
-
-APLICAR
--------
-Desde la raíz del repo:
-
-.\APLICAR_AP_LINKED_METER_FIX_V5.ps1
-
-Luego reiniciar backend y frontend.
-
-No se modifica GitHub directamente.
+cd front
+npm run dev

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -173,7 +173,12 @@ export function PublicLightingPanel({
       Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.
     </section>}
 
-    
+    <section className="panel pl-summary-strip">
+      <div><span>Consumo del mes</span><b>{number.format(data.summary.total_kwh)} kWh</b></div>
+      <div><span>Importe facturado</span><b>{money.format(data.summary.total_amount)}</b></div>
+      <div><span>Promedio por factura</span><b>{data.summary.received?number.format(data.summary.total_kwh/data.summary.received):0} kWh</b></div>
+      <div><span>Cobertura</span><b>{data.summary.expected?Math.round(data.summary.received/data.summary.expected*100):0}%</b></div>
+    </section>
 
     <section className="panel">
       <div className="panel-title pl-title">
@@ -285,4 +290,3 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
