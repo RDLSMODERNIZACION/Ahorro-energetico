@@ -1,42 +1,63 @@
-AP - FORZAR ÚLTIMO PERÍODO DESDE FACTURAS GENERALES V8
-======================================================
+AP - PAGINACIÓN DE FACTURAS V9
+===============================
 
-Por qué V7 no alcanzó
+CAUSA REAL ENCONTRADA
 ---------------------
-El frontend llama siempre al backend remoto:
+La base está bien.
 
-https://ahorro-energetico.onrender.com
+Verificación directa en Supabase:
+- Facturas AP vinculadas para 2026-08: 71
+- Medidores AP esperados: 81
 
-Por eso, aunque el código local del backend esté actualizado, si Render todavía
-está sirviendo una versión anterior o cacheada, el endpoint puede devolver como
-período inicial 2025-10.
+El problema estaba en back/app/routers/public_lighting.py.
 
-La base YA fue verificada:
-- último período general: 2026-08
-- último período AP vinculado: 2026-08
-- 71 AP con factura en 2026-08
+La consulta hacía:
 
-Qué hace V8
+db.table("invoices").select(...).in_("meter_id", linked_ids).order("period_start").execute()
+
+Supabase/PostgREST limita una respuesta grande a aproximadamente 1000 filas.
+
+Como Alumbrado Público ya tiene más de 1800 facturas históricas y la consulta
+estaba ordenada de la más vieja a la más nueva, el backend solo recibía las
+primeras ~1000.
+
+Eso explica exactamente los síntomas:
+1. antes aparecía 2025-10 como "último período";
+2. V8 forzó correctamente 2026-08;
+3. pero el backend seguía sin tener las facturas 2026-08 dentro de esas 1000,
+   entonces mostraba 0 recibidas / 81 faltantes.
+
+QUÉ HACE V9
 -----------
-No le pregunta al backend cuál es el período inicial.
+Pagina la consulta de invoices de 1000 en 1000 hasta traer TODO el histórico AP.
 
-Toma directamente el período más nuevo del array `invoices` que ya tiene cargado
-el frontend general y luego consulta AP con ese período explícito:
+Después el backend podrá encontrar correctamente:
+- 2026-08
+- las facturas recibidas
+- consumo
+- importe
+- demanda cuando exista
+- factor de potencia cuando exista
 
-...?billing_period=2026-08
+No toca Supabase.
+No toca frontend.
+No modifica GitHub directamente.
 
-Después podés cambiar manualmente el selector a períodos anteriores.
-
-Aplicar
+APLICAR
 -------
 Desde la raíz:
 
-.\APLICAR_AP_FORZAR_ULTIMO_PERIODO_V8.ps1
+.\APLICAR_AP_PAGINAR_FACTURAS_V9.ps1
 
-Luego:
+MUY IMPORTANTE
+--------------
+Este cambio es de BACKEND.
 
-cd front
-npm run dev
+Después de aplicarlo hay que:
+- reiniciar backend local si se prueba localmente, o
+- subir el cambio y esperar el deploy de Render.
 
-No modifica Supabase.
-No modifica GitHub directamente.
+Si el frontend sigue apuntando a:
+https://ahorro-energetico.onrender.com
+
+no verá la corrección hasta que Render tenga desplegada esta V9.
