@@ -1,22 +1,58 @@
-V11 FIX3
+EPEN AHORRO REAL V12
 
-Corrige el error de PowerShell:
-"El operador -ireplace solo permite que lo sigan dos elementos, no 6."
+CAMBIO DE METODOLOGIA
 
-La causa era una construcción incorrecta de -replace en FIX2.
+ANTES:
+T3/T3A simulada - T4 simulada
 
-FIX3:
-- ya no usa ese -replace;
-- reemplaza legacyRows completo con Regex;
-- mantiene todos los cambios previstos:
-  - ahorro T4 unificado con cuadro inferior;
-  - Total mensual y Ahorro potencial;
-  - meses grises cuando falta cuadro T4;
-  - leyenda del gráfico.
+AHORA:
+T3/T3A REAL FACTURADA - T4 simulada
 
-Ejecutar:
-.\APLICAR_EPEN_AHORRO_V11_FIX3.ps1
+Para el costo actual se toman directamente los net_amount de invoice_lines:
+- CFI
+- DEM
+- DEP
+- DFP
+- EPI
+- ERE
+- EVA
+- ECO
+- CAV
 
-Luego:
-cd front
-npm run dev
+Se excluyen conceptos que no corresponden al cambio tarifario:
+- impuestos
+- deuda anterior
+- fondos
+- cargos extraordinarios
+- CEA
+- FFR
+- etc.
+
+EJEMPLO AGOSTO 2026 - medidor 3497324
+
+T3A REAL comparable:
+EPI = 16.821.329,49
+ERE = 75.865.470,82
+EVA =  3.076.224,00
+DEP = 12.388.634,40
+CAV =     45.888,38
+---------------------
+TOTAL = 108.197.547,09
+
+T4-MT simulada:
+DEM = 510 kW x 28.661,50
+ECO = 302.096 kWh x 241,093
+TOTAL = 87.450.596,33
+
+AHORRO TARIFARIO:
+108.197.547,09 - 87.450.596,33
+= 20.746.950,76 ARS / mes
+antes de impuestos.
+
+Luego la app suma por separado el ahorro de potencia si corresponde.
+
+INSTALAR:
+.\APLICAR_EPEN_AHORRO_REAL_V12.ps1
+
+IMPORTANTE:
+El cambio es de backend. Hay que desplegar Render.
