@@ -30,7 +30,7 @@ type Invoice={
   meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];
 };
 type TariffSaving={meter_id:string;billing_period:string;monthly_saving_with_vat:number};
-type Metric="kwh"|"amount"|"demand"|"pf"|"tariff";
+type Metric="kwh"|"amount"|"demand"|"pf";
 
 const nf=new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
 const dec=new Intl.NumberFormat("es-AR",{maximumFractionDigits:3});
@@ -182,6 +182,43 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
         <article className="saving"><span>Ahorro potencial</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} anualizado</small></article>
       </div>
 
+      {optimization&&(isT3||optimization.t4.status==="candidate"||(currentVoltage==="BT"&&["strong","candidate","preliminary"].includes(optimization.mt.status)))&&<section className="invoice-analysis-panel epen-individual-analysis">
+        <div className="epen-individual-head">
+          <div><span>ANÁLISIS TARIFARIO AVANZADO EPEN</span><h3>Oportunidades que aplican a esta factura</h3><p>Solo se muestran alternativas compatibles con la tarifa y nivel de tensión actuales. Valores antes de impuestos.</p></div>
+        </div>
+        <div className={`epen-individual-grid epen-cols-${[
+          isT3,
+          optimization.t4.status==="candidate",
+          currentVoltage==="BT"&&["strong","candidate","preliminary"].includes(optimization.mt.status)
+        ].filter(Boolean).length}`}>
+          {isT3&&<article className={optimization.t3.status==="candidate"?"candidate":""}>
+            <span>T3 · Potencia contratada por franja</span>
+            <b>Punta / fuera de punta</b>
+            <small>Contratada: {contractedBand.peak>0?nf.format(contractedBand.peak):"S/D"} / {contractedBand.offPeak>0?nf.format(contractedBand.offPeak):"S/D"} kW</small>
+            <small>Máxima registrada 12m: {optimization.t3.max_registered_peak_12m_kw>0?nf.format(optimization.t3.max_registered_peak_12m_kw):"S/D"} / {optimization.t3.max_registered_off_peak_12m_kw>0?nf.format(optimization.t3.max_registered_off_peak_12m_kw):"S/D"} kW</small>
+            {optimization.t3.recommended_peak_kw>0&&optimization.t3.recommended_off_peak_kw>0&&<small>Recomendada: {nf.format(optimization.t3.recommended_peak_kw)} / {nf.format(optimization.t3.recommended_off_peak_kw)} kW</small>}
+            <strong>{optimization.t3.monthly_saving_before_taxes!=null?`${money.format(optimization.t3.monthly_saving_before_taxes)}/mes`:contractedBand.offPeak<=0?"Falta identificar potencia fuera de punta":"Faltan demandas registradas por franja"}</strong>
+          </article>}
+
+          {optimization.t4.status==="candidate"&&<article className="candidate">
+            <span>Cambio T3 → T4</span>
+            <b>Candidato {optimization.t4.target_tariff||"T4"}</b>
+            <small>{optimization.t4.months_over_100kw_last12}/12 meses con demanda ≥100 kW</small>
+            {optimization.t4.current_t3_cost_before_taxes!=null&&<small>T3 simulado: {money.format(Number(optimization.t4.current_t3_cost_before_taxes))}</small>}
+            {optimization.t4.t4_cost_before_taxes!=null&&<small>T4 simulado: {money.format(Number(optimization.t4.t4_cost_before_taxes))}</small>}
+            <strong>{optimization.t4.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t4.monthly_saving_before_taxes))}/mes`:"Requiere validación EPEN"}</strong>
+          </article>}
+
+          {currentVoltage==="BT"&&["strong","candidate","preliminary"].includes(optimization.mt.status)&&<article className="candidate">
+            <span>Baja Tensión → Media Tensión</span>
+            <b>{optimization.mt.status==="strong"?"Candidato fuerte":optimization.mt.status==="candidate"?"Candidato":"Estudio preliminar"}</b>
+            <small>Máxima 12m: {nf.format(optimization.max_demand_12m_kw)} kW</small>
+            {optimization.mt.current_bt_cost_before_taxes!=null&&<small>BT simulado: {money.format(Number(optimization.mt.current_bt_cost_before_taxes))}</small>}
+            {optimization.mt.simulated_mt_cost_before_taxes!=null&&<small>MT simulado: {money.format(Number(optimization.mt.simulated_mt_cost_before_taxes))}</small>}
+            <strong>{optimization.mt.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.mt.monthly_saving_before_taxes))}/mes`:"Requiere factibilidad EPEN"}</strong>
+          </article>}
+        </div>
+      </section>}
       <section className="invoice-analysis-panel">
         <div className="invoice-analysis-chart-head">
           <div><h3>Evolución histórica del medidor</h3><p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p></div>
@@ -189,79 +226,10 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
             <button className={metric==="kwh"?"active":""} onClick={()=>setMetric("kwh")}>Consumo</button>
             <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
             <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
-            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button><button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Ahorro tarifario</button>
+            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor potencia</button>
           </div>
         </div>
-        {metric==="tariff"?<div className="invoice-tariff-tab">
-          <div className="invoice-tariff-tab-summary">
-            <div>
-              <span>FACTURA ANALIZADA</span>
-              <b>{periodOf(selected)}</b>
-              <small>{selected.current_tariff_code||"S/D"} · {currentVoltage||"S/D"}</small>
-            </div>
-            <div>
-              <span>AHORRO TARIFARIO PROPUESTO</span>
-              <b>{money.format(
-                Math.max(
-                  tariffSaving,
-                  Number(optimization?.t4?.monthly_saving_before_taxes||0),
-                  currentVoltage==="BT"?Number(optimization?.mt?.monthly_saving_before_taxes||0):0,
-                  Number(optimization?.t3?.monthly_saving_before_taxes||0)
-                )
-              )}</b>
-              <small>mensual estimado · según la mejor alternativa aplicable</small>
-            </div>
-          </div>
-
-          <div className="invoice-tariff-options">
-            {tariffSaving>0&&<article className="recommended">
-              <span>CAMBIO DE CATEGORÍA</span>
-              <h4>{selected.current_tariff_code||"Actual"} → categoría recomendada</h4>
-              <b>{money.format(tariffSaving)}/mes</b>
-              <small>Simulación tarifaria del período seleccionado.</small>
-            </article>}
-
-            {isT3&&optimization&&<article className={Number(optimization.t3.monthly_saving_before_taxes||0)>0?"recommended":""}>
-              <span>T3 · POTENCIA POR FRANJA</span>
-              <h4>Punta / fuera de punta</h4>
-              <div className="invoice-tariff-values">
-                <p><small>Contratada</small><b>{contractedBand.peak>0?nf.format(contractedBand.peak):"S/D"} / {contractedBand.offPeak>0?nf.format(contractedBand.offPeak):"S/D"} kW</b></p>
-                <p><small>Recomendada</small><b>{optimization.t3.recommended_peak_kw>0?nf.format(optimization.t3.recommended_peak_kw):"S/D"} / {optimization.t3.recommended_off_peak_kw>0?nf.format(optimization.t3.recommended_off_peak_kw):"S/D"} kW</b></p>
-              </div>
-              <b>{optimization.t3.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t3.monthly_saving_before_taxes))}/mes`:"Sin ahorro valorizado"}</b>
-              <small>{contractedBand.offPeak<=0?"La factura no informa claramente la potencia contratada fuera de punta.":"Comparación con las máximas registradas por franja."}</small>
-            </article>}
-
-            {optimization?.t4.status==="candidate"&&<article className="recommended">
-              <span>CAMBIO T3 → T4</span>
-              <h4>{selected.current_tariff_code||"T3"} → {optimization.t4.target_tariff||"T4"}</h4>
-              <div className="invoice-tariff-values">
-                <p><small>Costo actual simulado</small><b>{optimization.t4.current_t3_cost_before_taxes!=null?money.format(Number(optimization.t4.current_t3_cost_before_taxes)):"S/D"}</b></p>
-                <p><small>Costo T4 simulado</small><b>{optimization.t4.t4_cost_before_taxes!=null?money.format(Number(optimization.t4.t4_cost_before_taxes)):"S/D"}</b></p>
-              </div>
-              <b>{optimization.t4.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t4.monthly_saving_before_taxes))}/mes`:"Requiere validación"}</b>
-              <small>{optimization.t4.months_over_100kw_last12}/12 meses con demanda ≥100 kW · requiere contrato EPEN.</small>
-            </article>}
-
-            {currentVoltage==="BT"&&optimization&&["strong","candidate","preliminary"].includes(optimization.mt.status)&&<article className="recommended">
-              <span>CAMBIO DE NIVEL DE TENSIÓN</span>
-              <h4>BT → MT</h4>
-              <div className="invoice-tariff-values">
-                <p><small>BT simulado</small><b>{optimization.mt.current_bt_cost_before_taxes!=null?money.format(Number(optimization.mt.current_bt_cost_before_taxes)):"S/D"}</b></p>
-                <p><small>MT simulado</small><b>{optimization.mt.simulated_mt_cost_before_taxes!=null?money.format(Number(optimization.mt.simulated_mt_cost_before_taxes)):"S/D"}</b></p>
-              </div>
-              <b>{optimization.mt.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.mt.monthly_saving_before_taxes))}/mes`:"Requiere factibilidad"}</b>
-              <small>Solo se muestra porque este suministro está actualmente en Baja Tensión.</small>
-            </article>}
-
-            {!tariffSaving&&!(isT3&&optimization)&&optimization?.t4.status!=="candidate"&&!(currentVoltage==="BT"&&optimization&&["strong","candidate","preliminary"].includes(optimization.mt.status))&&
-              <div className="invoice-tariff-empty">No se detectó un cambio tarifario valorizado para esta factura.</div>}
-          </div>
-
-          <div className="invoice-tariff-tab-note">
-            Los escenarios T3/T4/BT→MT se muestran antes de impuestos. T4 y el cambio de nivel de tensión requieren validación de EPEN.
-          </div>
-        </div>:<InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>}
+        <InvoiceTrend rows={sorted} metric={metric} selectedPeriod={periodOf(selected)} onPeriod={setSelectedPeriod}/>
       </section>
 
       <div className="invoice-analysis-grid">
@@ -315,7 +283,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

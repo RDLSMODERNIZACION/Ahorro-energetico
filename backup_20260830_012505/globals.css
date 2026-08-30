@@ -1656,29 +1656,3 @@ td small {
 .invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(7,minmax(0,1fr))}
 @media(max-width:1450px){.invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:1000px){.epen-individual-grid.epen-cols-2,.epen-individual-grid.epen-cols-3{grid-template-columns:1fr}.invoice-analysis-kpis:has(article:nth-child(7)){grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-/* EPEN ADVANCED V4 */
-.invoice-analysis-metrics{flex-wrap:wrap}
-.invoice-analysis-metrics button:last-child{min-width:122px}
-.invoice-tariff-tab{padding:22px 24px 24px}
-.invoice-tariff-tab-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.invoice-tariff-tab-summary>div{display:grid;gap:4px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
-.invoice-tariff-tab-summary span{font-size:10px;font-weight:900;letter-spacing:.08em;color:#64748b}
-.invoice-tariff-tab-summary b{font-size:20px;color:#0f172a}
-.invoice-tariff-tab-summary>div:last-child{background:#ecfdf5;border-color:#a7f3d0}
-.invoice-tariff-tab-summary>div:last-child b{color:#047857}
-.invoice-tariff-tab-summary small{color:#64748b}
-.invoice-tariff-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.invoice-tariff-options article{display:grid;align-content:start;gap:7px;min-height:175px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
-.invoice-tariff-options article.recommended{border-color:#86efac;background:#f0fdf4}
-.invoice-tariff-options article>span{font-size:10px;font-weight:900;letter-spacing:.07em;color:#64748b}
-.invoice-tariff-options article h4{margin:0;font-size:17px;color:#0f172a}
-.invoice-tariff-options article>b{font-size:17px;color:#047857}
-.invoice-tariff-options article>small{color:#64748b;font-size:11px;line-height:1.4}
-.invoice-tariff-values{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.invoice-tariff-values p{display:grid;gap:3px;margin:0;padding:9px;border-radius:9px;background:rgba(255,255,255,.75)}
-.invoice-tariff-values p small{color:#64748b;font-size:10px}
-.invoice-tariff-values p b{font-size:13px;color:#0f172a}
-.invoice-tariff-empty{grid-column:1/-1;padding:28px;text-align:center;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;background:#f8fafc}
-.invoice-tariff-tab-note{margin-top:13px;padding-top:12px;border-top:1px solid #e2e8f0;color:#64748b;font-size:11px}
-@media(max-width:1100px){.invoice-tariff-options{grid-template-columns:1fr}.invoice-tariff-tab-summary{grid-template-columns:1fr}}

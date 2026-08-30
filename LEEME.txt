@@ -1,32 +1,27 @@
-EPEN OPTIMIZACION V3
+EPEN OPTIMIZACION V4
 
-Corrige la presentación del análisis individual:
+CAMBIO DE DISEÑO SOLICITADO
 
-1. Si la factura es T3/T3A, en la parte superior muestra:
-   - Potencia contratada punta
-   - Potencia contratada fuera de punta
+- El cuadro grande "ANÁLISIS TARIFARIO AVANZADO EPEN" se elimina de arriba.
+- Dentro de "Evolución histórica del medidor" se agrega una quinta pestaña:
+  AHORRO TARIFARIO
 
-   Busca los valores primero en contracted_kw_peak / contracted_kw_off_peak
-   y, si faltan, en las líneas DEP/DEM y DFP de la factura.
+Al abrir AHORRO TARIFARIO se muestra el análisis de la factura seleccionada:
+- Cambio de categoría tarifaria, si existe.
+- Optimización T3 punta/fuera de punta, si es T3/T3A.
+- Cambio T3→T4, únicamente si corresponde.
+- BT→MT, únicamente si el suministro está actualmente en BT.
 
-2. El cuadro "Análisis tarifario avanzado EPEN" ya NO muestra los tres estudios siempre.
-   Solo muestra lo que aplica a esa factura:
-   - T3/T3A => análisis de dos potencias.
-   - T4 => solo si el suministro es candidato real.
-   - BT→MT => únicamente si la factura está actualmente en BT.
-
-3. En un suministro como Planta de agua Confluencia (T3A - MT):
-   debe mostrar únicamente:
-   - T3: punta / fuera de punta
-   - Candidato T4-MT
-   NO debe mostrar BT→MT.
+Para un T3A-MT candidato T4:
+se mostrará T3 por franja + T4-MT.
+NO se mostrará BT→MT.
 
 REQUISITO:
-Tener aplicada la V2 anterior.
+Tener aplicada la V3.
 
-INSTALACION:
+INSTALACIÓN:
 Descomprimir en la raíz de Ahorro-energetico y ejecutar:
 
-.\APLICAR_EPEN_OPTIMIZACION_V3.ps1
+.\APLICAR_EPEN_OPTIMIZACION_V4.ps1
 
-Después reiniciar el front.
+Después reiniciar el frontend.
