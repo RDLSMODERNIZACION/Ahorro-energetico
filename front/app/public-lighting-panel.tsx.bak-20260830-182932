@@ -205,61 +205,19 @@ export function PublicLightingPanel({session,organizationId,invoices,tariffSavin
       if(!q)return true;
       return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number].some(v=>String(v||"").toLowerCase().includes(q));
     });
-  },[data,search,status]);  const apHistoryInvoices=selected?[...selected.history].map((h,index)=>({
-    id:`ap-${selected.public_lighting_meter_id}-${h.billing_period}-${index}`,
-    meter_id:`ap-${selected.public_lighting_meter_id}`,
-    invoice_number:h.invoice_number||undefined,
-    billing_period:h.billing_period,
-    period_start:`${h.billing_period}-01`,
-    period_end:`${h.billing_period}-28`,
-    total_amount:Number(h.total_amount||0),
-    current_tariff_code:h.tariff_code||selected.tariff_code||undefined,
-    tariff_name:h.tariff_code||selected.tariff_code||undefined,
-    meters:{
-      id:`ap-${selected.public_lighting_meter_id}`,
-      tracking_code:`AP-${selected.public_lighting_meter_id}`,
-      meter_number:selected.meter_number||undefined,
-      supply_number:selected.supply_number||undefined,
-      service_name:selected.address||"Alumbrado público",
-      current_tariff_code:h.tariff_code||selected.tariff_code||undefined,
-      sites:{name:selected.address||"Alumbrado público",address:selected.address||undefined}
-    },
-    invoice_measurements:[{
-      active_energy_kwh:Number(h.active_energy_kwh||0),
-      measurement_type:"Alumbrado público",
-      meter_number:selected.meter_number||undefined
-    }],
-    invoice_lines:[]
-  })):[];
-
-  const apSelectedInvoice=selected?(
-    apHistoryInvoices.find(i=>String(i.billing_period).slice(0,7)===String(selected.billing_period).slice(0,7))
-    ||apHistoryInvoices.at(-1)
-    ||{
-      id:`ap-${selected.public_lighting_meter_id}-${selected.billing_period}`,
-      meter_id:`ap-${selected.public_lighting_meter_id}`,
-      invoice_number:selected.invoice_number||undefined,
-      billing_period:selected.billing_period,
-      period_start:`${selected.billing_period}-01`,
-      period_end:`${selected.billing_period}-28`,
-      total_amount:Number(selected.total_amount||0),
-      current_tariff_code:selected.tariff_code||undefined,
-      meters:{
-        id:`ap-${selected.public_lighting_meter_id}`,
-        tracking_code:`AP-${selected.public_lighting_meter_id}`,
-        meter_number:selected.meter_number||undefined,
-        supply_number:selected.supply_number||undefined,
-        service_name:selected.address||"Alumbrado público",
-        current_tariff_code:selected.tariff_code||undefined,
-        sites:{name:selected.address||"Alumbrado público",address:selected.address||undefined}
-      },
-      invoice_measurements:[{
-        active_energy_kwh:Number(selected.active_energy_kwh||0),
-        measurement_type:"Alumbrado público",
-        meter_number:selected.meter_number||undefined
-      }],
-      invoice_lines:[]
-    }
+  },[data,search,status]);  const selectedInvoice=selected?(
+    (selected.invoice_id?invoices.find(i=>String(i.id)===String(selected.invoice_id)):undefined)
+    ||invoices.find(i=>
+      String(i.invoice_number||"")===String(selected.invoice_number||"")
+      &&String(i.billing_period||i.period_start||"").slice(0,7)===String(selected.billing_period||"").slice(0,7)
+    )
+    ||invoices.find(i=>
+      (
+        String(i.meters?.meter_number||"")===String(selected.meter_number||"")
+        ||String(i.meters?.supply_number||"")===String(selected.supply_number||"")
+      )
+      &&String(i.billing_period||i.period_start||"").slice(0,7)===String(selected.billing_period||"").slice(0,7)
+    )
   ):null;
 
 
@@ -307,19 +265,14 @@ export function PublicLightingPanel({session,organizationId,invoices,tariffSavin
       </div></div>
     </section>
 
-    {selected&&apSelectedInvoice&&<InvoiceAnalysisPanel
-      invoice={apSelectedInvoice}
-      history={apHistoryInvoices.length?apHistoryInvoices:[apSelectedInvoice]}
-      tariffSavings={[]}
-      optimization={undefined}
+    {selected&&selectedInvoice&&<InvoiceAnalysisPanel
+      invoice={selectedInvoice}
+      history={invoices.filter(i=>i.meter_id===selectedInvoice.meter_id)}
+      tariffSavings={tariffSavings}
+      optimization={epenOptimization.find(x=>x.meter_id===selectedInvoice.meter_id)}
       onClose={()=>setSelected(null)}
-      backLabel="← Volver a Alumbrado Público"
-      analysisLabel="ANÁLISIS INDIVIDUAL · ALUMBRADO PÚBLICO"
-      allowNameEdit={false}
-      simpleTariffHistory={selected.history}
-      hideLocationEditor={true}
     />}
+    {selected&&!selectedInvoice&&<IndividualAnalysis row={selected} onClose={()=>setSelected(null)}/>}
   </div>;
 }
-
 

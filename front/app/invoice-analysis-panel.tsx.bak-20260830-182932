@@ -274,25 +274,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
     </div>}
   </div>
 }
-export function InvoiceAnalysisPanel({
-  invoice,history,tariffSavings,optimization,onClose,
-  backLabel="← Volver a facturas",
-  analysisLabel="ANÁLISIS INDIVIDUAL DE FACTURA",
-  allowNameEdit=true,
-  simpleTariffHistory,
-  hideLocationEditor=false
-}:{
-  invoice:Invoice;
-  history:Invoice[];
-  tariffSavings:TariffSaving[];
-  optimization?:EpenOptimizationMeter;
-  onClose:()=>void;
-  backLabel?:string;
-  analysisLabel?:string;
-  allowNameEdit?:boolean;
-  simpleTariffHistory?:Array<{billing_period:string;tariff_code?:string|null;invoice_number?:string|null;total_amount?:number|null}>;
-  hideLocationEditor?:boolean;
-}){
+export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];optimization?:EpenOptimizationMeter;onClose:()=>void}){
   const[metric,setMetric]=useState<Metric>("demand");
   const[advancedTariffHistory,setAdvancedTariffHistory]=useState<AdvancedTariffHistoryResponse|null>(null);
   const[editingName,setEditingName]=useState(false);
@@ -368,8 +350,8 @@ export function InvoiceAnalysisPanel({
     <div className="invoice-analysis-page">
       <div className="invoice-analysis-top">
         <div>
-          <button className="invoice-analysis-back" onClick={onClose}>{backLabel}</button>
-          <small>{analysisLabel}</small>
+          <button className="invoice-analysis-back" onClick={onClose}>← Volver a facturas</button>
+          <small>ANÁLISIS INDIVIDUAL DE FACTURA</small>
           <div className="invoice-name-row">
             {editingName?
               <div className="invoice-name-editor">
@@ -379,7 +361,7 @@ export function InvoiceAnalysisPanel({
               </div>
               :<>
                 <h2>{displayName}</h2>
-                {allowNameEdit&&<button className="invoice-edit-name" onClick={()=>{setNameDraft(displayName);setEditingName(true)}}>✎ Editar nombre</button>}
+                <button className="invoice-edit-name" onClick={()=>{setNameDraft(displayName);setEditingName(true)}}>✎ Editar nombre</button>
               </>
             }
           </div>
@@ -419,35 +401,7 @@ export function InvoiceAnalysisPanel({
           </div>
         </div>
 
-        {metric==="tariff"&&simpleTariffHistory?.length ? (
-          <div className="invoice-tariff-detail-view">
-            <div className="invoice-tariff-period-detail">
-              <div className="invoice-tariff-period-head">
-                <div>
-                  <span>HISTÓRICO TARIFARIO</span>
-                  <h4>{periodOf(selected)} · {selected.current_tariff_code||"S/D"}</h4>
-                  <p>Tarifa informada en las facturas disponibles del suministro.</p>
-                </div>
-                <div className="saving">
-                  <span>TARIFA ACTUAL</span>
-                  <b>{selected.current_tariff_code||"S/D"}</b>
-                  <small>período seleccionado</small>
-                </div>
-              </div>
-              <div className="invoice-analysis-table-wrap">
-                <table className="invoice-analysis-table">
-                  <thead><tr><th>Período</th><th>Tarifa</th><th>Factura</th><th>Importe</th></tr></thead>
-                  <tbody>{[...simpleTariffHistory].sort((a,b)=>b.billing_period.localeCompare(a.billing_period)).map((row,index)=><tr key={`${row.billing_period}-${index}`}>
-                    <td><b>{row.billing_period}</b></td>
-                    <td><b>{row.tariff_code||"S/D"}</b></td>
-                    <td>{row.invoice_number||"S/D"}</td>
-                    <td><b>{row.total_amount==null?"—":money.format(Number(row.total_amount||0))}</b></td>
-                  </tr>)}</tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        ) : metric==="tariff" ? (() => {
+        {metric==="tariff" ? (() => {
           const legacyRows=tariffSavings
             .filter(x=>x.meter_id===selected.meter_id)
             .map(x=>({
@@ -605,12 +559,11 @@ export function InvoiceAnalysisPanel({
           </tr>)}{!(selected.invoice_measurements||[]).length&&<tr><td colSpan={7}>No hay mediciones discriminadas en esta factura.</td></tr>}</tbody>
         </table></div>
       </section>
-      {!hideLocationEditor&&<MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>}
+      <MeterLocationEditor meterId={selected.meter_id} label={`${m?.service_name||m?.sites?.name||"Servicio"} · Medidor ${m?.meter_number||"S/D"}`}/>
 
     </div>
   </div>
 }
-
 
 
 
