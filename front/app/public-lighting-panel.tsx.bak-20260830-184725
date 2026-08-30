@@ -94,34 +94,35 @@ export function PublicLightingPanel({
   const [error,setError]=useState("");
   const [selected,setSelected]=useState<PLRow|null>(null);
 
-  // Fuente de verdad del período inicial:
-  // usamos las facturas generales que ya carga la aplicación.
-  // Así AP no depende del período por defecto que devuelva un backend viejo/cacheado.
-  const latestGeneralPeriod=useMemo(()=>{
-    const periods=invoices
-      .map(i=>String(i.billing_period||i.period_start||"").slice(0,7))
-      .filter(Boolean)
-      .sort((a,b)=>b.localeCompare(a));
-    return periods[0]||"";
-  },[invoices]);
-
   useEffect(()=>{
-    if(!period&&latestGeneralPeriod){
-      setPeriod(latestGeneralPeriod);
-    }
-  },[period,latestGeneralPeriod]);
-
-  useEffect(()=>{
-    if(!organizationId||!period)return;
+    if(!organizationId)return;
 
     let cancelled=false;
     setLoading(true);
     setError("");
 
-    getAnalysis(session,organizationId,period)
+    // Si period está vacío, el backend debe resolver el último período disponible.
+    // Una vez cargado, adoptamos SIEMPRE data.periods[0] (orden descendente)
+    // como período inicial real.
+    getAnalysis(session,organizationId,period||undefined)
       .then(result=>{
         if(cancelled)return;
+
+        const latest=(result.periods||[])[0]||result.billing_period||"";
+
+        // Primera entrada al módulo:
+        // ignoramos cualquier billing_period viejo que pudiera venir cacheado
+        // y fijamos el último período real disponible.
+        if(!period && latest && result.billing_period!==latest){
+          setPeriod(latest);
+          return;
+        }
+
         setData(result);
+
+        if(!period && latest){
+          setPeriod(latest);
+        }
       })
       .catch(e=>!cancelled&&setError(e instanceof Error?e.message:"No se pudo cargar Alumbrado Público"))
       .finally(()=>!cancelled&&setLoading(false));
@@ -302,6 +303,5 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
 
 

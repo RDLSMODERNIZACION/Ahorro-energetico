@@ -1,28 +1,42 @@
-AP - ÚLTIMO PERÍODO DISPONIBLE V7
-=================================
+AP - FORZAR ÚLTIMO PERÍODO DESDE FACTURAS GENERALES V8
+======================================================
 
-Verificación realizada en Supabase:
-- Último período general disponible: 2026-08
-- Último período de medidores AP vinculados: 2026-08
-- Facturas AP vinculadas en 2026-08: 71
+Por qué V7 no alcanzó
+---------------------
+El frontend llama siempre al backend remoto:
 
-Por lo tanto, que la pantalla abra en 2025-10 es un problema de selección/estado
-del frontend, no de falta de datos en la base.
+https://ahorro-energetico.onrender.com
 
-Este parche hace que:
-1. Al entrar a Alumbrado Público la primera consulta se haga SIN período forzado.
-2. Se tome data.periods[0] como el último período real.
-3. El módulo quede automáticamente parado en ese período.
-4. Después el usuario puede seleccionar manualmente cualquier período anterior.
+Por eso, aunque el código local del backend esté actualizado, si Render todavía
+está sirviendo una versión anterior o cacheada, el endpoint puede devolver como
+período inicial 2025-10.
 
-No modifica backend.
-No modifica Supabase.
-No modifica GitHub directamente.
+La base YA fue verificada:
+- último período general: 2026-08
+- último período AP vinculado: 2026-08
+- 71 AP con factura en 2026-08
 
-Aplicar desde la raíz:
+Qué hace V8
+-----------
+No le pregunta al backend cuál es el período inicial.
 
-.\APLICAR_AP_ULTIMO_PERIODO_V7.ps1
+Toma directamente el período más nuevo del array `invoices` que ya tiene cargado
+el frontend general y luego consulta AP con ese período explícito:
 
-Después:
+...?billing_period=2026-08
+
+Después podés cambiar manualmente el selector a períodos anteriores.
+
+Aplicar
+-------
+Desde la raíz:
+
+.\APLICAR_AP_FORZAR_ULTIMO_PERIODO_V8.ps1
+
+Luego:
+
 cd front
 npm run dev
+
+No modifica Supabase.
+No modifica GitHub directamente.
