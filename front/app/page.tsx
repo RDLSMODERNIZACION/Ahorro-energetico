@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
@@ -6,6 +6,7 @@ import { HistoricalAnalysis } from "./analysis-charts";
 import { InvoiceAnalysisPanel } from "./invoice-analysis-panel";
 import { EpenOptimizationPanel, type EpenOptimizationMeter, type EpenOptimizationResponse } from "./epen-optimization-panel";
 import { MetersMap } from "./meters-map";
+import { PublicLightingPanel } from "./public-lighting-panel";
 
 const API = "https://ahorro-energetico.onrender.com";
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
@@ -135,7 +136,7 @@ export default function Home(){
   const[organization,setOrganization]=useState<Organization|null>(null),[meters,setMeters]=useState<Meter[]>([]),[invoices,setInvoices]=useState<Invoice[]>([]),[missing,setMissing]=useState<Missing[]>([]),[opportunities,setOpportunities]=useState<Opportunity[]>([]),[assessments,setAssessments]=useState<TariffAssessment[]>([]),[tariffSavings,setTariffSavings]=useState<TariffSaving[]>([]);
   const[tab,setTab]=useState<"dashboard"|"invoices"|"framing"|"tariffs"|"map"|"ai">("dashboard"),[busy,setBusy]=useState(false),[toast,setToast]=useState(""),[selectedMeter,setSelectedMeter]=useState(""),[selectedInvoice,setSelectedInvoice]=useState<Invoice|null>(null),[yearFilter,setYearFilter]=useState("all"),[monthFilter,setMonthFilter]=useState("all"),[search,setSearch]=useState(""),[framingFilter,setFramingFilter]=useState("all"),[mapSearch,setMapSearch]=useState("");
   const[aiQuery,setAiQuery]=useState(""),[aiAnswer,setAiAnswer]=useState("Seleccioná una consulta sugerida o escribí qué querés analizar."),[aiBusy,setAiBusy]=useState(false);
-  const[invoiceSubTab,setInvoiceSubTab]=useState<"received"|"missing">("received");
+  const[invoiceSubTab,setInvoiceSubTab]=useState<"received"|"missing"|"publicLighting">("received");
   const fileRef=useRef<HTMLInputElement>(null);
   const invoiceFiltersInitialized=useRef(false);
   const loadedDataKey=useRef("");
@@ -531,6 +532,10 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
       <span>Sin facturación reciente</span>
       <b>{lifecycleMeters.length}</b>
     </button>
+    <button className={invoiceSubTab==="publicLighting"?"active":""} onClick={()=>setInvoiceSubTab("publicLighting")}>
+      <span>Alumbrado público</span>
+      <b>AP</b>
+    </button>
   </div>
 
   {invoiceSubTab==="received"&&<>
@@ -583,6 +588,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
       </div>
     </section>
   </div>}
+  {invoiceSubTab==="publicLighting"&&<PublicLightingPanel session={session} organizationId={orgId||""}/>}
 </>}{tab==="framing"&&<><EpenOptimizationPanel session={session} organizationId={orgId||""} onOpenMeter={openMeterById}/><div className="savings-summary"><article><span>Potencia contratada</span><b>{money.format(powerAnnual)}</b><small>ahorro anual</small></article>
 <article><span>Factor de potencia</span><b>{money.format(reactiveAnnual)}</b><small>recargos evitables</small></article>
 <article><span>Cambio tarifario</span><b>{money.format(rateAnnual)}</b><small>ahorro anual simulado</small></article><article className="total"><span>Total de propuestas</span><b>{money.format(tariffAnnual)}</b><small>{money.format(tariffAnnual/12)} por mes</small></article></div><div className="framing-meta"><span>{assessments.length} suministros analizados</span><span>{reviewCount} requieren revisión</span><span>{assessments.filter(x=>x.status==="correct").length} correctamente encuadrados</span></div><TariffSavingsTable rows={tariffSavings}/><section className="panel"><Title title="Diagnóstico y ahorros separados" sub="Potencia · Energía reactiva · Categoría tarifaria"/><div className="framing-tabs"><button className={framingFilter==="all"?"active":""} onClick={()=>setFramingFilter("all")}>Todos</button><button className={framingFilter==="change_candidate"?"active":""} onClick={()=>setFramingFilter("change_candidate")}>Posible cambio</button><button className={framingFilter==="power_review"?"active":""} onClick={()=>setFramingFilter("power_review")}>Revisar potencia</button><button className={framingFilter==="provisional"?"active":""} onClick={()=>setFramingFilter("provisional")}>Provisorios</button><button className={framingFilter==="correct"?"active":""} onClick={()=>setFramingFilter("correct")}>Correctos</button></div><TariffTable rows={visibleAssessments} onMeter={id=>{const i=invoices.find(x=>x.meter_id===id);if(i)openMeter(i)}}/></section>{selectedInvoice&&<InvoiceAnalysisPanel invoice={selectedInvoice} history={invoices.filter(x=>x.meter_id===selectedInvoice.meter_id)} tariffSavings={tariffSavings} optimization={epenOptimization.find(x=>x.meter_id===selectedInvoice.meter_id)} onClose={()=>setSelectedInvoice(null)}/>}</>}
@@ -696,6 +702,7 @@ function MeterDetail({invoice,history,onClose}:{invoice:Invoice;history:Invoice[
 <article><span>Factor de potencia</span><b>{x.pf?x.pf.toFixed(3):"No detectado"}</b></article></div>
 <section className="detail-section"><h3>Identificación</h3><dl><div><dt>ID seguimiento</dt><dd>{m?.tracking_code||"S/D"}</dd></div><div><dt>Medidor</dt><dd>{m?.meter_number||"S/D"}</dd></div><div><dt>Suministro / contrato</dt><dd>{m?.supply_number||"S/D"} / {m?.contract_number||"S/D"}</dd></div><div><dt>Código de servicio</dt><dd>{m?.service_code||"S/D"}</dd></div><div><dt>Nomenclatura catastral</dt><dd>{m?.cadastral_number||"S/D"}</dd></div><div><dt>Tensión / tarifa</dt><dd>{invoice.voltage_level||m?.voltage_level||"S/D"} · {invoice.current_tariff_code||"S/D"}</dd></div></dl></section><section className="detail-section"><h3>Factura seleccionada</h3><dl><div><dt>Mes facturado</dt><dd>{(invoice.billing_period||invoice.period_start).slice(0,7)}</dd></div><div><dt>Número de factura</dt><dd>{invoice.invoice_number||"S/D"}</dd></div><div><dt>Potencia contratada</dt><dd>{number.format(x.contracted)} kW</dd></div><div><dt>Importe</dt><dd>{money.format(Number(invoice.total_amount||0))}</dd></div><div><dt>Vencimiento</dt><dd>{invoice.due_date||"S/D"}</dd></div><div><dt>Deuda anterior</dt><dd>{money.format(Number(invoice.previous_debt_amount||0))}</dd></div></dl></section><section className="detail-section"><h3>Historial mensual</h3><div className="mini-history">{sorted.map(h=>{const z=metrics(h);return <button key={h.id}><span>{(h.billing_period||h.period_start).slice(0,7)}</span><b>{number.format(z.kwh)} kWh</b><em>{number.format(z.demand)} kW</em><strong>{money.format(Number(h.total_amount||0))}</strong></button>})}</div></section></aside>
 </div>}
+
 
 
 
