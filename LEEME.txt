@@ -1,40 +1,31 @@
-EPEN TABLA FACTURAS V15
+EPEN RESUMEN V16
 
-PROBLEMA
-La fila de Facturas seguía calculando el ahorro tarifario desde:
-- tariffSavings viejo
-- tariff assessments viejos
+Se revisó el GitHub ACTUAL y se encontró que V14 había quedado incompleta:
 
-Aunque mostraba la insignia APTO T4 desde epenOptimization.
+FRONT:
+- ya tenía advancedTariffSummary;
+- ya intentaba cargar /tariff-saving-summary;
+- PERO dashboardRateMonthly seguía usando tariffSavings.monthly_saving_with_vat.
 
-Por eso en "Medidas de ahorro" aparecía solamente:
-Potencia contratada
+BACKEND:
+- tariff_history.py NO tenía /organizations/{organization_id}/tariff-saving-summary.
 
-y el ahorro anual era sólo:
-$2.463.152 x 12 = $29.557.824
+Por eso el dashboard seguía mostrando:
+$564.950 mensual
+$6.779.405 anual
 
-V15 conecta esa fila con AdvancedTariffSummary (endpoint V14).
+aunque el análisis individual de Planta de agua Confluencia ya tenía un ahorro T3A real -> T4-MT de más de $20 millones/mes.
 
-Ahora para cada factura del período:
-- busca el mismo medidor en tariff-saving-summary;
-- si tiene ahorro T3/T3A real -> T4 simulado, lo usa;
-- muestra la medida "T3A -> T4-MT";
-- suma ese ahorro mensual a potencia y factor de potencia;
-- anualiza el total.
-
-También cambia el encabezado:
-"Ahorro anual estimado (IVA 30%)"
-a
-"Ahorro anual estimado"
-
-porque el ahorro T4 se calcula antes de impuestos, mientras potencia/reactiva conservan el factor 1,30.
-
-REQUISITO:
-Backend V14/V13 desplegado en Render.
+V16:
+1. agrega realmente el endpoint al backend;
+2. usa el total de ese endpoint en Cambio tarifario;
+3. suma ese mismo valor al Ahorro total propuesto;
+4. cuenta esos medidores como suministros con oportunidad;
+5. mantiene fallback al cálculo viejo sólo si el endpoint no está disponible.
 
 INSTALAR:
-.\APLICAR_EPEN_TABLA_FACTURAS_V15.ps1
+.\APLICAR_EPEN_RESUMEN_V16.ps1
 
-Luego:
-cd front
-npm run dev
+MUY IMPORTANTE:
+desplegar BACKEND en Render.
+Sin deploy, el front hará fallback y seguirá mostrando $564.950.
