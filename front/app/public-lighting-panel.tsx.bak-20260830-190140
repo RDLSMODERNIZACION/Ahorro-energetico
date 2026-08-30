@@ -205,10 +205,10 @@ export function PublicLightingPanel({
         <small>{data.summary.missing} faltantes</small>
       </article>
 
-      <article className={data.summary.missing?"alert":""}>
-        <span>FACTURAS FALTANTES</span>
-        <strong>{data.summary.missing}</strong>
-        <small>sin factura en {data.billing_period}</small>
+      <article className={data.summary.anomalies?"alert":""}>
+        <span>REQUIEREN REVISIÓN</span>
+        <strong>{data.summary.anomalies}</strong>
+        <small>{data.summary.critical} críticas · {data.summary.warnings} alertas</small>
       </article>
     </section>
 
@@ -292,7 +292,7 @@ export function PublicLightingPanel({
           </span>
 
           <span>
-            <b>{row.analysis_status==="missing"?"SIN FACTURA":row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</b>
+            <b>{row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</b>
             <small>{row.previous_kwh==null?"Sin mes anterior":`Anterior ${number.format(row.previous_kwh)} kWh`}</small>
           </span>
 
@@ -308,7 +308,7 @@ export function PublicLightingPanel({
             <small>{row.power_factor_penalized?"con penalización":"factura general"}</small>
           </span>
 
-          <span><b>{row.analysis_status==="missing"?"SIN FACTURA":row.total_amount==null?"—":money.format(row.total_amount)}</b><small>{row.analysis_status==="missing"?"faltante del período":"facturado"}</small></span>
+          <span><b>{row.total_amount==null?"—":money.format(row.total_amount)}</b><small>facturado</small></span>
           <span><b className={`pl-tariff ${row.tariff_code!=="T1AP"?"review":""}`}>{row.tariff_code||"S/D"}</b><small>EPEN</small></span>
 
           <span>
@@ -342,7 +342,6 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
 
 
 

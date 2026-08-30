@@ -1,4 +1,4 @@
-﻿
+
 /* AP Individual V3 - análisis individual como página independiente */
 .pl-analysis-backdrop{position:fixed;inset:0;z-index:90;background:#f5f8f6;display:block;overflow:auto}
 .pl-analysis-drawer{width:100%;min-height:100vh;height:auto;overflow:visible;background:#f5f8f6;box-shadow:none}
@@ -51,24 +51,3 @@
   color:#18845a;
 }
 
-
-/* AP missing rows V11 */
-.pl-row.pl-data.missing{
-  background:#eef1ef !important;
-  color:#5f6d66;
-}
-.pl-row.pl-data.missing:hover{
-  background:#e7ebe8 !important;
-  box-shadow:inset 4px 0 #8d9a93;
-}
-.pl-row.pl-data.missing b{
-  color:#56635d;
-}
-.pl-row.pl-data.missing small{
-  color:#8a9690;
-}
-.pl-row.pl-data.missing .pl-status.missing{
-  background:#dde3df;
-  color:#66736d;
-  font-weight:850;
-}

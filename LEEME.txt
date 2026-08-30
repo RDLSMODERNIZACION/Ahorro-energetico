@@ -1,29 +1,40 @@
-AP - ORDENAR CONSUMO E IMPORTE V10
-====================================
+AP - FACTURAS FALTANTES + FILAS GRISES V11
+============================================
 
-Agrega ordenamiento en la tabla de Alumbrado Público.
+Cambios visuales en Alumbrado Público:
 
-Encabezados clickeables:
-- CONSUMO
-- IMPORTE
+1. El cuarto KPI superior deja de mostrar:
+   REQUIEREN REVISIÓN
 
-Comportamiento:
-- primer click: mayor a menor
-- segundo click: menor a mayor
+   y pasa a mostrar:
+   FACTURAS FALTANTES
 
-También muestra una flecha:
-↓ mayor a menor
-↑ menor a mayor
+   El número mostrado es exactamente data.summary.missing.
+
+2. Los medidores que no tienen factura para el período seleccionado
+   quedan claramente en GRIS.
+
+3. En una fila faltante:
+   - Consumo dice SIN FACTURA
+   - Importe dice SIN FACTURA
+   - debajo indica faltante del período
+
+Esto evita confundir:
+- "sin consumo"
+con
+- "sin factura".
 
 No toca backend.
 No toca Supabase.
 No modifica GitHub directamente.
 
-Aplicar desde la raíz:
+APLICAR
+-------
+Desde la raíz:
 
-.\APLICAR_AP_ORDENAR_CONSUMO_IMPORTE_V10.ps1
-.\APLICAR_AP_ORDENAR_CSS_V10.ps1
+.\APLICAR_AP_FALTANTES_GRIS_V11.ps1
 
 Luego:
+
 cd front
 npm run dev
