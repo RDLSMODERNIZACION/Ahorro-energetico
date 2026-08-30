@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -14,7 +14,7 @@ type Block = {
   annual_saving_before_taxes?:number|null;
   [key:string]:unknown;
 };
-export type EpenOptimizationMeter = {
+type Row = {
   meter_id:string; meter_number?:string; tracking_code?:string; supply_number?:string; service_name?:string;
   period:string; current_tariff:string; voltage_level:string; consumption_kwh:number; latest_max_demand_kw:number;
   max_demand_12m_kw:number; periods_available:number;
@@ -22,13 +22,13 @@ export type EpenOptimizationMeter = {
   t4:Block & {target_tariff?:string;months_over_100kw_last12:number;current_t3_cost_before_taxes?:number;t4_cost_before_taxes?:number;optimized_monthly_saving_before_taxes?:number};
   mt:Block & {current_bt_cost_before_taxes?:number;simulated_mt_cost_before_taxes?:number;estimated_investment?:number;payback_months?:number};
 };
-export type EpenOptimizationResponse = {
+type Response = {
   period:string; taxes_included:boolean; note:string;
   summary:{t3_candidates:number;t4_candidates:number;mt_candidates:number;t3_monthly_saving_before_taxes:number;t4_monthly_saving_before_taxes:number;mt_monthly_saving_before_taxes:number};
-  meters:EpenOptimizationMeter[];
+  meters:Row[];
 };
 
-async function getData(session:Session, organizationId:string):Promise<EpenOptimizationResponse>{
+async function getData(session:Session, organizationId:string):Promise<Response>{
   const r=await fetch(`${API}/api/organizations/${organizationId}/epen-optimization?v=1`,{cache:"no-store",headers:{Authorization:`Bearer ${session.access_token}`}});
   if(!r.ok)throw new Error(await r.text()||`Error ${r.status}`);
   return r.json();
@@ -40,7 +40,7 @@ function statusLabel(value:string){
 }
 
 export function EpenOptimizationPanel({session,organizationId,onOpenMeter}:{session:Session;organizationId:string;onOpenMeter?:(meterId:string)=>void}){
-  const[data,setData]=useState<EpenOptimizationResponse|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
+  const[data,setData]=useState<Response|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
   const load=useCallback(async()=>{if(!organizationId)return;setLoading(true);setError("");try{setData(await getData(session,organizationId))}catch(e){setError(e instanceof Error?e.message:"No se pudo cargar el análisis EPEN")}finally{setLoading(false)}},[session,organizationId]);
   useEffect(()=>{load()},[load]);
 
@@ -88,4 +88,3 @@ export function EpenOptimizationPanel({session,organizationId,onOpenMeter}:{sess
     </>}
   </section>;
 }
-

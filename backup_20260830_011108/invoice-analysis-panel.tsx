@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { MeterLocationEditor } from "./meter-location-editor";
 import { supabase } from "./lib/supabase";
-import type { EpenOptimizationMeter } from "./epen-optimization-panel";
 
 type Measurement={
   active_energy_kwh?:number;
@@ -86,7 +85,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
   </svg>{metric==="pf"&&<div className="invoice-pf-legend"><span><i className="good"/>Correcto: cos φ ≥ 0,95</span><span><i className="bad"/>Revisar: cos φ &lt; 0,95</span></div>}</div>
 }
 
-export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];optimization?:EpenOptimizationMeter;onClose:()=>void}){
+export function InvoiceAnalysisPanel({invoice,history,tariffSavings,onClose}:{invoice:Invoice;history:Invoice[];tariffSavings:TariffSaving[];onClose:()=>void}){
   const[metric,setMetric]=useState<Metric>("kwh");
   const[editingName,setEditingName]=useState(false);
   const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
@@ -168,36 +167,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
         <article className="saving"><span>Ahorro potencial</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} anualizado</small></article>
       </div>
 
-      {optimization&&<section className="invoice-analysis-panel epen-individual-analysis">
-        <div className="epen-individual-head">
-          <div><span>ANÁLISIS TARIFARIO AVANZADO EPEN</span><h3>T3 · T4 · Nivel de tensión</h3><p>Oportunidades adicionales calculadas con el cuadro tarifario del período. Valores antes de impuestos.</p></div>
-        </div>
-        <div className="epen-individual-grid">
-          <article className={optimization.t3.status==="candidate"?"candidate":""}>
-            <span>T3 · Potencia por franja</span>
-            <b>{optimization.current_tariff==="T3"||optimization.current_tariff==="T3A"?"Punta / fuera punta":"No aplica"}</b>
-            {(optimization.current_tariff==="T3"||optimization.current_tariff==="T3A")&&<>
-              <small>Actual: {nf.format(optimization.t3.current_peak_kw)} / {nf.format(optimization.t3.current_off_peak_kw)} kW</small>
-              <small>Máx. 12m: {nf.format(optimization.t3.max_registered_peak_12m_kw)} / {nf.format(optimization.t3.max_registered_off_peak_12m_kw)} kW</small>
-              <strong>{optimization.t3.monthly_saving_before_taxes!=null?`${money.format(optimization.t3.monthly_saving_before_taxes)}/mes`:"Faltan datos por franja"}</strong>
-            </>}
-          </article>
-          <article className={optimization.t4.status==="candidate"?"candidate":""}>
-            <span>Cambio T3 → T4</span>
-            <b>{optimization.t4.status==="candidate"?`Candidato ${optimization.t4.target_tariff||"T4"}`:optimization.t4.status==="requires_mt"?"Requiere MT":optimization.t4.status==="insufficient_history"?"Falta historial":"No elegible aún"}</b>
-            <small>{optimization.t4.months_over_100kw_last12}/12 meses con demanda ≥100 kW</small>
-            {optimization.t4.t4_cost_before_taxes!=null&&<small>T4 simulado: {money.format(Number(optimization.t4.t4_cost_before_taxes))}</small>}
-            <strong>{optimization.t4.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.t4.monthly_saving_before_taxes))}/mes`:"Requiere validación"}</strong>
-          </article>
-          <article className={["strong","candidate","preliminary"].includes(optimization.mt.status)?"candidate":""}>
-            <span>Baja Tensión → Media Tensión</span>
-            <b>{optimization.mt.status==="strong"?"Candidato fuerte":optimization.mt.status==="candidate"?"Candidato":optimization.mt.status==="preliminary"?"Estudio preliminar":"No prioritario"}</b>
-            <small>Máxima 12m: {nf.format(optimization.max_demand_12m_kw)} kW</small>
-            {optimization.mt.simulated_mt_cost_before_taxes!=null&&<small>MT simulado: {money.format(Number(optimization.mt.simulated_mt_cost_before_taxes))}</small>}
-            <strong>{optimization.mt.monthly_saving_before_taxes!=null?`${money.format(Number(optimization.mt.monthly_saving_before_taxes))}/mes`:"Requiere factibilidad EPEN"}</strong>
-          </article>
-        </div>
-      </section>}
       <section className="invoice-analysis-panel">
         <div className="invoice-analysis-chart-head">
           <div><h3>Evolución histórica del medidor</h3><p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p></div>
@@ -262,7 +231,6 @@ export function InvoiceAnalysisPanel({invoice,history,tariffSavings,optimization
     </div>
   </div>
 }
-
 
 
 

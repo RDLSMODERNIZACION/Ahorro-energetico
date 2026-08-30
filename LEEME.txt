@@ -1,12 +1,32 @@
-FIX DE INSTALACIÓN EPEN OPTIMIZACION V1
+EPEN OPTIMIZACION V2
 
-El primer script asumía que estaba dentro de una subcarpeta y tomaba como repositorio la carpeta padre.
-Este script detecta automáticamente si está:
-- directamente en la raíz de Ahorro-energetico, o
-- dentro de una subcarpeta del repositorio.
+REQUISITO:
+Haber aplicado primero V1_FIX.
 
-Descomprimir TODO el ZIP en:
-C:\Users\victo\OneDrive\Escritorio\Ahorro-energetico
+NUEVO:
+1) En FACTURAS > columna TARIFA agrega indicadores:
+   - T3 · 2 POTENCIAS
+   - APTO T4
+   - BT → MT
 
-Y ejecutar:
-.\APLICAR_EPEN_OPTIMIZACION_V1_FIX.ps1
+2) Al abrir una factura individual agrega un bloque:
+   ANÁLISIS TARIFARIO AVANZADO EPEN
+   - T3 punta / fuera de punta
+   - T3 → T4
+   - BT → MT
+   con valores y ahorro mensual antes de impuestos.
+
+3) Backend agrega endpoint individual:
+   /api/meters/{meter_id}/epen-optimization
+
+INSTALACIÓN:
+Descomprimir TODO en la raíz de Ahorro-energetico y ejecutar:
+.\APLICAR_EPEN_OPTIMIZACION_V2.ps1
+
+Luego:
+cd front
+npm run dev
+
+Para backend local:
+cd back
+python -m uvicorn app.main:app --reload

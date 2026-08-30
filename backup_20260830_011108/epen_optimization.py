@@ -375,16 +375,3 @@ def epen_optimization(organization_id: str, user: CurrentUser = Depends(current_
         },
         "meters": rows,
     }
-
-@router.get("/meters/{meter_id}/epen-optimization")
-def meter_epen_optimization(meter_id: str, user: CurrentUser = Depends(current_user)):
-    """Devuelve el diagnóstico EPEN avanzado de un solo medidor."""
-    db = admin_db()
-    meter_rows = db.table("meters").select("id,organization_id").eq("id", meter_id).limit(1).execute().data or []
-    if not meter_rows:
-        return {"meter": None}
-    organization_id = meter_rows[0]["organization_id"]
-    require_org(user.id, organization_id)
-    result = epen_optimization(organization_id, user)
-    row = next((x for x in result.get("meters", []) if x.get("meter_id") == meter_id), None)
-    return {"meter": row, "period": result.get("period"), "taxes_included": False}
