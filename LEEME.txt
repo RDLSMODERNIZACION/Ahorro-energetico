@@ -1,30 +1,20 @@
-EPEN DETALLE TARIFARIO V13
+FIX V13 PARSE
 
-Al tocar una barra dentro de Ahorro tarifario se abre debajo el detalle del período.
+Error:
+Unexpected token en invoice-analysis-panel.tsx alrededor de la línea 501.
 
-MUESTRA
-- período seleccionado;
-- tarifa actual -> tarifa propuesta;
-- ahorro mensual;
-- costo REAL actual;
-- costo T4 simulado;
-- resolución EPEN utilizada;
-- mes de facturación y consumo;
-- conceptos reales de la factura (DEP/EPI/ERE/EVA/CAV/etc.);
-- componentes T4 simulados (DEM/ECO/CAV si corresponde);
-- cantidad;
-- precio unitario;
-- importe;
-- fórmula final:
-  T3/T3A real - T4 simulada = ahorro.
+Causa verificada en el código:
+después del cierre correcto de InvoiceTrend quedó repetido:
 
-Si falta cuadro T4:
-- no extrapola valores;
-- indica exactamente que falta el cuadro oficial del período;
-- mantiene el mes sin valorizar.
+onPeriod={setSelectedPeriod}
+/>
+)}
 
-INSTALAR:
-.\APLICAR_EPEN_DETALLE_TARIFARIO_V13.ps1
+Este fix elimina únicamente ese duplicado.
 
-IMPORTANTE:
-El backend cambió y debe desplegarse en Render.
+Ejecutar:
+.\APLICAR_FIX_V13_PARSE.ps1
+
+Luego:
+cd front
+npm run dev
