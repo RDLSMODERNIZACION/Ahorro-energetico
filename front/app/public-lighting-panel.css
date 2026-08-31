@@ -108,3 +108,10 @@
   .invoice-subtabs>button:first-child{min-width:285px;padding-right:142px}
   .invoice-subtabs>button:nth-child(2){left:143px}
 }
+
+/* Dependencias: el subfiltro solo aparece dentro de Dependencias */
+.invoice-subtabs>button:nth-child(2){display:none}
+.invoice-subtabs:has(>button:first-child.active)>button:nth-child(2),
+.invoice-subtabs:has(>button:nth-child(2).active)>button:nth-child(2){display:flex}
+.invoice-subtabs:has(>button:nth-child(3).active)>button:first-child{min-width:auto;padding-right:14px}
+.invoice-subtabs:has(>button:nth-child(3).active)>button:nth-child(3){margin-left:0}
