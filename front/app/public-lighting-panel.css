@@ -132,10 +132,51 @@
 .invoice-subtabs>button:nth-child(2).active{background:#188b5b;color:#fff;border-color:#188b5b}
 .invoice-subtabs>button:nth-child(2).active>b{background:#ffffff25;color:#fff}
 
-/* En AP desaparece completamente el subfiltro */
+/* En AP desaparece completamente el subfiltro de Dependencias */
 .invoice-subtabs:has(>button:nth-child(3).active)>button:nth-child(2){display:none!important}
+
+/* AP: acceso propio a suministros sin facturación */
+.pl-missing-shortcut{
+  display:flex;
+  justify-content:flex-end;
+  margin:0 0 12px;
+}
+.pl-missing-shortcut button{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:40px;
+  padding:0 14px;
+  border:1px solid #dbe5df;
+  border-radius:10px;
+  background:#fff;
+  color:#5c6f65;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 2px 6px rgba(20,50,38,.05);
+}
+.pl-missing-shortcut button b{
+  display:grid;
+  place-items:center;
+  min-width:24px;
+  height:24px;
+  padding:0 6px;
+  border-radius:20px;
+  background:#e7eeea;
+  color:#52665b;
+  font-size:8px;
+}
+.pl-missing-shortcut button.active{
+  background:#188b5b;
+  color:#fff;
+  border-color:#188b5b;
+  box-shadow:0 4px 12px rgba(24,139,91,.16);
+}
+.pl-missing-shortcut button.active b{background:#ffffff25;color:#fff}
 
 @media(max-width:760px){
   .invoice-subtabs{padding-bottom:54px!important}
   .invoice-subtabs>button:nth-child(2){right:auto;left:0;top:58px}
+  .pl-missing-shortcut{justify-content:flex-start}
 }
