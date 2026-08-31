@@ -13,9 +13,6 @@ type PLHistory = {
   invoice_id?:string|null;
   billing_period:string;
   active_energy_kwh?:number|null;
-  demand_kw?:number|null;
-  power_factor?:number|null;
-  power_factor_penalized?:boolean;
   total_amount?:number|null;
   tariff_code?:string|null;
   invoice_number?:string|null;
@@ -35,9 +32,6 @@ type PLRow = {
   invoice_id?:string|null;
   invoice_number?:string|null;
   active_energy_kwh?:number|null;
-  demand_kw?:number|null;
-  power_factor?:number|null;
-  power_factor_penalized?:boolean;
   average_12m_kwh?:number|null;
   previous_kwh?:number|null;
   change_percent?:number|null;
@@ -136,23 +130,17 @@ export function PublicLightingPanel({
   },[invoices]);
 
   useEffect(()=>{
-    if(!period&&latestGeneralPeriod){
-      setPeriod(latestGeneralPeriod);
-    }
+    if(!period&&latestGeneralPeriod)setPeriod(latestGeneralPeriod);
   },[period,latestGeneralPeriod]);
 
   useEffect(()=>{
     if(!organizationId||!period)return;
-
     let cancelled=false;
     setLoading(true);
     setError("");
 
     getAnalysis(session,organizationId,period)
-      .then(result=>{
-        if(cancelled)return;
-        setData(result);
-      })
+      .then(result=>{if(!cancelled)setData(result)})
       .catch(e=>!cancelled&&setError(e instanceof Error?e.message:"No se pudo cargar Alumbrado Público"))
       .finally(()=>!cancelled&&setLoading(false));
 
@@ -161,40 +149,26 @@ export function PublicLightingPanel({
 
   const rows=useMemo(()=>{
     if(!data)return[];
-
     const q=search.trim().toLowerCase();
-
     const filtered=data.rows.filter(row=>{
       if(status!=="all"&&row.analysis_status!==status)return false;
       if(measurement!=="all"&&row.measurement_class!==measurement)return false;
       if(!q)return true;
-
       return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number,row.measurement_label]
         .some(v=>String(v||"").toLowerCase().includes(q));
     });
 
     if(!sortKey)return filtered;
-
     return [...filtered].sort((a,b)=>{
-      const av=sortKey==="consumption"
-        ? Number(a.active_energy_kwh??-1)
-        : Number(a.total_amount??-1);
-
-      const bv=sortKey==="consumption"
-        ? Number(b.active_energy_kwh??-1)
-        : Number(b.total_amount??-1);
-
-      return sortDir==="desc" ? bv-av : av-bv;
+      const av=sortKey==="consumption"?Number(a.active_energy_kwh??-1):Number(a.total_amount??-1);
+      const bv=sortKey==="consumption"?Number(b.active_energy_kwh??-1):Number(b.total_amount??-1);
+      return sortDir==="desc"?bv-av:av-bv;
     });
   },[data,search,status,measurement,sortKey,sortDir]);
 
   function toggleSort(key:"consumption"|"amount"){
-    if(sortKey===key){
-      setSortDir(current=>current==="desc"?"asc":"desc");
-    }else{
-      setSortKey(key);
-      setSortDir("desc");
-    }
+    if(sortKey===key)setSortDir(current=>current==="desc"?"asc":"desc");
+    else {setSortKey(key);setSortDir("desc");}
   }
 
   const selectedInvoice=selected?(
@@ -216,97 +190,29 @@ export function PublicLightingPanel({
 
   return <div className="pl-module">
     <section className="pl-kpis">
-      <article>
-        <span>PERÍODO CONTROLADO</span>
-        <strong>{data.billing_period}</strong>
-        <small>último mes disponible al ingresar</small>
-      </article>
-
-      <article>
-        <span>FACTURAS ESPERADAS</span>
-        <strong>{data.summary.expected}</strong>
-        <small>suministros clasificados como AP</small>
-      </article>
-
-      <article className="green">
-        <span>FACTURAS RECIBIDAS</span>
-        <strong>{data.summary.received}</strong>
-        <small>{data.summary.missing} faltantes</small>
-      </article>
-
-      <article className={data.summary.missing?"alert":""}>
-        <span>FACTURAS FALTANTES</span>
-        <strong>{data.summary.missing}</strong>
-        <small>sin factura en {data.billing_period}</small>
-      </article>
+      <article><span>PERÍODO CONTROLADO</span><strong>{data.billing_period}</strong><small>último mes disponible al ingresar</small></article>
+      <article><span>FACTURAS ESPERADAS</span><strong>{data.summary.expected}</strong><small>suministros clasificados como AP</small></article>
+      <article className="green"><span>FACTURAS RECIBIDAS</span><strong>{data.summary.received}</strong><small>{data.summary.missing} faltantes</small></article>
+      <article className={data.summary.missing?"alert":""}><span>FACTURAS FALTANTES</span><strong>{data.summary.missing}</strong><small>sin factura en {data.billing_period}</small></article>
     </section>
 
     <section className="pl-measurement-kpis">
-      <article className="measured">
-        <span>MEDIDOS CONFIRMADOS</span>
-        <strong>{data.summary.measured_confirmed}</strong>
-        <small>lectura coherente con consumo facturado</small>
-      </article>
-      <article className="review">
-        <span>MEDIDOS CON ANOMALÍAS</span>
-        <strong>{data.summary.measured_with_anomalies}</strong>
-        <small>algún período requiere revisión</small>
-      </article>
-      <article className="estimated">
-        <span>ESTIMADOS PROBABLES</span>
-        <strong>{data.summary.estimated_probable}</strong>
-        <small>consumo no surge de diferencia de lecturas</small>
-      </article>
-      <article className="unknown">
-        <span>SIN EVIDENCIA</span>
-        <strong>{data.summary.measurement_unknown}</strong>
-        <small>sin lecturas verificables cargadas</small>
-      </article>
+      <article className="measured"><span>MEDIDOS CONFIRMADOS</span><strong>{data.summary.measured_confirmed}</strong><small>lectura coherente con consumo facturado</small></article>
+      <article className="review"><span>MEDIDOS CON ANOMALÍAS</span><strong>{data.summary.measured_with_anomalies}</strong><small>algún período requiere revisión</small></article>
+      <article className="estimated"><span>ESTIMADOS PROBABLES</span><strong>{data.summary.estimated_probable}</strong><small>consumo no surge de diferencia de lecturas</small></article>
+      <article className="unknown"><span>SIN EVIDENCIA</span><strong>{data.summary.measurement_unknown}</strong><small>sin lecturas verificables cargadas</small></article>
     </section>
 
-    {(data.summary.unlinked||0)>0&&<section className="panel pl-error">
-      Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.
-    </section>}
+    {(data.summary.unlinked||0)>0&&<section className="panel pl-error">Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.</section>}
 
     <section className="panel">
-      <div className="panel-title pl-title">
-        <div>
-          <h2>Análisis mensual de Alumbrado Público</h2>
-          <p>Factura general · consumo · lectura · tipo de medición · tarifa · importe</p>
-        </div>
-      </div>
+      <div className="panel-title pl-title"><div><h2>Análisis mensual de Alumbrado Público</h2><p>Consumo · lectura · tipo de medición · tarifa · importe</p></div></div>
 
       <div className="pl-filters">
-        <label>Período
-          <select value={period} onChange={e=>setPeriod(e.target.value)}>
-            {data.periods.map(p=><option key={p} value={p}>{p}</option>)}
-          </select>
-        </label>
-
-        <label>Estado
-          <select value={status} onChange={e=>setStatus(e.target.value)}>
-            <option value="all">Todos</option>
-            <option value="critical">Críticos</option>
-            <option value="warning">Revisar</option>
-            <option value="missing">Sin factura</option>
-            <option value="normal">Normales</option>
-          </select>
-        </label>
-
-        <label>Medición
-          <select value={measurement} onChange={e=>setMeasurement(e.target.value)}>
-            <option value="all">Todas</option>
-            <option value="MEDIDO_CONFIRMADO">Medidos</option>
-            <option value="MEDIDO_CON_ANOMALIAS">Medidos con anomalías</option>
-            <option value="ESTIMADO_PROBABLE">Estimados probables</option>
-            <option value="SIN_EVIDENCIA">Sin evidencia</option>
-          </select>
-        </label>
-
-        <label className="pl-search">Buscar
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro o dirección"/>
-        </label>
-
+        <label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>{data.periods.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
+        <label>Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="critical">Críticos</option><option value="warning">Revisar</option><option value="missing">Sin factura</option><option value="normal">Normales</option></select></label>
+        <label>Medición<select value={measurement} onChange={e=>setMeasurement(e.target.value)}><option value="all">Todas</option><option value="MEDIDO_CONFIRMADO">Medidos</option><option value="MEDIDO_CON_ANOMALIAS">Medidos con anomalías</option><option value="ESTIMADO_PROBABLE">Estimados probables</option><option value="SIN_EVIDENCIA">Sin evidencia</option></select></label>
+        <label className="pl-search">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro o dirección"/></label>
         <button onClick={()=>{setSearch("");setStatus("all");setMeasurement("all")}}>Limpiar</button>
       </div>
 
@@ -314,73 +220,21 @@ export function PublicLightingPanel({
         <div className="pl-row pl-head">
           <span>MEDIDOR / SUMINISTRO</span>
           <span>UBICACIÓN</span>
-          <button
-            type="button"
-            className={`pl-sort-head ${sortKey==="consumption"?"active":""}`}
-            onClick={()=>toggleSort("consumption")}
-            title="Ordenar por consumo"
-          >
-            CONSUMO {sortKey==="consumption"?(sortDir==="desc"?"↓":"↑"):""}
-          </button>
-          <span>DEMANDA</span>
-          <span>FACTOR POT.</span>
-          <button
-            type="button"
-            className={`pl-sort-head ${sortKey==="amount"?"active":""}`}
-            onClick={()=>toggleSort("amount")}
-            title="Ordenar por importe"
-          >
-            IMPORTE {sortKey==="amount"?(sortDir==="desc"?"↓":"↑"):""}
-          </button>
+          <button type="button" className={`pl-sort-head ${sortKey==="consumption"?"active":""}`} onClick={()=>toggleSort("consumption")} title="Ordenar por consumo">CONSUMO {sortKey==="consumption"?(sortDir==="desc"?"↓":"↑"):""}</button>
+          <button type="button" className={`pl-sort-head ${sortKey==="amount"?"active":""}`} onClick={()=>toggleSort("amount")} title="Ordenar por importe">IMPORTE {sortKey==="amount"?(sortDir==="desc"?"↓":"↑"):""}</button>
           <span>TARIFA</span>
           <span>MEDICIÓN</span>
           <span>ANÁLISIS</span>
         </div>
 
-        {rows.map(row=><button
-          className={`pl-row pl-data ${row.analysis_status} measurement-${row.measurement_class.toLowerCase()}`}
-          key={row.public_lighting_meter_id}
-          onClick={()=>setSelected(row)}
-        >
-          <span>
-            <b>Medidor {row.meter_number||"S/D"}</b>
-            <small>Suministro {row.supply_number||"S/D"}</small>
-          </span>
-
-          <span>
-            <b>{row.address||"Sin dirección"}</b>
-            <small>{row.linked?"Vinculado a factura general":"SIN VINCULAR"}</small>
-          </span>
-
-          <span>
-            <b>{row.analysis_status==="missing"?"SIN FACTURA":row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</b>
-            <small>{row.previous_kwh==null?"Sin mes anterior":`Anterior ${number.format(row.previous_kwh)} kWh`}</small>
-          </span>
-
-          <span>
-            <b>{row.demand_kw==null?"S/D":`${number.format(row.demand_kw)} kW`}</b>
-            <small>máxima registrada</small>
-          </span>
-
-          <span>
-            <b className={row.power_factor!=null&&row.power_factor<.95?"pl-danger":""}>
-              {row.power_factor==null?"S/D":row.power_factor.toFixed(3)}
-            </b>
-            <small>{row.power_factor_penalized?"con penalización":"factura general"}</small>
-          </span>
-
+        {rows.map(row=><button className={`pl-row pl-data ${row.analysis_status} measurement-${row.measurement_class.toLowerCase()}`} key={row.public_lighting_meter_id} onClick={()=>setSelected(row)}>
+          <span><b>Medidor {row.meter_number||"S/D"}</b><small>Suministro {row.supply_number||"S/D"}</small></span>
+          <span><b>{row.address||"Sin dirección"}</b><small>{row.linked?"Vinculado a factura general":"SIN VINCULAR"}</small></span>
+          <span><b>{row.analysis_status==="missing"?"SIN FACTURA":row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</b><small>{row.previous_kwh==null?"Sin mes anterior":`Anterior ${number.format(row.previous_kwh)} kWh`}</small></span>
           <span><b>{row.analysis_status==="missing"?"SIN FACTURA":row.total_amount==null?"—":money.format(row.total_amount)}</b><small>{row.analysis_status==="missing"?"faltante del período":"facturado"}</small></span>
           <span><b className={`pl-tariff ${row.tariff_code!=="T1AP"?"review":""}`}>{row.tariff_code||"S/D"}</b><small>EPEN</small></span>
-
-          <span>
-            <em className={`pl-measurement ${row.measurement_class.toLowerCase()}`}>{measurementShort(row)}</em>
-            <small title={row.measurement_detail}>{readingSummary(row)}</small>
-          </span>
-
-          <span>
-            <em className={`pl-status ${row.analysis_status}`}>{statusLabel(row)}</em>
-            <small>{row.analysis_reasons[0]||"Sin observaciones"}</small>
-          </span>
+          <span><em className={`pl-measurement ${row.measurement_class.toLowerCase()}`}>{measurementShort(row)}</em><small title={row.measurement_detail}>{readingSummary(row)}</small></span>
+          <span><em className={`pl-status ${row.analysis_status}`}>{statusLabel(row)}</em><small>{row.analysis_reasons[0]||"Sin observaciones"}</small></span>
         </button>)}
 
         {!rows.length&&<div className="pl-empty">No hay registros para esos filtros.</div>}
@@ -401,9 +255,7 @@ export function PublicLightingPanel({
 
     {selected&&!selectedInvoice&&<section className="panel pl-error">
       No se encontró la factura general vinculada para {selected.billing_period}.
-      {selected.linked
-        ?" El medidor está vinculado, pero la factura de ese período no está dentro del conjunto cargado en el front."
-        :" Este suministro AP todavía no está vinculado a meters."}
+      {selected.linked?" El medidor está vinculado, pero la factura de ese período no está dentro del conjunto cargado en el front.":" Este suministro AP todavía no está vinculado a meters."}
       <div><button onClick={()=>setSelected(null)}>Volver</button></div>
     </section>}
   </div>;
