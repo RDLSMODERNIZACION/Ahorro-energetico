@@ -196,13 +196,6 @@ export function PublicLightingPanel({
       <article className={data.summary.missing?"alert":""}><span>FACTURAS FALTANTES</span><strong>{data.summary.missing}</strong><small>sin factura en {data.billing_period}</small></article>
     </section>
 
-    <section className="pl-measurement-kpis">
-      <article className="measured"><span>MEDIDOS CONFIRMADOS</span><strong>{data.summary.measured_confirmed}</strong><small>lectura coherente con consumo facturado</small></article>
-      <article className="review"><span>MEDIDOS CON ANOMALÍAS</span><strong>{data.summary.measured_with_anomalies}</strong><small>algún período requiere revisión</small></article>
-      <article className="estimated"><span>ESTIMADOS PROBABLES</span><strong>{data.summary.estimated_probable}</strong><small>consumo no surge de diferencia de lecturas</small></article>
-      <article className="unknown"><span>SIN EVIDENCIA</span><strong>{data.summary.measurement_unknown}</strong><small>sin lecturas verificables cargadas</small></article>
-    </section>
-
     {(data.summary.unlinked||0)>0&&<section className="panel pl-error">Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.</section>}
 
     <section className="panel">
