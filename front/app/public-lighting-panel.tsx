@@ -188,7 +188,13 @@ export function PublicLightingPanel({
     else {setSortKey(key);setSortDir("desc");}
   }
 
-  const rawSelectedInvoice=selected?(
+  const selectedHistoryRaw=selected?.meter_id
+    ? invoices
+        .filter(i=>String(i.meter_id)===String(selected.meter_id))
+        .sort((a,b)=>String(a.billing_period||a.period_start).localeCompare(String(b.billing_period||b.period_start)))
+    : [];
+
+  const currentPeriodInvoice=selected?(
     (selected.invoice_id?invoices.find(i=>String(i.id)===String(selected.invoice_id)):undefined)
     ||(selected.meter_id?invoices.find(i=>
       String(i.meter_id)===String(selected.meter_id)
@@ -196,14 +202,13 @@ export function PublicLightingPanel({
     ):undefined)
   ):null;
 
-  const selectedInvoice=rawSelectedInvoice?asPublicLightingInvoice(rawSelectedInvoice):null;
+  // Si el período seleccionado está gris/sin factura, abrimos igual el análisis
+  // usando la última factura histórica disponible del medidor.
+  const rawSelectedInvoice=currentPeriodInvoice
+    ||(selectedHistoryRaw.length?selectedHistoryRaw[selectedHistoryRaw.length-1]:null);
 
-  const selectedHistory=selected?.meter_id
-    ? invoices
-        .filter(i=>String(i.meter_id)===String(selected.meter_id))
-        .sort((a,b)=>String(a.billing_period||a.period_start).localeCompare(String(b.billing_period||b.period_start)))
-        .map(asPublicLightingInvoice)
-    : [];
+  const selectedInvoice=rawSelectedInvoice?asPublicLightingInvoice(rawSelectedInvoice):null;
+  const selectedHistory=selectedHistoryRaw.map(asPublicLightingInvoice);
 
   if(error)return <section className="panel pl-error">{error}</section>;
   if(!data)return <section className="panel pl-loading">{loading?"Analizando Alumbrado Público…":"Sin datos"}</section>;
@@ -267,8 +272,7 @@ export function PublicLightingPanel({
     /></div>}
 
     {selected&&!selectedInvoice&&<section className="panel pl-error">
-      No se encontró la factura general vinculada para {selected.billing_period}.
-      {selected.linked?" El medidor está vinculado, pero la factura de ese período no está dentro del conjunto cargado en el front.":" Este suministro AP todavía no está vinculado a meters."}
+      Este suministro no tiene ninguna factura histórica disponible para abrir el análisis individual.
       <div><button onClick={()=>setSelected(null)}>Volver</button></div>
     </section>}
   </div>;
