@@ -72,7 +72,7 @@ type PLResponse = {
 
 async function getAnalysis(session:Session, organizationId:string, period?:string):Promise<PLResponse>{
   const qs=period?`?billing_period=${period}`:"";
-  const r=await fetch(`${API}/api/organizations/${organizationId}/public-lighting/analysis${qs}`,{
+  const r=await fetch(`${API}/api/organizations/${organizationId}/public-lighting/analysis-fast${qs}`,{
     cache:"no-store",
     headers:{Authorization:`Bearer ${session.access_token}`}
   });
