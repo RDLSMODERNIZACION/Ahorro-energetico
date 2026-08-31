@@ -76,42 +76,41 @@
 @media(max-width:1100px){.pl-measurement-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.pl-measurement-kpis{grid-template-columns:1fr}}
 
-/* Facturas: Dependencias con Sin facturación reciente anidado */
-.invoice-subtabs{position:relative}
-.invoice-subtabs>button:first-child{min-width:315px;padding-right:155px;position:relative}
+/* Facturas: navegación principal + subfiltro de Dependencias */
+.invoice-subtabs{position:relative;margin-bottom:58px!important}
+.invoice-subtabs>button:first-child{min-width:auto!important;padding:0 14px!important;position:relative}
 .invoice-subtabs>button:first-child>span:first-child{font-size:0}
 .invoice-subtabs>button:first-child>span:first-child::before{content:"Dependencias";font-size:9px}
-.invoice-subtabs>button:nth-child(2){
-  position:absolute;
-  left:155px;
-  top:10px;
-  z-index:3;
-  min-height:29px;
-  height:29px;
-  padding:0 9px;
-  border-radius:8px;
-  background:#edf3f0;
-  color:#5c6f65;
-  box-shadow:none;
-}
-.invoice-subtabs>button:nth-child(2)>span{font-size:8px}
-.invoice-subtabs>button:nth-child(2)>b{min-width:21px;height:21px;font-size:7px}
+.invoice-subtabs>button:nth-child(3){margin-left:0!important}
+
+/* Dependencias queda activa también cuando se está viendo su subvista */
 .invoice-subtabs>button:first-child.active,
 .invoice-subtabs>button:first-child:has(+ button.active){background:#188b5b;color:#fff;box-shadow:0 4px 12px rgba(24,139,91,.16)}
 .invoice-subtabs>button:first-child:has(+ button.active)>b{background:#ffffff25;color:#fff}
-.invoice-subtabs>button:first-child.active+button:nth-child(2),
-.invoice-subtabs>button:nth-child(2).active{background:#ffffff24;color:#fff}
-.invoice-subtabs>button:first-child.active+button:nth-child(2)>b,
-.invoice-subtabs>button:nth-child(2).active>b{background:#ffffff24;color:#fff}
-.invoice-subtabs>button:nth-child(3){margin-left:8px}
-@media(max-width:650px){
-  .invoice-subtabs>button:first-child{min-width:285px;padding-right:142px}
-  .invoice-subtabs>button:nth-child(2){left:143px}
-}
 
-/* Dependencias: el subfiltro solo aparece dentro de Dependencias */
-.invoice-subtabs>button:nth-child(2){display:none}
+/* Sin facturación reciente: submenú debajo, nunca dentro del botón verde */
+.invoice-subtabs>button:nth-child(2){
+  display:none;
+  position:absolute;
+  left:0;
+  top:52px;
+  z-index:3;
+  min-height:34px;
+  height:34px;
+  padding:0 12px;
+  border:1px solid #dbe5df;
+  border-radius:9px;
+  background:#fff;
+  color:#5c6f65;
+  box-shadow:0 2px 6px rgba(20,50,38,.05);
+}
+.invoice-subtabs>button:nth-child(2)>span{font-size:8px}
+.invoice-subtabs>button:nth-child(2)>b{min-width:22px;height:22px;font-size:7px}
 .invoice-subtabs:has(>button:first-child.active)>button:nth-child(2),
 .invoice-subtabs:has(>button:nth-child(2).active)>button:nth-child(2){display:flex}
-.invoice-subtabs:has(>button:nth-child(3).active)>button:first-child{min-width:auto;padding-right:14px}
-.invoice-subtabs:has(>button:nth-child(3).active)>button:nth-child(3){margin-left:0}
+.invoice-subtabs>button:nth-child(2).active{background:#188b5b;color:#fff;border-color:#188b5b}
+.invoice-subtabs>button:nth-child(2).active>b{background:#ffffff25;color:#fff}
+
+/* En Alumbrado Público no aparece el subfiltro ni se reserva espacio */
+.invoice-subtabs:has(>button:nth-child(3).active){margin-bottom:14px!important}
+.invoice-subtabs:has(>button:nth-child(3).active)>button:nth-child(2){display:none!important}
