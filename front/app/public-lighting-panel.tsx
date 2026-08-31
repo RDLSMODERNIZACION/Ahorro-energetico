@@ -21,6 +21,8 @@ type PLHistory = {
   invoice_number?:string|null;
 };
 
+type MeasurementClass = "MEDIDO_CONFIRMADO"|"MEDIDO_CON_ANOMALIAS"|"ESTIMADO_PROBABLE"|"SIN_EVIDENCIA";
+
 type PLRow = {
   public_lighting_meter_id:string;
   meter_id?:string|null;
@@ -45,6 +47,17 @@ type PLRow = {
   analysis_status:"normal"|"warning"|"critical"|"missing";
   analysis_reasons:string[];
   constant_consumption:boolean;
+  measurement_class:MeasurementClass;
+  measurement_label:string;
+  measurement_detail:string;
+  measurement_verified_periods:number;
+  measurement_coherent_periods:number;
+  measurement_incoherent_periods:number;
+  reading_previous?:number|null;
+  reading_current?:number|null;
+  reading_multiplier?:number|null;
+  reading_billed_kwh?:number|null;
+  reading_coherent?:boolean|null;
   history:PLHistory[];
 };
 
@@ -55,6 +68,10 @@ type PLResponse = {
     expected:number; received:number; missing:number; unlinked?:number;
     total_kwh:number; total_amount:number;
     anomalies:number; warnings:number; critical:number;
+    measured_confirmed:number;
+    measured_with_anomalies:number;
+    estimated_probable:number;
+    measurement_unknown:number;
   };
   rows:PLRow[];
 };
@@ -77,6 +94,19 @@ function statusLabel(row:PLRow){
   return "Normal";
 }
 
+function measurementShort(row:PLRow){
+  if(row.measurement_class==="MEDIDO_CONFIRMADO") return "Medido";
+  if(row.measurement_class==="MEDIDO_CON_ANOMALIAS") return "Medido · revisar";
+  if(row.measurement_class==="ESTIMADO_PROBABLE") return "Estimado probable";
+  return "Sin evidencia";
+}
+
+function readingSummary(row:PLRow){
+  if(row.reading_previous==null||row.reading_current==null) return row.measurement_detail||"Sin lectura del período";
+  const multiplier=row.reading_multiplier??1;
+  return `Ant. ${number.format(row.reading_previous)} · Act. ${number.format(row.reading_current)} · x${number.format(multiplier)}`;
+}
+
 export function PublicLightingPanel({
   session,organizationId,invoices,tariffSavings,epenOptimization
 }:{
@@ -90,15 +120,13 @@ export function PublicLightingPanel({
   const [period,setPeriod]=useState("");
   const [search,setSearch]=useState("");
   const [status,setStatus]=useState("all");
+  const [measurement,setMeasurement]=useState("all");
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
   const [selected,setSelected]=useState<PLRow|null>(null);
   const [sortKey,setSortKey]=useState<"consumption"|"amount"|null>(null);
   const [sortDir,setSortDir]=useState<"desc"|"asc">("desc");
 
-  // Fuente de verdad del período inicial:
-  // usamos las facturas generales que ya carga la aplicación.
-  // Así AP no depende del período por defecto que devuelva un backend viejo/cacheado.
   const latestGeneralPeriod=useMemo(()=>{
     const periods=invoices
       .map(i=>String(i.billing_period||i.period_start||"").slice(0,7))
@@ -138,9 +166,10 @@ export function PublicLightingPanel({
 
     const filtered=data.rows.filter(row=>{
       if(status!=="all"&&row.analysis_status!==status)return false;
+      if(measurement!=="all"&&row.measurement_class!==measurement)return false;
       if(!q)return true;
 
-      return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number]
+      return [row.meter_number,row.supply_number,row.supply_contract,row.address,row.invoice_number,row.measurement_label]
         .some(v=>String(v||"").toLowerCase().includes(q));
     });
 
@@ -157,7 +186,7 @@ export function PublicLightingPanel({
 
       return sortDir==="desc" ? bv-av : av-bv;
     });
-  },[data,search,status,sortKey,sortDir]);
+  },[data,search,status,measurement,sortKey,sortDir]);
 
   function toggleSort(key:"consumption"|"amount"){
     if(sortKey===key){
@@ -212,17 +241,38 @@ export function PublicLightingPanel({
       </article>
     </section>
 
+    <section className="pl-measurement-kpis">
+      <article className="measured">
+        <span>MEDIDOS CONFIRMADOS</span>
+        <strong>{data.summary.measured_confirmed}</strong>
+        <small>lectura coherente con consumo facturado</small>
+      </article>
+      <article className="review">
+        <span>MEDIDOS CON ANOMALÍAS</span>
+        <strong>{data.summary.measured_with_anomalies}</strong>
+        <small>algún período requiere revisión</small>
+      </article>
+      <article className="estimated">
+        <span>ESTIMADOS PROBABLES</span>
+        <strong>{data.summary.estimated_probable}</strong>
+        <small>consumo no surge de diferencia de lecturas</small>
+      </article>
+      <article className="unknown">
+        <span>SIN EVIDENCIA</span>
+        <strong>{data.summary.measurement_unknown}</strong>
+        <small>sin lecturas verificables cargadas</small>
+      </article>
+    </section>
+
     {(data.summary.unlinked||0)>0&&<section className="panel pl-error">
       Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.
     </section>}
-
-    
 
     <section className="panel">
       <div className="panel-title pl-title">
         <div>
           <h2>Análisis mensual de Alumbrado Público</h2>
-          <p>Factura general · consumo · demanda · factor de potencia · tarifa · importe</p>
+          <p>Factura general · consumo · lectura · tipo de medición · tarifa · importe</p>
         </div>
       </div>
 
@@ -243,11 +293,21 @@ export function PublicLightingPanel({
           </select>
         </label>
 
+        <label>Medición
+          <select value={measurement} onChange={e=>setMeasurement(e.target.value)}>
+            <option value="all">Todas</option>
+            <option value="MEDIDO_CONFIRMADO">Medidos</option>
+            <option value="MEDIDO_CON_ANOMALIAS">Medidos con anomalías</option>
+            <option value="ESTIMADO_PROBABLE">Estimados probables</option>
+            <option value="SIN_EVIDENCIA">Sin evidencia</option>
+          </select>
+        </label>
+
         <label className="pl-search">Buscar
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro o dirección"/>
         </label>
 
-        <button onClick={()=>{setSearch("");setStatus("all")}}>Limpiar</button>
+        <button onClick={()=>{setSearch("");setStatus("all");setMeasurement("all")}}>Limpiar</button>
       </div>
 
       <div className="pl-table-scroll"><div className="pl-table">
@@ -273,11 +333,12 @@ export function PublicLightingPanel({
             IMPORTE {sortKey==="amount"?(sortDir==="desc"?"↓":"↑"):""}
           </button>
           <span>TARIFA</span>
+          <span>MEDICIÓN</span>
           <span>ANÁLISIS</span>
         </div>
 
         {rows.map(row=><button
-          className={`pl-row pl-data ${row.analysis_status}`}
+          className={`pl-row pl-data ${row.analysis_status} measurement-${row.measurement_class.toLowerCase()}`}
           key={row.public_lighting_meter_id}
           onClick={()=>setSelected(row)}
         >
@@ -312,6 +373,11 @@ export function PublicLightingPanel({
           <span><b className={`pl-tariff ${row.tariff_code!=="T1AP"?"review":""}`}>{row.tariff_code||"S/D"}</b><small>EPEN</small></span>
 
           <span>
+            <em className={`pl-measurement ${row.measurement_class.toLowerCase()}`}>{measurementShort(row)}</em>
+            <small title={row.measurement_detail}>{readingSummary(row)}</small>
+          </span>
+
+          <span>
             <em className={`pl-status ${row.analysis_status}`}>{statusLabel(row)}</em>
             <small>{row.analysis_reasons[0]||"Sin observaciones"}</small>
           </span>
@@ -342,8 +408,3 @@ export function PublicLightingPanel({
     </section>}
   </div>;
 }
-
-
-
-
-
