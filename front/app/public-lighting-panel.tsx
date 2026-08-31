@@ -202,8 +202,6 @@ export function PublicLightingPanel({
     ):undefined)
   ):null;
 
-  // Si el período seleccionado está gris/sin factura, abrimos igual el análisis
-  // usando la última factura histórica disponible del medidor.
   const rawSelectedInvoice=currentPeriodInvoice
     ||(selectedHistoryRaw.length?selectedHistoryRaw[selectedHistoryRaw.length-1]:null);
 
@@ -219,6 +217,17 @@ export function PublicLightingPanel({
   const ledAnnualSaving=ledMonthlySaving*12;
 
   return <div className="pl-module">
+    <div className="pl-missing-shortcut">
+      <button
+        type="button"
+        className={status==="missing"?"active":""}
+        onClick={()=>setStatus(current=>current==="missing"?"all":"missing")}
+      >
+        <span>Sin facturación</span>
+        <b>{data.summary.missing}</b>
+      </button>
+    </div>
+
     <section className="pl-kpis">
       <article><span>PERÍODO CONTROLADO</span><strong>{data.billing_period}</strong><small>último mes disponible al ingresar</small></article>
       <article><span>FACTURAS ESPERADAS</span><strong>{data.summary.expected}</strong><small>suministros clasificados como AP</small></article>
@@ -247,7 +256,7 @@ export function PublicLightingPanel({
     {(data.summary.unlinked||0)>0&&<section className="panel pl-error">Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.</section>}
 
     <section className="panel">
-      <div className="panel-title pl-title"><div><h2>Análisis mensual de Alumbrado Público</h2><p>Consumo · lectura · tipo de medición · tarifa · importe</p></div></div>
+      <div className="panel-title pl-title"><div><h2>{status==="missing"?"Alumbrado Público sin facturación":"Análisis mensual de Alumbrado Público"}</h2><p>{status==="missing"?`${data.summary.missing} suministros sin factura en ${data.billing_period}`:"Consumo · lectura · tipo de medición · tarifa · importe"}</p></div></div>
 
       <div className="pl-filters">
         <label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>{data.periods.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
