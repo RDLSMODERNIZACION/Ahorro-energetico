@@ -213,12 +213,35 @@ export function PublicLightingPanel({
   if(error)return <section className="panel pl-error">{error}</section>;
   if(!data)return <section className="panel pl-loading">{loading?"Analizando Alumbrado Público…":"Sin datos"}</section>;
 
+  const ledSavingRate=0.55;
+  const monthlyAmount=Number(data.summary.total_amount||0);
+  const ledMonthlySaving=monthlyAmount*ledSavingRate;
+  const ledAnnualSaving=ledMonthlySaving*12;
+
   return <div className="pl-module">
     <section className="pl-kpis">
       <article><span>PERÍODO CONTROLADO</span><strong>{data.billing_period}</strong><small>último mes disponible al ingresar</small></article>
       <article><span>FACTURAS ESPERADAS</span><strong>{data.summary.expected}</strong><small>suministros clasificados como AP</small></article>
       <article className="green"><span>FACTURAS RECIBIDAS</span><strong>{data.summary.received}</strong><small>{data.summary.missing} faltantes</small></article>
       <article className={data.summary.missing?"alert":""}><span>FACTURAS FALTANTES</span><strong>{data.summary.missing}</strong><small>sin factura en {data.billing_period}</small></article>
+    </section>
+
+    <section className="pl-kpis" style={{gridTemplateColumns:"repeat(3,1fr)"}}>
+      <article>
+        <span>IMPORTE DEL MES</span>
+        <strong>{money.format(monthlyAmount)}</strong>
+        <small>{data.summary.received} facturas recibidas de {data.summary.expected}</small>
+      </article>
+      <article className="green">
+        <span>AHORRO SI TODO FUERA LED</span>
+        <strong>{money.format(ledMonthlySaving)}</strong>
+        <small>escenario estimado 55% · ahorro mensual</small>
+      </article>
+      <article>
+        <span>AHORRO LED ANUALIZADO</span>
+        <strong>{money.format(ledAnnualSaving)}</strong>
+        <small>ahorro del mes × 12 · escenario 55%</small>
+      </article>
     </section>
 
     {(data.summary.unlinked||0)>0&&<section className="panel pl-error">Hay {data.summary.unlinked} suministro(s) de Alumbrado Público sin vincular a un medidor general.</section>}
