@@ -101,6 +101,23 @@ function readingSummary(row:PLRow){
   return `Ant. ${number.format(row.reading_previous)} · Act. ${number.format(row.reading_current)} · x${number.format(multiplier)}`;
 }
 
+function asPublicLightingInvoice(invoice:any){
+  if(!invoice)return invoice;
+  return {
+    ...invoice,
+    invoice_measurements:(invoice.invoice_measurements||[]).map((m:any)=>({
+      ...m,
+      demand_kw:Number(m.active_energy_kwh||0),
+      registered_demand_peak_kw:Number(m.active_energy_kwh||0),
+      registered_demand_off_peak_kw:0,
+      power_factor:undefined,
+      resolved_power_factor:undefined,
+      power_factor_penalized:false,
+      reactive_surcharge_percent:0,
+    }))
+  };
+}
+
 export function PublicLightingPanel({
   session,organizationId,invoices,tariffSavings,epenOptimization
 }:{
@@ -171,7 +188,7 @@ export function PublicLightingPanel({
     else {setSortKey(key);setSortDir("desc");}
   }
 
-  const selectedInvoice=selected?(
+  const rawSelectedInvoice=selected?(
     (selected.invoice_id?invoices.find(i=>String(i.id)===String(selected.invoice_id)):undefined)
     ||(selected.meter_id?invoices.find(i=>
       String(i.meter_id)===String(selected.meter_id)
@@ -179,10 +196,13 @@ export function PublicLightingPanel({
     ):undefined)
   ):null;
 
+  const selectedInvoice=rawSelectedInvoice?asPublicLightingInvoice(rawSelectedInvoice):null;
+
   const selectedHistory=selected?.meter_id
     ? invoices
         .filter(i=>String(i.meter_id)===String(selected.meter_id))
         .sort((a,b)=>String(a.billing_period||a.period_start).localeCompare(String(b.billing_period||b.period_start)))
+        .map(asPublicLightingInvoice)
     : [];
 
   if(error)return <section className="panel pl-error">{error}</section>;
@@ -234,7 +254,7 @@ export function PublicLightingPanel({
       </div></div>
     </section>
 
-    {selected&&selectedInvoice&&<InvoiceAnalysisPanel
+    {selected&&selectedInvoice&&<div className="pl-individual-public-lighting"><InvoiceAnalysisPanel
       invoice={selectedInvoice}
       history={selectedHistory}
       tariffSavings={tariffSavings}
@@ -244,7 +264,7 @@ export function PublicLightingPanel({
       analysisLabel="ANÁLISIS INDIVIDUAL · ALUMBRADO PÚBLICO"
       allowNameEdit={false}
       hideLocationEditor={true}
-    />}
+    /></div>}
 
     {selected&&!selectedInvoice&&<section className="panel pl-error">
       No se encontró la factura general vinculada para {selected.billing_period}.
