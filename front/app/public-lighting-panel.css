@@ -135,17 +135,23 @@
 /* En AP desaparece completamente el subfiltro de Dependencias */
 .invoice-subtabs:has(>button:nth-child(3).active)>button:nth-child(2){display:none!important}
 
-/* AP: acceso propio a suministros sin facturación */
+/* AP: mismo lugar exacto del acceso Sin facturación de Dependencias */
+.pl-module{position:relative}
 .pl-missing-shortcut{
+  position:absolute;
+  right:0;
+  top:-59px;
+  z-index:4;
   display:flex;
   justify-content:flex-end;
-  margin:0 0 12px;
+  margin:0;
 }
 .pl-missing-shortcut button{
   display:flex;
   align-items:center;
   gap:10px;
   min-height:40px;
+  height:40px;
   padding:0 14px;
   border:1px solid #dbe5df;
   border-radius:10px;
@@ -178,5 +184,5 @@
 @media(max-width:760px){
   .invoice-subtabs{padding-bottom:54px!important}
   .invoice-subtabs>button:nth-child(2){right:auto;left:0;top:58px}
-  .pl-missing-shortcut{justify-content:flex-start}
+  .pl-missing-shortcut{right:auto;left:0;top:-46px;justify-content:flex-start}
 }
