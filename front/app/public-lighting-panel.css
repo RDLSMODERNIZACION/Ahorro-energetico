@@ -67,5 +67,11 @@
 .pl-data.measurement-estimado_probable{box-shadow:inset 4px 0 #c94f3e}
 .pl-data.measurement-medido_con_anomalias{box-shadow:inset 4px 0 #d89a32}
 
+/* Análisis individual AP: Consumo / Importe / Tarifaria */
+.pl-individual-public-lighting .invoice-analysis-metrics button:first-child{font-size:0}
+.pl-individual-public-lighting .invoice-analysis-metrics button:first-child::before{content:"Consumo";font-size:inherit}
+.pl-individual-public-lighting .invoice-analysis-metrics button:nth-child(3){display:none}
+.pl-individual-public-lighting .invoice-analysis-metrics{grid-template-columns:repeat(3,1fr)}
+
 @media(max-width:1100px){.pl-measurement-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.pl-measurement-kpis{grid-template-columns:1fr}}
