@@ -33,7 +33,33 @@ def create_site(body: SiteCreate, user: CurrentUser = Depends(current_user)):
 @router.get("/organizations/{organization_id}/meters")
 def list_meters(organization_id: str, user: CurrentUser = Depends(current_user)):
     require_org(user.id, organization_id)
-    return admin_db().table("meters").select("*,sites(name,address)").eq("organization_id",organization_id).order("meter_number").execute().data
+    db = admin_db()
+
+    # Alumbrado Público tiene su módulo y seguimiento propios. Los medidores
+    # generales vinculados a public_lighting_meters no deben volver a contarse
+    # como Dependencias (esperadas, recibidas, faltantes o posibles bajas).
+    ap_rows = (
+        db.table("public_lighting_meters")
+        .select("linked_meter_id")
+        .eq("organization_id", organization_id)
+        .execute()
+        .data
+    )
+    ap_meter_ids = {
+        str(row["linked_meter_id"])
+        for row in ap_rows
+        if row.get("linked_meter_id")
+    }
+
+    rows = (
+        db.table("meters")
+        .select("*,sites(name,address)")
+        .eq("organization_id", organization_id)
+        .order("meter_number")
+        .execute()
+        .data
+    )
+    return [row for row in rows if str(row.get("id")) not in ap_meter_ids]
 
 @router.put("/meters/{meter_id}/name")
 def update_meter_name(meter_id: str, body: MeterNameUpdate, user: CurrentUser = Depends(current_user)):
