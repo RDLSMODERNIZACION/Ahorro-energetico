@@ -69,7 +69,7 @@
 
 /* Análisis individual AP: Consumo / Importe / Tarifaria */
 .pl-individual-public-lighting .invoice-analysis-metrics button:first-child{font-size:0}
-.pl-individual-public-lighting .invoice-analysis-metrics button:first-child::before{content:"Consumo";font-size:inherit}
+.pl-individual-public-lighting .invoice-analysis-metrics button:first-child::before{content:"Consumo";font-size:10px}
 .pl-individual-public-lighting .invoice-analysis-metrics button:nth-child(3){display:none}
 .pl-individual-public-lighting .invoice-analysis-metrics{grid-template-columns:repeat(3,1fr)}
 
