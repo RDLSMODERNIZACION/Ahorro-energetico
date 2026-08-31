@@ -31,7 +31,6 @@
 .pl-data{cursor:pointer}.pl-data:hover{box-shadow:inset 3px 0 #1b925e;background:#f6fbf8}
 @media(max-width:900px){.pl-analysis-head{padding:62px 18px 22px}.pl-analysis-head button{left:18px}.pl-analysis-tabs{padding:12px 18px;overflow-x:auto}.pl-detail-kpis-v3{padding:14px 18px;grid-template-columns:repeat(2,1fr)}.pl-analysis-card{margin:0 18px 14px}.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
 
-
 /* AP sort headers */
 .pl-head .pl-sort-head{
   border:0;
@@ -44,31 +43,39 @@
   padding:0;
   cursor:pointer;
 }
-.pl-head .pl-sort-head:hover{
-  color:#18845a;
-}
-.pl-head .pl-sort-head.active{
-  color:#18845a;
-}
-
+.pl-head .pl-sort-head:hover{color:#18845a}
+.pl-head .pl-sort-head.active{color:#18845a}
 
 /* AP missing rows V11 */
-.pl-row.pl-data.missing{
-  background:#eef1ef !important;
-  color:#5f6d66;
-}
-.pl-row.pl-data.missing:hover{
-  background:#e7ebe8 !important;
-  box-shadow:inset 4px 0 #8d9a93;
-}
-.pl-row.pl-data.missing b{
-  color:#56635d;
-}
-.pl-row.pl-data.missing small{
-  color:#8a9690;
-}
-.pl-row.pl-data.missing .pl-status.missing{
-  background:#dde3df;
-  color:#66736d;
-  font-weight:850;
-}
+.pl-row.pl-data.missing{background:#eef1ef !important;color:#5f6d66}
+.pl-row.pl-data.missing:hover{background:#e7ebe8 !important;box-shadow:inset 4px 0 #8d9a93}
+.pl-row.pl-data.missing b{color:#56635d}
+.pl-row.pl-data.missing small{color:#8a9690}
+.pl-row.pl-data.missing .pl-status.missing{background:#dde3df;color:#66736d;font-weight:850}
+
+/* AP medición real vs estimada */
+.pl-measurement-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.pl-measurement-kpis article{background:#fff;border:1px solid #e3eae6;border-radius:11px;padding:14px 17px}
+.pl-measurement-kpis span{display:block;font-size:8px;font-weight:850;letter-spacing:.045em;color:#77867e}
+.pl-measurement-kpis strong{display:block;margin-top:6px;font-size:20px}
+.pl-measurement-kpis small{display:block;margin-top:4px;font-size:8px;color:#87958d}
+.pl-measurement-kpis article.measured{border-left:4px solid #238459}
+.pl-measurement-kpis article.review{border-left:4px solid #d89a32;background:#fffdf7}
+.pl-measurement-kpis article.estimated{border-left:4px solid #c94f3e;background:#fff8f6}
+.pl-measurement-kpis article.estimated strong{color:#b74435}
+.pl-measurement-kpis article.unknown{border-left:4px solid #8b9791}
+
+/* 9 columnas al agregar MEDICIÓN */
+.pl-table{min-width:1480px!important}
+.pl-row{grid-template-columns:165px minmax(235px,1.35fr) 120px 105px 100px 135px 80px 175px minmax(180px,1fr)!important}
+
+.pl-measurement{display:inline-flex;padding:5px 8px;border-radius:7px;font-size:8px;font-style:normal;font-weight:850;white-space:nowrap}
+.pl-measurement.medido_confirmado{background:#eaf7f0;color:#238459}
+.pl-measurement.medido_con_anomalias{background:#fff4df;color:#a96e19}
+.pl-measurement.estimado_probable{background:#fff0ed;color:#c64d3b}
+.pl-measurement.sin_evidencia{background:#eff2f0;color:#76847d}
+.pl-data.measurement-estimado_probable{box-shadow:inset 4px 0 #c94f3e}
+.pl-data.measurement-medido_con_anomalias{box-shadow:inset 4px 0 #d89a32}
+
+@media(max-width:1100px){.pl-measurement-kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.pl-measurement-kpis{grid-template-columns:1fr}}
