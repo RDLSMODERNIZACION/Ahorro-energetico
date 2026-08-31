@@ -32,17 +32,7 @@
 @media(max-width:900px){.pl-analysis-head{padding:62px 18px 22px}.pl-analysis-head button{left:18px}.pl-analysis-tabs{padding:12px 18px;overflow-x:auto}.pl-detail-kpis-v3{padding:14px 18px;grid-template-columns:repeat(2,1fr)}.pl-analysis-card{margin:0 18px 14px}.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
 
 /* AP sort headers */
-.pl-head .pl-sort-head{
-  border:0;
-  background:transparent;
-  color:inherit;
-  font:inherit;
-  font-weight:inherit;
-  letter-spacing:inherit;
-  text-align:left;
-  padding:0;
-  cursor:pointer;
-}
+.pl-head .pl-sort-head{border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;letter-spacing:inherit;text-align:left;padding:0;cursor:pointer}
 .pl-head .pl-sort-head:hover{color:#18845a}
 .pl-head .pl-sort-head.active{color:#18845a}
 
@@ -65,9 +55,9 @@
 .pl-measurement-kpis article.estimated strong{color:#b74435}
 .pl-measurement-kpis article.unknown{border-left:4px solid #8b9791}
 
-/* 9 columnas al agregar MEDICIÓN */
-.pl-table{min-width:1480px!important}
-.pl-row{grid-template-columns:165px minmax(235px,1.35fr) 120px 105px 100px 135px 80px 175px minmax(180px,1fr)!important}
+/* AP: 7 columnas, sin demanda ni factor de potencia */
+.pl-table{min-width:1180px!important}
+.pl-row{grid-template-columns:170px minmax(270px,1.55fr) 135px 155px 90px 205px minmax(190px,1fr)!important}
 
 .pl-measurement{display:inline-flex;padding:5px 8px;border-radius:7px;font-size:8px;font-style:normal;font-weight:850;white-space:nowrap}
 .pl-measurement.medido_confirmado{background:#eaf7f0;color:#238459}
