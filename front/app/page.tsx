@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
@@ -57,6 +57,43 @@ async function api<T>(path:string, session:Session, init?:RequestInit):Promise<T
   throw lastError||new Error("No se pudo consultar la API");
 }
 
+
+function dashboardPowerDemand(i:Invoice){
+  return Math.max(0,...(i.invoice_measurements||[]).map(m=>Number(m.demand_kw||m.registered_demand_peak_kw||0)));
+}
+function dashboardPowerContract(i:Invoice){
+  const line=Math.max(0,...(i.invoice_lines||[]).filter(x=>["DEP","DEM"].includes(String(x.concept_code||"").toUpperCase())).map(x=>Number(x.quantity||0)));
+  return Number(i.contracted_kw_peak||i.meters?.contracted_kw_peak||line||0);
+}
+function dashboardPowerRate(i:Invoice){
+  return Math.max(0,...(i.invoice_lines||[]).filter(x=>["DEP","DEM"].includes(String(x.concept_code||"").toUpperCase())).map(x=>Number(x.unit_price||0)));
+}
+function buildDashboardPowerCurve(invoices:Invoice[],period:string){
+  const monthNumber=Number(String(period||"").slice(5,7));
+  const meterIds=[...new Set(invoices.map(i=>i.meter_id))];
+  const meters=meterIds.map(meterId=>{
+    const history=invoices.filter(i=>i.meter_id===meterId&&dashboardPowerDemand(i)>0).sort((a,b)=>String(a.billing_period||a.period_start).localeCompare(String(b.billing_period||b.period_start)));
+    const latestContract=[...history].reverse().find(i=>dashboardPowerContract(i)>0);
+    const latestRate=[...history].reverse().find(i=>dashboardPowerRate(i)>0);
+    const currentKw=latestContract?dashboardPowerContract(latestContract):0;
+    const rate=latestRate?dashboardPowerRate(latestRate):0;
+    const rows=Array.from({length:12},(_,idx)=>{
+      const target=idx+1;
+      const demands=history.filter(i=>Number(String(i.billing_period||i.period_start).slice(5,7))===target).map(dashboardPowerDemand);
+      const proposalKw=demands.length?Math.max(...demands):0;
+      const reducibleKw=proposalKw>0?Math.max(0,currentKw-proposalKw):0;
+      return{monthNumber:target,proposalKw,saving:reducibleKw*rate*1.30};
+    });
+    const selected=rows.find(r=>r.monthNumber===monthNumber);
+    return{meterId,currentKw,rate,rows,monthlySaving:Number(selected?.saving||0),annualSaving:rows.reduce((s,r)=>s+r.saving,0)};
+  }).filter(x=>x.currentKw>0&&x.rate>0);
+  return{
+    meters,
+    monthlySaving:meters.reduce((s,x)=>s+x.monthlySaving,0),
+    annualSaving:meters.reduce((s,x)=>s+x.annualSaving,0),
+    opportunityMeterIds:new Set(meters.filter(x=>x.monthlySaving>0).map(x=>x.meterId))
+  };
+}
 
 function renderAiRichText(text:string,onOpenReference?:(reference:string)=>void){
   const normalized=text
@@ -373,7 +410,9 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
   const dashboardPresentIds=new Set(dashboardInvoices.map(i=>i.meter_id));
   const dashboardReceived=[...dashboardPresentIds].filter(id=>activeMeters.some(m=>m.id===id)).length;
   const dashboardMissing=activeMeters.filter(m=>!dashboardPresentIds.has(m.id));
-  const dashboardPowerMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoicePowerSaving(i).amount,0);
+  const dashboardPowerCurve=buildDashboardPowerCurve(invoices,dashboardPeriod);
+  const dashboardPowerMonthly=dashboardPowerCurve.monthlySaving;
+  const dashboardPowerAnnual=dashboardPowerCurve.annualSaving;
   const dashboardReactiveMonthly=dashboardInvoices.reduce((sum,i)=>sum+invoiceReactiveSaving(i),0);
   const legacyDashboardRateMonthly=tariffSavings.filter(x=>String(x.billing_period).slice(0,7)===dashboardPeriod).reduce((sum,x)=>sum+Number(x.monthly_saving_with_vat||0),0);
 
@@ -417,15 +456,16 @@ async function updateMeterStatus(meterId:string,status:"active"|"inactive"|"remo
     dashboardAdvancedRows.length+
     dashboardOptimizationFallbackRows.length;
   const dashboardTotalMonthly=dashboardPowerMonthly+dashboardReactiveMonthly+dashboardRateMonthly;
+  const dashboardTotalAnnual=dashboardPowerAnnual+(dashboardReactiveMonthly*12)+(dashboardRateMonthly*12);
   const dashboardOpportunityIds=new Set<string>();
   for(const i of dashboardInvoices){
-    const hasPower=invoicePowerSaving(i).amount>0;
+    const hasPower=dashboardPowerCurve.opportunityMeterIds.has(i.meter_id);
     const hasReactive=invoiceReactiveSaving(i)>0;
     const hasTariff=dashboardAdvancedMeterIds.has(i.meter_id)||dashboardOptimizationFallbackRows.some(x=>x.meter_id===i.meter_id)||(advancedTariffSummary?.billing_period!==dashboardPeriod&&tariffSavings.some(x=>x.meter_id===i.meter_id&&String(x.billing_period).slice(0,7)===dashboardPeriod&&Number(x.monthly_saving_with_vat||0)>0));
     if(hasPower||hasReactive||hasTariff)dashboardOpportunityIds.add(i.meter_id);
   }
   const dashboardLowPf=dashboardInvoices.filter(i=>{const p=metrics(i).pf;return p>0&&p<.95}).length;
-  const dashboardPowerExcess=dashboardInvoices.filter(i=>metrics(i).excess>0).length;
+  const dashboardPowerExcess=dashboardPowerCurve.opportunityMeterIds.size;
 const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id);setTab("invoices")};
   const openMeterById=(meterId?:string)=>{if(!meterId)return;const i=[...invoices].filter(x=>x.meter_id===meterId).sort((a,b)=>invoiceMonth(b).localeCompare(invoiceMonth(a)))[0];if(i)openMeter(i)};
   const markerData=useMemo(()=>{const counters={west:0,center:0,east:0};return meters.map(m=>{const text=`${m.service_name||""} ${m.sites?.name||""} ${m.sites?.address||""}`.toLowerCase();const zone=text.includes("oeste")?"west":text.includes("este")?"east":text.match(/centro|municipalidad|san martin|belgrano|plaza|radio|biblioteca|deportiva|social/)?"center":text.match(/costa|pozo|bomba|agua|cloac|planta|vivero/)?(hashText(text)%2?"west":"east"):["west","center","east"][hashText(text)%3] as "west"|"center"|"east";const index=counters[zone]++,bounds=zone==="west"?[9,34]:zone==="center"?[37,62]:[65,91],width=bounds[1]-bounds[0],col=index%5,row=Math.floor(index/5);return{...m,zone,x:bounds[0]+4+col*(width-8)/4+(hashText(m.id)%3-1)*.8,y:14+(row*11)%70+(hashText(m.meter_number)%3-1)*.7}})},[meters]);
@@ -477,7 +517,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
     <article className="saving">
       <span>Ahorro mensual potencial</span>
       <strong>{money.format(dashboardTotalMonthly)}</strong>
-      <small>{money.format(dashboardTotalMonthly*12)} anualizado ×12</small>
+      <small>{money.format(dashboardTotalAnnual)} anual · potencia según curva mensual</small>
     </article>
   </div>
 
@@ -492,14 +532,14 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
   <section className="panel executive-savings">
     <Title
       title={`Desglose del ahorro potencial · ${dashboardPeriodLabel}`}
-      sub={`Valores calculados sobre ${dashboardPeriodLabel}. El anual es una proyección del ahorro mensual × 12, con 30% de IVA.`}
+      sub={`Potencia: curva mensual histórica por suministro. Factor de potencia y tarifa: proyección mensual × 12. Valores con 30% de IVA donde corresponde.`}
     />
     <div className="dashboard-savings-grid">
       <article className="power">
         <span>Potencia contratada</span>
-        <strong>{money.format(dashboardPowerMonthly*12)}</strong>
+        <strong>{money.format(dashboardPowerAnnual)}</strong>
         <small>{money.format(dashboardPowerMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Contratada menos máxima registrada del período, sin margen.</p>
+        <p>Curva anual: para cada mes toma la mayor demanda del mismo mes entre los años disponibles, contra la última potencia contratada.</p>
       </article>
       <article className="reactive">
         <span>Factor de potencia</span>
@@ -515,9 +555,9 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
       </article>
       <article className="saving-total">
         <span>Ahorro total propuesto</span>
-        <strong>{money.format(dashboardTotalMonthly*12)}</strong>
+        <strong>{money.format(dashboardTotalAnnual)}</strong>
         <small>{money.format(dashboardTotalMonthly)} mensual · {dashboardPeriodLabel}</small>
-        <p>Proyección anual basada únicamente en el ahorro detectado del mes.</p>
+        <p>Potencia anual según curva de 12 meses; los demás ahorros se anualizan desde el período actual.</p>
       </article>
     </div>
   </section>
