@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
+import "./power-curve-dom-enhancer";
 
 const API="https://ahorro-energetico.onrender.com";
 
