@@ -42,3 +42,5 @@ jobs:
           git rm .github/workflows/apply-power-curve-analysis.yml scripts/apply_power_curve_analysis.py
           git commit -m "feat: curva mensual de potencia y Excel por suministro"
           git push
+
+# ejecución validada
