@@ -258,3 +258,4 @@ function xmlCell(value:string|number,type:"String"|"Number"="String"){
           git rm .github/workflows/apply-power-curve-analysis.yml
           git commit -m "feat: curva mensual de potencia y Excel por suministro"
           git push
+# trigger 2
