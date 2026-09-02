@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import {useMemo, useState, useEffect} from "react";
 import { MeterLocationEditor } from "./meter-location-editor";
 import { supabase } from "./lib/supabase";
 import type { EpenOptimizationMeter } from "./epen-optimization-panel";
+import styles from "./power-curve.module.css";
 
 type Measurement={
   active_energy_kwh?:number;
@@ -111,6 +112,44 @@ function fmt(metric:Metric,value:number){
   if(metric==="demand")return `${nf.format(value)} kW`;
   if(metric==="pf")return value?value.toFixed(3):"S/D";
   return `${nf.format(value)} kWh`;
+}
+
+const powerMonthNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+function powerRate(i:Invoice){
+  return Math.max(0,...(i.invoice_lines||[])
+    .filter(x=>["DEM","DEP"].includes(String(x.concept_code||"").toUpperCase()))
+    .map(x=>Number(x.unit_price||0)));
+}
+function buildPowerCurve(history:Invoice[]){
+  const valid=history
+    .filter(i=>values(i).demand>0)
+    .sort((a,b)=>periodOf(a).localeCompare(periodOf(b)));
+  const latestContract=[...valid].reverse().find(i=>contractedBands(i).peak>0);
+  const latestRateInvoice=[...valid].reverse().find(i=>powerRate(i)>0);
+  const currentKw=Number(latestContract?contractedBands(latestContract).peak:0);
+  const rate=Number(latestRateInvoice?powerRate(latestRateInvoice):0);
+  const rows=powerMonthNames.map((month,idx)=>{
+    const monthNumber=idx+1;
+    const matches=valid.filter(i=>Number(periodOf(i).slice(5,7))===monthNumber);
+    const observations=matches.map(i=>({period:periodOf(i),demand:values(i).demand}));
+    const proposalKw=observations.length?Math.max(...observations.map(x=>x.demand)):0;
+    const reducibleKw=proposalKw>0?Math.max(0,currentKw-proposalKw):0;
+    const savingNet=reducibleKw*rate;
+    const saving=savingNet*1.30;
+    return{month,monthNumber,observations,proposalKw,reducibleKw,savingNet,saving};
+  });
+  return{
+    currentKw,
+    rate,
+    rows,
+    annualSaving:rows.reduce((sum,row)=>sum+row.saving,0),
+    annualSavingNet:rows.reduce((sum,row)=>sum+row.savingNet,0),
+    hasData:currentKw>0&&rate>0&&rows.some(row=>row.proposalKw>0)
+  };
+}
+function xmlCell(value:string|number,type:"String"|"Number"="String"){
+  const escaped=String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return `<Cell><Data ss:Type="${type}">${escaped}</Data></Cell>`;
 }
 
 function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:string;monthly_saving:number;current_tariff?:string;recommended_tariff?:string;available?:boolean}[];selectedPeriod:string;onPeriod:(p:string)=>void}){
@@ -307,9 +346,16 @@ export function InvoiceAnalysisPanel({
   const isT3=["T3","T3A"].includes(String(selected.current_tariff_code||"").toUpperCase());
   const currentVoltage=String(selected.voltage_level||selected.meters?.voltage_level||"").toUpperCase();
   const powerLines=(selected.invoice_lines||[]).filter(x=>x.concept_code==="DEM"||x.concept_code==="DEP");
-  const rate=Math.max(0,...powerLines.map(x=>Number(x.unit_price||0)));
+  const selectedRate=Math.max(0,...powerLines.map(x=>Number(x.unit_price||0)));
   const excess=Math.max(0,v.contracted-v.demand);
-  const powerSaving=excess*rate*1.30;
+  const powerCurve=useMemo(()=>buildPowerCurve(history),[history]);
+  const selectedMonthNumber=Number(periodOf(selected).slice(5,7));
+  const selectedPowerProposal=powerCurve.rows.find(row=>row.monthNumber===selectedMonthNumber);
+  const currentPower=powerCurve.currentKw||v.contracted;
+  const proposedPower=Number(selectedPowerProposal?.proposalKw||0);
+  const rate=powerCurve.rate||selectedRate;
+  const powerSaving=Number(selectedPowerProposal?.saving||0);
+  const annualPowerSaving=powerCurve.annualSaving;
   const reactiveSaving=(selected.invoice_lines||[]).filter(x=>x.concept_code==="COS").reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0)*1.30;
   const legacyTariffSaving=Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0);
   const advancedTariffPoint=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
@@ -317,6 +363,7 @@ export function InvoiceAnalysisPanel({
   const tariffSaving=advancedTariffSaving>0?advancedTariffSaving:legacyTariffSaving;
   const tariffSavingSource=advancedTariffSaving>0?"T4":legacyTariffSaving>0?"legacy":"none";
   const totalSaving=powerSaving+reactiveSaving+tariffSaving;
+  const annualTotalSaving=annualPowerSaving+(reactiveSaving*12)+(tariffSaving*12);
   const m=selected.meters||invoice.meters;
   const sorted=[...history].sort((a,b)=>periodOf(a).localeCompare(periodOf(b)));
   useEffect(()=>{
@@ -339,6 +386,30 @@ export function InvoiceAnalysisPanel({
     loadTariffHistory();
     return()=>{cancelled=true};
   },[selected.meter_id]);
+  function downloadPowerCurveExcel(){
+    if(!powerCurve.hasData)return;
+    const header=["Mes","Histórico comparado","Potencia actual (kW)","Propuesta (kW)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
+    const rows=powerCurve.rows.map(row=>{
+      const historical=row.observations.map(x=>`${x.period.slice(0,4)}: ${nf.format(x.demand)} kW`).join(" | ")||"Sin datos";
+      return [row.month,historical,powerCurve.currentKw,row.proposalKw||0,row.reducibleKw,powerCurve.rate,row.savingNet,row.saving];
+    });
+    const sheetRows=[
+      `<Row>${header.map(v=>xmlCell(v)).join("")}</Row>`,
+      ...rows.map(row=>`<Row>${row.map((v,index)=>xmlCell(v,index>=2?"Number":"String")).join("")}</Row>`),
+      `<Row>${xmlCell("TOTAL ANUAL")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell(powerCurve.annualSavingNet,"Number")}${xmlCell(powerCurve.annualSaving,"Number")}</Row>`
+    ].join("");
+    const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Curva potencia"><Table>${sheetRows}</Table></Worksheet></Workbook>`;
+    const blob=new Blob(["\ufeff",xml],{type:"application/vnd.ms-excel;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    const code=(m?.tracking_code||m?.meter_number||"suministro").replace(/[^A-Za-z0-9_-]+/g,"_");
+    link.href=url;
+    link.download=`Propuesta_Potencia_${code}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
   async function saveMeterName(){
     const clean=nameDraft.trim();
     if(clean.length<2){setNameError("Ingresá un nombre válido.");return}
@@ -393,6 +464,27 @@ export function InvoiceAnalysisPanel({
         </div>
       </div>
 
+      {powerCurve.hasData&&<div className={styles.powerCurveSummary}>
+        <div className={styles.powerMetric}>
+          <span>Potencia actual</span>
+          <b>{nf.format(currentPower)} kW</b>
+          <small>última contratación vigente</small>
+        </div>
+        <div className={styles.powerMetric}>
+          <span>Propuesta · {powerMonthNames[selectedMonthNumber-1]}</span>
+          <b>{proposedPower>0?`${nf.format(proposedPower)} kW`:"S/D"}</b>
+          <small>máximo del mismo mes entre años</small>
+        </div>
+        <div className={`${styles.powerMetric} ${styles.savingMetric}`}>
+          <span>Ahorro</span>
+          <b>{money.format(powerSaving)}</b>
+          <small>{money.format(annualPowerSaving)} anual según curva</small>
+        </div>
+        <button type="button" className={styles.excelButton} onClick={downloadPowerCurveExcel}>
+          <span>↓</span> Descargar Excel
+        </button>
+      </div>}
+
       <div className="invoice-analysis-kpis">
         <article><span>Consumo</span><b>{nf.format(v.kwh)} kWh</b><small>energía activa del período</small></article>
         <article><span>Demanda máxima</span><b>{nf.format(v.demand)} kW</b><small>registrada en factura</small></article>
@@ -402,7 +494,7 @@ export function InvoiceAnalysisPanel({
       </>:<article className={excess>0?"warn":""}><span>Potencia contratada</span><b>{nf.format(v.contracted)} kW</b><small>{excess>0?`${nf.format(excess)} kW por encima de la demanda`:"sin sobrante detectado"}</small></article>}
         <article className={v.pf>0&&v.pf<.95?"warn":""}><span>Factor de potencia</span><b>{v.pf?v.pf.toFixed(3):"S/D"}</b><small>{v.surcharge>0?`recargo ${v.surcharge}%`:v.penalized?"penalización de factor de potencia facturada":"sin recargo detectado"}</small></article>
         <article><span>Importe factura</span><b>{money.format(Number(selected.total_amount||0))}</b><small>importe total</small></article>
-        <article className="saving"><span>Ahorro potencial</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} anualizado</small></article>
+        <article className="saving"><span>Ahorro potencial</span><b>{money.format(totalSaving)}</b><small>{money.format(annualTotalSaving)} anual según curva</small></article>
       </div>
 
       <section className="invoice-analysis-panel">
@@ -579,10 +671,10 @@ export function InvoiceAnalysisPanel({
         <section className="invoice-analysis-panel">
           <h3>Oportunidades de ahorro de esta factura</h3>
           <div className="invoice-analysis-saving-list">
-            <div><span>Potencia contratada</span><b>{money.format(powerSaving)}</b><small>{excess>0?`${nf.format(excess)} kW sobrantes × tarifa de potencia + IVA 30%`:"Sin ahorro detectado"}</small></div>
+            <div><span>Potencia contratada</span><b>{money.format(powerSaving)}</b><small>{proposedPower>0&&currentPower>proposedPower?`${nf.format(currentPower-proposedPower)} kW reducibles · curva mensual histórica + 30%`:"Sin ahorro detectado para este mes"}</small></div>
             <div><span>Factor de potencia</span><b>{money.format(reactiveSaving)}</b><small>{reactiveSaving>0?"Penalización reactiva evitable + IVA 30%":"Sin penalización valorizada"}</small></div>
             <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?"Ahorro mensual simulado con IVA":advancedTariffPoint?.available===false?"Falta cuadro tarifario oficial para este período":"Sin ahorro tarifario valorizado"}</small></div>
-            <div className="total"><span>Total mensual</span><b>{money.format(totalSaving)}</b><small>{money.format(totalSaving*12)} / año</small></div>
+            <div className="total"><span>Total mensual</span><b>{money.format(totalSaving)}</b><small>{money.format(annualTotalSaving)} / año según curva</small></div>
           </div>
         </section>
       </div>
