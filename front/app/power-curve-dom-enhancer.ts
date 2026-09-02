@@ -86,6 +86,7 @@ function parseMoney(text:string|undefined){
 }
 function escapeXml(value:string|number){return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;")}
 function cell(value:string|number,type:"String"|"Number"="String"){return `<Cell><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`}
+function setText(node:Element|null,value:string){if(node&&node.textContent!==value)node.textContent=value}
 
 function downloadExcel(curve:Curve,meterNumber:string,tracking:string){
   const header=["Mes","Histórico comparado","Potencia actual (kW)","Propuesta (kW)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
@@ -133,9 +134,8 @@ function updateExistingSavings(powerSaving:number,annualPowerSaving:number,curre
   const rows=[...document.querySelectorAll<HTMLElement>(".invoice-analysis-saving-list > div")];
   const powerRow=rows.find(row=>row.querySelector("span")?.textContent?.trim()==="Potencia contratada");
   if(powerRow){
-    const b=powerRow.querySelector("b"),small=powerRow.querySelector("small");
-    if(b)b.textContent=money.format(powerSaving);
-    if(small)small.textContent=currentKw>proposalKw?`${nf.format(currentKw-proposalKw)} kW reducibles · curva mensual histórica + 30%`:"Sin ahorro detectado para este mes";
+    setText(powerRow.querySelector("b"),money.format(powerSaving));
+    setText(powerRow.querySelector("small"),currentKw>proposalKw?`${nf.format(currentKw-proposalKw)} kW reducibles · curva mensual histórica + 30%`:"Sin ahorro detectado para este mes");
   }
   const reactiveRow=rows.find(row=>row.querySelector("span")?.textContent?.trim()==="Factor de potencia");
   const tariffRow=rows.find(row=>row.querySelector("span")?.textContent?.trim()==="Encuadramiento tarifario");
@@ -145,16 +145,14 @@ function updateExistingSavings(powerSaving:number,annualPowerSaving:number,curre
   const annual=annualPowerSaving+reactive*12+tariff*12;
   const totalRow=rows.find(row=>row.querySelector("span")?.textContent?.trim()==="Total mensual");
   if(totalRow){
-    const b=totalRow.querySelector("b"),small=totalRow.querySelector("small");
-    if(b)b.textContent=money.format(monthly);
-    if(small)small.textContent=`${money.format(annual)} / año según curva`;
+    setText(totalRow.querySelector("b"),money.format(monthly));
+    setText(totalRow.querySelector("small"),`${money.format(annual)} / año según curva`);
   }
   const kpis=[...document.querySelectorAll<HTMLElement>(".invoice-analysis-kpis article")];
   const savingKpi=kpis.find(row=>row.querySelector("span")?.textContent?.trim()==="Ahorro potencial");
   if(savingKpi){
-    const b=savingKpi.querySelector("b"),small=savingKpi.querySelector("small");
-    if(b)b.textContent=money.format(monthly);
-    if(small)small.textContent=`${money.format(annual)} anual según curva`;
+    setText(savingKpi.querySelector("b"),money.format(monthly));
+    setText(savingKpi.querySelector("small"),`${money.format(annual)} anual según curva`);
   }
 }
 
@@ -185,12 +183,16 @@ async function enhance(){
       box.className="power-curve-summary";
       top.insertAdjacentElement("afterend",box);
     }
-    box.innerHTML=`
-      <div class="power-curve-metric"><span>Potencia actual</span><b>${nf.format(curve.currentKw)} kW</b><small>última contratación vigente</small></div>
-      <div class="power-curve-metric"><span>Propuesta · ${row.month}</span><b>${nf.format(row.proposalKw)} kW</b><small>máximo del mismo mes entre años</small></div>
-      <div class="power-curve-metric power-curve-saving"><span>Ahorro</span><b>${money.format(row.saving)}</b><small>${money.format(curve.annualSaving)} anual según curva</small></div>
-      <button type="button" class="power-curve-excel"><span>↓</span> Descargar Excel</button>`;
-    box.querySelector("button")?.addEventListener("click",()=>downloadExcel(curve,meterNumber,tracking),{once:true});
+    const signature=`${meterNumber}|${selectedPeriod}|${curve.currentKw}|${curve.rate}|${row.proposalKw}|${row.saving}|${curve.annualSaving}`;
+    if(box.dataset.signature!==signature){
+      box.dataset.signature=signature;
+      box.innerHTML=`
+        <div class="power-curve-metric"><span>Potencia actual</span><b>${nf.format(curve.currentKw)} kW</b><small>última contratación vigente</small></div>
+        <div class="power-curve-metric"><span>Propuesta · ${row.month}</span><b>${nf.format(row.proposalKw)} kW</b><small>máximo del mismo mes entre años</small></div>
+        <div class="power-curve-metric power-curve-saving"><span>Ahorro</span><b>${money.format(row.saving)}</b><small>${money.format(curve.annualSaving)} anual según curva</small></div>
+        <button type="button" class="power-curve-excel"><span>↓</span> Descargar Excel</button>`;
+      box.querySelector("button")?.addEventListener("click",()=>downloadExcel(curve,meterNumber,tracking));
+    }
     updateExistingSavings(row.saving,curve.annualSaving,curve.currentKw,row.proposalKw);
   }catch(error){
     console.warn("No se pudo calcular la curva mensual de potencia",error);
