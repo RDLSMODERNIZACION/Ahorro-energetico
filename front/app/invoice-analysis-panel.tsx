@@ -34,6 +34,7 @@ type Invoice={
   meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];
 };
 type TariffSaving={meter_id:string;billing_period:string;current_tariff?:string;recommended_tariff?:string;current_cost_with_vat?:number;recommended_cost_with_vat?:number;monthly_saving_with_vat:number;annual_saving_with_vat?:number};
+type TariffAssessment={meter_id:string;billing_period?:string;current_tariff?:string;recommended_tariff:string;status:string;maximum_demand_kw:number;tariff_monthly_saving:number;tariff_annual_saving:number;tariff_simulation_available:boolean};
 type AdvancedTariffHistoryPoint={
   billing_period:string;
   current_tariff:string;
@@ -344,7 +345,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,powerLine="current",p
   </div>
 }
 export function InvoiceAnalysisPanel({
-  invoice,history,tariffSavings,optimization,onClose,
+  invoice,history,tariffSavings,assessment,optimization,onClose,
   backLabel="← Volver a facturas",
   analysisLabel="ANÁLISIS INDIVIDUAL DE FACTURA",
   allowNameEdit=true,
@@ -354,6 +355,7 @@ export function InvoiceAnalysisPanel({
   invoice:Invoice;
   history:Invoice[];
   tariffSavings:TariffSaving[];
+  assessment?:TariffAssessment;
   optimization?:EpenOptimizationMeter;
   onClose:()=>void;
   backLabel?:string;
@@ -374,7 +376,7 @@ export function InvoiceAnalysisPanel({
   const selected=history.find(i=>periodOf(i)===selectedPeriod)||invoice;
   const v=values(selected);
   const contractedBand=contractedBands(selected);
-  const isT3=["T3","T3A"].includes(String(selected.current_tariff_code||"").toUpperCase());
+  const isT3=String(selected.current_tariff_code||"").toUpperCase().replace(/[^A-Z0-9]/g,"").startsWith("T3");
   const currentVoltage=String(selected.voltage_level||selected.meters?.voltage_level||"").toUpperCase();
   const powerLines=(selected.invoice_lines||[]).filter(x=>x.concept_code==="DEM"||x.concept_code==="DEP");
   const selectedRate=Math.max(0,...powerLines.map(x=>Number(x.unit_price||0)));
@@ -388,11 +390,14 @@ export function InvoiceAnalysisPanel({
   const powerSaving=Number(selectedPowerProposal?.saving||0);
   const annualPowerSaving=powerCurve.annualSaving;
   const reactiveSaving=(selected.invoice_lines||[]).filter(x=>x.concept_code==="COS").reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0)*1.30;
-  const legacyTariffSaving=Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0);
+  const selectedAssessment=assessment&&(!assessment.billing_period||String(assessment.billing_period).slice(0,7)===periodOf(selected))?assessment:undefined;
+  const assessmentTariffCandidate=Boolean(selectedAssessment?.current_tariff&&selectedAssessment.current_tariff!==selectedAssessment.recommended_tariff);
+  const legacyTariffSaving=Math.max(Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0),Number(selectedAssessment?.tariff_monthly_saving||0));
   const advancedTariffPoint=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
   const advancedTariffSaving=advancedTariffPoint?.available===false?0:Number(advancedTariffPoint?.monthly_saving||0);
   const tariffSaving=advancedTariffSaving>0?advancedTariffSaving:legacyTariffSaving;
-  const tariffSavingSource=advancedTariffSaving>0?"T4":legacyTariffSaving>0?"legacy":"none";
+  const tariffSavingSource=advancedTariffSaving>0?"T4":legacyTariffSaving>0?"legacy":assessmentTariffCandidate?"candidate":"none";
+  const tariffCandidateLabel=assessmentTariffCandidate?`${selectedAssessment?.current_tariff} → ${selectedAssessment?.recommended_tariff}`:"";
   const totalSaving=powerSaving+reactiveSaving+tariffSaving;
   const annualTotalSaving=annualPowerSaving+(reactiveSaving*12)+(tariffSaving*12);
   const m=selected.meters||invoice.meters;
@@ -709,7 +714,7 @@ export function InvoiceAnalysisPanel({
           <div className="invoice-analysis-saving-list">
             <div><span>Potencia contratada</span><b>{money.format(powerSaving)}</b><small>{proposedPower>0&&currentPower>proposedPower?`${nf.format(currentPower-proposedPower)} kW reducibles · curva mensual histórica + 30%`:"Sin ahorro detectado para este mes"}</small></div>
             <div><span>Factor de potencia</span><b>{money.format(reactiveSaving)}</b><small>{reactiveSaving>0?"Penalización reactiva evitable + IVA 30%":"Sin penalización valorizada"}</small></div>
-            <div><span>Encuadramiento tarifario</span><b>{money.format(tariffSaving)}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?"Ahorro mensual simulado con IVA":advancedTariffPoint?.available===false?"Falta cuadro tarifario oficial para este período":"Sin ahorro tarifario valorizado"}</small></div>
+            <div><span>Encuadramiento tarifario</span><b>{tariffSaving>0?money.format(tariffSaving):assessmentTariffCandidate?"POSIBLE AHORRO":"$ 0"}</b><small>{tariffSavingSource==="T4"?`${advancedTariffPoint?.current_tariff||"Actual"} → ${advancedTariffPoint?.recommended_tariff||"T4"} · simulación antes de impuestos`:tariffSavingSource==="legacy"?`${tariffCandidateLabel||"Cambio tarifario"} · ahorro mensual simulado con IVA`:tariffSavingSource==="candidate"?`${tariffCandidateLabel} por demanda máxima menor a 10 kW · falta valorizar con el cuadro oficial`:advancedTariffPoint?.available===false?"Falta cuadro tarifario oficial para este período":"Sin ahorro tarifario valorizado"}</small></div>
             <div className="total"><span>Total mensual</span><b>{money.format(totalSaving)}</b><small>{money.format(annualTotalSaving)} / año según curva</small></div>
           </div>
         </section>
