@@ -133,7 +133,8 @@ function buildPowerCurve(history:Invoice[]){
   const latestContract=[...valid].reverse().find(i=>contractedBands(i).peak>0);
   const latestRateInvoice=[...valid].reverse().find(i=>powerRate(i)>0);
   const currentKw=Number(latestContract?contractedBands(latestContract).peak:0);
-  const minimumKw=minimumContractedKw(latestContract?.current_tariff_code||latestContract?.meters?.current_tariff_code);
+  const tariffCode=String(latestContract?.current_tariff_code||latestContract?.meters?.current_tariff_code||"").toUpperCase();
+  const minimumKw=minimumContractedKw(tariffCode);
   const rate=Number(latestRateInvoice?powerRate(latestRateInvoice):0);
   const rows=powerMonthNames.map((month,idx)=>{
     const monthNumber=idx+1;
@@ -147,6 +148,7 @@ function buildPowerCurve(history:Invoice[]){
   });
   return{
     currentKw,
+    tariffCode,
     minimumKw,
     rate,
     rows,
@@ -236,7 +238,7 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
     </div>
   </div>
 }
-function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void}){
+function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,showProposal=false,proposals=[]}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void;showProposal?:boolean;proposals?:Array<{monthNumber:number;proposalKw:number}>}){
   const data=useMemo(()=>{
     const map=new Map<string,Invoice>();
     for(const row of rows){
@@ -252,17 +254,18 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
         invoice,
         value:metricValue(invoice,metric),
         contracted:values(invoice).contracted,
+        proposed:proposals.find(row=>row.monthNumber===Number(period.slice(5,7)))?.proposalKw||0,
         pfUnknownPenalized:values(invoice).pfUnknownPenalized,
         penalized:values(invoice).penalized
       }));
-  },[rows,metric]);
+  },[rows,metric,proposals]);
 
   const width=1280,height=330,left=70,right=28,top=25,bottom=52;
   const plotW=width-left-right,plotH=height-top-bottom;
   const max=Math.max(
     1,
     ...data.map(d=>d.value),
-    ...(metric==="demand"?data.map(d=>d.contracted):[])
+    ...(metric==="demand"?data.flatMap(d=>showProposal?[d.contracted,d.proposed]:[d.contracted]):[])
   )*1.08;
   const slot=plotW/Math.max(1,data.length),bw=Math.max(12,slot*.58);
 
@@ -313,7 +316,22 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod}:{rows:Invoice[];metr
           y1={top+plotH-(d.contracted/max)*plotH}
           y2={top+plotH-(d.contracted/max)*plotH}
         />:null)}
+
+      {metric==="demand"&&showProposal&&data.map((d,index)=>d.proposed>0?
+        <line
+          key={`p-${d.period}`}
+          className="invoice-proposal-line"
+          x1={left+index*slot}
+          x2={left+(index+1)*slot}
+          y1={top+plotH-(d.proposed/max)*plotH}
+          y2={top+plotH-(d.proposed/max)*plotH}
+        ><title>{`${labelPeriod(d.period)} · Propuesta ${nf.format(d.proposed)} kW`}</title></line>:null)}
     </svg>
+
+    {metric==="demand"&&<div className="invoice-power-legend">
+      <span><i className="current"/>Contratada actual</span>
+      {showProposal&&<span><i className="proposal"/>Contratada propuesta</span>}
+    </div>}
 
     {metric==="pf"&&<div className="invoice-pf-legend">
       <span><i className="good"/>Correcto: cos φ ≥ 0,95</span>
@@ -341,6 +359,7 @@ export function InvoiceAnalysisPanel({
   hideLocationEditor?:boolean;
 }){
   const[metric,setMetric]=useState<Metric>("demand");
+  const[showPowerProposal,setShowPowerProposal]=useState(false);
   const[advancedTariffHistory,setAdvancedTariffHistory]=useState<AdvancedTariffHistoryResponse|null>(null);
   const[editingName,setEditingName]=useState(false);
   const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
@@ -396,15 +415,15 @@ export function InvoiceAnalysisPanel({
   },[selected.meter_id]);
   function downloadPowerCurveExcel(){
     if(!powerCurve.hasData)return;
-    const header=["Mes","Histórico comparado","Potencia actual (kW)","Propuesta (kW)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
+    const header=["Mes","Histórico comparado","Tarifa","Mínimo EPEN (kW)","Potencia actual (kW)","Propuesta (kW)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
     const rows=powerCurve.rows.map(row=>{
       const historical=row.observations.map(x=>`${x.period.slice(0,4)}: ${nf.format(x.demand)} kW`).join(" | ")||"Sin datos";
-      return [row.month,historical,powerCurve.currentKw,row.proposalKw||0,row.reducibleKw,powerCurve.rate,row.savingNet,row.saving];
+      return [row.month,historical,powerCurve.tariffCode||"S/D",powerCurve.minimumKw,powerCurve.currentKw,row.proposalKw||0,row.reducibleKw,powerCurve.rate,row.savingNet,row.saving];
     });
     const sheetRows=[
       `<Row>${header.map(v=>xmlCell(v)).join("")}</Row>`,
-      ...rows.map(row=>`<Row>${row.map((v,index)=>xmlCell(v,index>=2?"Number":"String")).join("")}</Row>`),
-      `<Row>${xmlCell("TOTAL ANUAL")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell("")}${xmlCell(powerCurve.annualSavingNet,"Number")}${xmlCell(powerCurve.annualSaving,"Number")}</Row>`
+      ...rows.map(row=>`<Row>${row.map((v,index)=>xmlCell(v,index>=3?"Number":"String")).join("")}</Row>`),
+      `<Row>${xmlCell("TOTAL ANUAL")}${Array.from({length:7},()=>xmlCell("")).join("")}${xmlCell(powerCurve.annualSavingNet,"Number")}${xmlCell(powerCurve.annualSaving,"Number")}</Row>`
     ].join("");
     const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Curva potencia"><Table>${sheetRows}</Table></Worksheet></Workbook>`;
     const blob=new Blob(["\ufeff",xml],{type:"application/vnd.ms-excel;charset=utf-8"});
@@ -513,6 +532,7 @@ export function InvoiceAnalysisPanel({
           </div>
           <div className="invoice-analysis-metrics">
             <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
+            <button className={showPowerProposal?"proposal-toggle active":"proposal-toggle"} onClick={()=>{setMetric("demand");setShowPowerProposal(value=>!value)}}>Propuesta</button>
             <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
             <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor de potencia</button>
             <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifaria</button>
@@ -656,6 +676,8 @@ export function InvoiceAnalysisPanel({
             metric={metric}
             selectedPeriod={periodOf(selected)}
             onPeriod={setSelectedPeriod}
+            showProposal={showPowerProposal}
+            proposals={powerCurve.rows}
           />
         )}
       </section>
@@ -710,7 +732,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
