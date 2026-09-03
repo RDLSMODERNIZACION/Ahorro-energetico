@@ -238,7 +238,7 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
     </div>
   </div>
 }
-function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,showProposal=false,proposals=[]}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void;showProposal?:boolean;proposals?:Array<{monthNumber:number;proposalKw:number}>}){
+function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,powerLine="current",proposals=[]}:{rows:Invoice[];metric:Metric;selectedPeriod:string;onPeriod:(p:string)=>void;powerLine?:"current"|"proposal";proposals?:Array<{monthNumber:number;proposalKw:number}>}){
   const data=useMemo(()=>{
     const map=new Map<string,Invoice>();
     for(const row of rows){
@@ -265,7 +265,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,showProposal=false,pr
   const max=Math.max(
     1,
     ...data.map(d=>d.value),
-    ...(metric==="demand"?data.flatMap(d=>showProposal?[d.contracted,d.proposed]:[d.contracted]):[])
+    ...(metric==="demand"?data.map(d=>powerLine==="proposal"?d.proposed:d.contracted):[])
   )*1.08;
   const slot=plotW/Math.max(1,data.length),bw=Math.max(12,slot*.58);
 
@@ -307,7 +307,7 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,showProposal=false,pr
           textAnchor="end">Límite cos φ 0,95</text>
       </g>}
 
-      {metric==="demand"&&data.map((d,index)=>d.contracted>0?
+      {metric==="demand"&&powerLine==="current"&&data.map((d,index)=>d.contracted>0?
         <line
           key={`c-${d.period}`}
           className="invoice-contract-line"
@@ -317,20 +317,24 @@ function InvoiceTrend({rows,metric,selectedPeriod,onPeriod,showProposal=false,pr
           y2={top+plotH-(d.contracted/max)*plotH}
         />:null)}
 
-      {metric==="demand"&&showProposal&&data.map((d,index)=>d.proposed>0?
-        <line
-          key={`p-${d.period}`}
-          className="invoice-proposal-line"
-          x1={left+index*slot}
-          x2={left+(index+1)*slot}
-          y1={top+plotH-(d.proposed/max)*plotH}
-          y2={top+plotH-(d.proposed/max)*plotH}
-        ><title>{`${labelPeriod(d.period)} · Propuesta ${nf.format(d.proposed)} kW`}</title></line>:null)}
+      {metric==="demand"&&powerLine==="proposal"&&data.map((d,index)=>d.proposed>0?
+        <g key={`p-${d.period}`}>
+          <line
+            className="invoice-proposal-line"
+            x1={left+index*slot}
+            x2={left+(index+1)*slot}
+            y1={top+plotH-(d.proposed/max)*plotH}
+            y2={top+plotH-(d.proposed/max)*plotH}
+          ><title>{`${labelPeriod(d.period)} · Propuesta ${nf.format(d.proposed)} kW`}</title></line>
+          {selectedPeriod===d.period&&<>
+            <circle className="invoice-proposal-marker" cx={left+(index+.5)*slot} cy={top+plotH-(d.proposed/max)*plotH} r="5"/>
+            <text className="invoice-proposal-label" x={left+(index+.5)*slot} y={top+plotH-(d.proposed/max)*plotH-12} textAnchor="middle">{`Propuesta ${nf.format(d.proposed)} kW`}</text>
+          </>}
+        </g>:null)}
     </svg>
 
     {metric==="demand"&&<div className="invoice-power-legend">
-      <span><i className="current"/>Contratada actual</span>
-      {showProposal&&<span><i className="proposal"/>Contratada propuesta</span>}
+      {powerLine==="current"?<span><i className="current"/>Contratada actual</span>:<span><i className="proposal"/>Contratada propuesta · mes seleccionado marcado</span>}
     </div>}
 
     {metric==="pf"&&<div className="invoice-pf-legend">
@@ -359,7 +363,7 @@ export function InvoiceAnalysisPanel({
   hideLocationEditor?:boolean;
 }){
   const[metric,setMetric]=useState<Metric>("demand");
-  const[showPowerProposal,setShowPowerProposal]=useState(false);
+  const[powerLine,setPowerLine]=useState<"current"|"proposal">("current");
   const[advancedTariffHistory,setAdvancedTariffHistory]=useState<AdvancedTariffHistoryResponse|null>(null);
   const[editingName,setEditingName]=useState(false);
   const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
@@ -530,12 +534,14 @@ export function InvoiceAnalysisPanel({
             <h3>Evolución histórica del medidor</h3>
             <p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p>
           </div>
-          <div className="invoice-analysis-metrics">
-            <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
-            <button className={showPowerProposal?"proposal-toggle active":"proposal-toggle"} onClick={()=>{setMetric("demand");setShowPowerProposal(value=>!value)}}>Propuesta</button>
-            <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
-            <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor de potencia</button>
-            <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifaria</button>
+          <div className="invoice-analysis-controls">
+            <div className="invoice-analysis-metrics">
+              <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
+              <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
+              <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor de potencia</button>
+              <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifaria</button>
+            </div>
+            {metric==="demand"&&<div className="invoice-power-mode"><span>Dentro de demanda</span><button className={powerLine==="current"?"active":""} onClick={()=>setPowerLine("current")}>Actual</button><button className={powerLine==="proposal"?"active proposal":""} onClick={()=>setPowerLine("proposal")}>Propuesta</button></div>}
           </div>
         </div>
 
@@ -676,7 +682,7 @@ export function InvoiceAnalysisPanel({
             metric={metric}
             selectedPeriod={periodOf(selected)}
             onPeriod={setSelectedPeriod}
-            showProposal={showPowerProposal}
+            powerLine={powerLine}
             proposals={powerCurve.rows}
           />
         )}
@@ -732,7 +738,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
