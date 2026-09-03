@@ -116,9 +116,9 @@ function fmt(metric:Metric,value:number){
 
 const powerMonthNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 function minimumContractedKw(tariff?:string){
-  const code=String(tariff||"").toUpperCase().replace(/-/g,"");
-  if(code==="T3"||code==="T3A")return 50;
-  if(code==="T2")return 10;
+  const code=String(tariff||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(code.startsWith("T3"))return 50;
+  if(code.startsWith("T2"))return 10;
   return 0;
 }
 function powerRate(i:Invoice){
