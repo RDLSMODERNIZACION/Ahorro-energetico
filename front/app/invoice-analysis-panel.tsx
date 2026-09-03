@@ -541,7 +541,7 @@ export function InvoiceAnalysisPanel({
               <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor de potencia</button>
               <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifaria</button>
             </div>
-            {metric==="demand"&&<div className="invoice-power-mode"><span>Dentro de demanda</span><button className={powerLine==="current"?"active":""} onClick={()=>setPowerLine("current")}>Actual</button><button className={powerLine==="proposal"?"active proposal":""} onClick={()=>setPowerLine("proposal")}>Propuesta</button></div>}
+            {metric==="demand"&&<div className="invoice-power-mode" role="group" aria-label="Línea de potencia contratada"><button className={powerLine==="current"?"active":""} onClick={()=>setPowerLine("current")}>Actual</button><button className={powerLine==="proposal"?"active proposal":""} onClick={()=>setPowerLine("proposal")}>Propuesta</button></div>}
           </div>
         </div>
 
@@ -738,7 +738,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
