@@ -20,9 +20,9 @@ const metricMeta:Record<Metric,{label:string;unit:string;format:(value:number)=>
 };
 
 function minimumContractedKw(tariff?:string){
-  const code=String(tariff||"").toUpperCase().replace(/-/g,"");
-  if(code==="T3"||code==="T3A")return 50;
-  if(code==="T2")return 10;
+  const code=String(tariff||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(code.startsWith("T3"))return 50;
+  if(code.startsWith("T2"))return 10;
   return 0;
 }
 
