@@ -76,11 +76,13 @@ function buildDashboardPowerCurve(invoices:Invoice[],period:string){
     const latestContract=[...history].reverse().find(i=>dashboardPowerContract(i)>0);
     const latestRate=[...history].reverse().find(i=>dashboardPowerRate(i)>0);
     const currentKw=latestContract?dashboardPowerContract(latestContract):0;
+    const tariffCode=latestContract?.current_tariff_code||latestContract?.meters?.current_tariff_code;
+    const minimumKw=minimumContractedKw(tariffCode);
     const rate=latestRate?dashboardPowerRate(latestRate):0;
     const rows=Array.from({length:12},(_,idx)=>{
       const target=idx+1;
       const demands=history.filter(i=>Number(String(i.billing_period||i.period_start).slice(5,7))===target).map(dashboardPowerDemand);
-      const proposalKw=demands.length?Math.max(...demands):0;
+      const proposalKw=demands.length?Math.max(minimumKw,...demands):0;
       const reducibleKw=proposalKw>0?Math.max(0,currentKw-proposalKw):0;
       return{monthNumber:target,proposalKw,saving:reducibleKw*rate*1.30};
     });
@@ -718,7 +720,7 @@ const openMeter=(i:Invoice)=>{setSelectedInvoice(i);setSelectedMeter(i.meter_id)
 function Title({title,sub,action}:{title:string;sub:string;action?:()=>void}){return <div className="panel-title"><div><h2>{title}</h2><p>{sub}</p></div>{action&&<button onClick={action}>Ver todas →</button>}</div>}
 function hashText(value:string){let h=0;for(let i=0;i<value.length;i++)h=(h*31+value.charCodeAt(i))>>>0;return h}
 function invoiceReactiveSaving(i:Invoice){return (i.invoice_lines||[]).filter(x=>x.concept_code==="COS").reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0)*1.30}
-function minimumContractedKw(tariff?:string){const code=String(tariff||"").toUpperCase().replace(/-/g,"");return code==="T3"||code==="T3A"?50:code==="T2"?10:0}
+function minimumContractedKw(tariff?:string){const code=String(tariff||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return code.startsWith("T3")?50:code.startsWith("T2")?10:0}
 function invoicePowerSaving(i:Invoice){const lines=i.invoice_lines||[],powerLines=lines.filter(x=>x.concept_code==="DEM"||x.concept_code==="DEP"),billed=Math.max(0,...powerLines.map(x=>Number(x.quantity||0))),contracted=Number(i.contracted_kw_peak||i.meters?.contracted_kw_peak||billed),demand=Math.max(0,...(i.invoice_measurements||[]).map(m=>Number(m.demand_kw||m.registered_demand_peak_kw||0))),proposed=Math.max(demand,minimumContractedKw(i.current_tariff_code||i.meters?.current_tariff_code)),units=Math.max(0,contracted-proposed),rate=Math.max(0,...powerLines.map(x=>Number(x.unit_price||0))),amount=units*rate*1.30;return{units,rate,amount}}
 function metrics(i:Invoice){
   const ms=i.invoice_measurements||[];
