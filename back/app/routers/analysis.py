@@ -73,7 +73,11 @@ def _expected_tariff(capacity,consumption,current=""):
     return "T3A"
 
 def _tariff_key(code):
-    return (code or "").upper().replace("-","")
+    normalized="".join(ch for ch in (code or "").upper() if ch.isalnum())
+    if normalized.startswith("T3A"):return "T3A"
+    if normalized.startswith("T3"):return "T3"
+    if normalized.startswith("T2"):return "T2"
+    return normalized
 
 def _voltage_key(value):
     value=(value or "").upper()
@@ -170,7 +174,10 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         # ajusta a esa demanda sin margen, pero nunca debajo del mínimo que EPEN
         # permite contratar en la categoría resultante (T2=10 kW, T3=50 kW).
         expected=_expected_tariff(max_demand,active,current)
-        recommended=max(max_demand,_minimum_contracted_kw(expected))
+        # Separate the reduction allowed inside the current tariff from the
+        # capacity applicable after a possible tariff change.
+        recommended=max(max_demand,_minimum_contracted_kw(current))
+        tariff_recommended=max(max_demand,_minimum_contracted_kw(expected))
         correctly_framed=current==expected
         excess_units,excess_rate,excess_saving=_power_excess_saving(lines)
         power_rate=max([_num(x.get("unit_price")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("unit_price"))>0] or [Decimal(0)])
@@ -180,7 +187,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         period=latest.get("billing_period") or latest.get("period_start")
         official_current,current_schedule=_official_simulation(official_rates,period,current,latest.get("voltage_level"),active,capacity,contracted_off_peak,latest.get("invoice_measurements") or [],enforce_limits=False)
         official_current_adjusted,_=_official_simulation(official_rates,period,current,latest.get("voltage_level"),active,recommended,recommended,latest.get("invoice_measurements") or [],enforce_limits=False)
-        official_simulated,schedule=_official_simulation(official_rates,period,expected,latest.get("voltage_level"),active,recommended,recommended,latest.get("invoice_measurements") or [])
+        official_simulated,schedule=_official_simulation(official_rates,period,expected,latest.get("voltage_level"),active,tariff_recommended,tariff_recommended,latest.get("invoice_measurements") or [])
         official_available=official_current_adjusted is not None and official_simulated is not None
         price_source="official" if official_available else None
         if official_current_adjusted is not None:official_current_adjusted=(official_current_adjusted*VAT_FACTOR).quantize(Decimal("0.01"))
@@ -189,7 +196,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         monthly_total=monthly_power_saving+reactive_saving+monthly_tariff_saving
         reasons=[]
         if not correctly_framed:
-            if official_available:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}; con {recommended} kW el costo en {current} seria ${official_current_adjusted} y en {expected} ${official_simulated}")
+            if official_available:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}; con {recommended} kW en {current} el costo seria ${official_current_adjusted} y con {tariff_recommended} kW en {expected} seria ${official_simulated}")
             else:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}; falta el cuadro oficial vigente de una de las categorias para valorizar el cambio")
         if reducible>0:reasons.append(f"La demanda máxima observada fue {max_demand} kW frente a {capacity} kW contratados; se valorizan {reducible} kW de más a ${power_rate} por kW más 30% de IVA")
         if reactive_saving>0:reasons.append(f"El recargo COS evitable, incluido 30% de IVA, es ${reactive_saving}")
