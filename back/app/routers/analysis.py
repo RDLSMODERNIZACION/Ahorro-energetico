@@ -11,8 +11,8 @@ VAT_FACTOR=Decimal("1.30")
 def _minimum_contracted_kw(tariff):
     """Minimum contractable demand informed by EPEN for demand tariffs."""
     code=_tariff_key(tariff)
-    if code in ("T3","T3A"):return Decimal("50")
-    if code=="T2":return Decimal("10")
+    if code.startswith("T3"):return Decimal("50")
+    if code.startswith("T2"):return Decimal("10")
     return Decimal(0)
 
 @router.get("/organizations/{organization_id}/tariff-savings")
