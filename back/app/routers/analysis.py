@@ -8,6 +8,13 @@ from ..db import admin_db
 router=APIRouter(tags=["Análisis"])
 VAT_FACTOR=Decimal("1.30")
 
+def _minimum_contracted_kw(tariff):
+    """Minimum contractable demand informed by EPEN for demand tariffs."""
+    code=_tariff_key(tariff)
+    if code in ("T3","T3A"):return Decimal("50")
+    if code=="T2":return Decimal("10")
+    return Decimal(0)
+
 @router.get("/organizations/{organization_id}/tariff-savings")
 def tariff_savings(organization_id:str,user:CurrentUser=Depends(current_user)):
     """Resultado tarifario calculado en PostgreSQL con los cuadros vigentes."""
@@ -159,10 +166,11 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         billed_capacity=max([_num(x.get("quantity")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("quantity"))>0] or [Decimal(0)])
         capacity=contracted or billed_capacity or max_demand
         current=_tariff_key(latest.get("current_tariff_code") or meter.get("current_tariff_code"))
-        # Escenario de ahorro máximo solicitado: contratar exactamente la mayor
-        # potencia registrada, sin reserva ni margen adicional.
-        recommended=max_demand
-        expected=_expected_tariff(recommended,active,current)
+        # La demanda observada define el encuadramiento posible. La propuesta se
+        # ajusta a esa demanda sin margen, pero nunca debajo del mínimo que EPEN
+        # permite contratar en la categoría resultante (T2=10 kW, T3=50 kW).
+        expected=_expected_tariff(max_demand,active,current)
+        recommended=max(max_demand,_minimum_contracted_kw(expected))
         correctly_framed=current==expected
         excess_units,excess_rate,excess_saving=_power_excess_saving(lines)
         power_rate=max([_num(x.get("unit_price")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("unit_price"))>0] or [Decimal(0)])
@@ -205,10 +213,12 @@ def run_analysis(organization_id:str,user:CurrentUser=Depends(current_user)):
         billed_capacity=max([_num(x.get("quantity")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("quantity"))>0] or [Decimal(0)])
         capacity=contracted or billed_capacity
         power_rate=max([_num(x.get("unit_price")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("unit_price"))>0] or [Decimal(0)])
-        reducible=max(Decimal(0),capacity-demand)
+        minimum_kw=_minimum_contracted_kw(inv.get("current_tariff_code"))
+        recommended=max(demand,minimum_kw)
+        reducible=max(Decimal(0),capacity-recommended)
         if reducible>0 and power_rate>0:
             pct=reducible/capacity;monthly=(reducible*power_rate*VAT_FACTOR).quantize(Decimal("0.01"));annual=monthly*12
-            created.append({"organization_id":organization_id,"meter_id":inv["meter_id"],"invoice_id":inv["id"],"opportunity_type":"contracted_power","title":"Potencia contratada sobredimensionada","current_value":str(capacity),"recommended_value":str(demand),"estimated_monthly_saving":str(monthly),"estimated_annual_saving":str(annual.quantize(Decimal("0.01"))),"confidence":85,"priority":"high" if pct>Decimal("0.35") else "medium","calculation":{"maximum_demand_kw":str(demand),"unused_capacity_kw":str(reducible),"unit_price":str(power_rate),"vat_percent":30}})
+            created.append({"organization_id":organization_id,"meter_id":inv["meter_id"],"invoice_id":inv["id"],"opportunity_type":"contracted_power","title":"Potencia contratada sobredimensionada","current_value":str(capacity),"recommended_value":str(recommended),"estimated_monthly_saving":str(monthly),"estimated_annual_saving":str(annual.quantize(Decimal("0.01"))),"confidence":85,"priority":"high" if pct>Decimal("0.35") else "medium","calculation":{"maximum_demand_kw":str(demand),"minimum_contracted_kw":str(minimum_kw),"unused_capacity_kw":str(reducible),"unit_price":str(power_rate),"vat_percent":30}})
         reactive=sum(Decimal(str(x.get("reactive_energy_kvarh") or 0)) for x in measurements)
         active=sum(Decimal(str(x.get("active_energy_kwh") or 0)) for x in measurements)
         if active>0 and reactive/active>Decimal("0.30"):

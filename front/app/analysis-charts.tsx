@@ -19,6 +19,13 @@ const metricMeta:Record<Metric,{label:string;unit:string;format:(value:number)=>
   saving:{label:"Ahorro estimado",unit:"$",format:value=>money.format(value)},
 };
 
+function minimumContractedKw(tariff?:string){
+  const code=String(tariff||"").toUpperCase().replace(/-/g,"");
+  if(code==="T3"||code==="T3A")return 50;
+  if(code==="T2")return 10;
+  return 0;
+}
+
 function periodOf(invoice:Invoice){return String(invoice.billing_period||invoice.period_start).slice(0,7)}
 function invoiceMetrics(invoice:Invoice,tariffSavings:TariffSaving[]){
   const measurements=invoice.invoice_measurements||[];
@@ -27,7 +34,8 @@ function invoiceMetrics(invoice:Invoice,tariffSavings:TariffSaving[]){
   const powerLines=(invoice.invoice_lines||[]).filter(row=>row.concept_code==="DEM"||row.concept_code==="DEP");
   const contracted=Number(invoice.contracted_kw_peak||Math.max(0,...powerLines.map(row=>Number(row.quantity||0))));
   const unitPrice=Math.max(0,...powerLines.map(row=>Number(row.unit_price||0)));
-  const powerSaving=Math.max(0,contracted-demand)*unitPrice*1.30;
+  const proposed=Math.max(demand,minimumContractedKw((invoice as Invoice&{current_tariff_code?:string}).current_tariff_code));
+  const powerSaving=Math.max(0,contracted-proposed)*unitPrice*1.30;
   const reactiveSaving=(invoice.invoice_lines||[]).filter(row=>row.concept_code==="COS").reduce((sum,row)=>sum+Math.max(0,Number(row.net_amount||0)),0)*1.30;
   const tariffSaving=tariffSavings.find(row=>row.meter_id===invoice.meter_id&&String(row.billing_period).slice(0,7)===periodOf(invoice));
   const tariffSavingValue=Number(tariffSaving?.monthly_saving_with_vat||0);

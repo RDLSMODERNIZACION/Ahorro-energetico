@@ -115,6 +115,12 @@ function fmt(metric:Metric,value:number){
 }
 
 const powerMonthNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+function minimumContractedKw(tariff?:string){
+  const code=String(tariff||"").toUpperCase().replace(/-/g,"");
+  if(code==="T3"||code==="T3A")return 50;
+  if(code==="T2")return 10;
+  return 0;
+}
 function powerRate(i:Invoice){
   return Math.max(0,...(i.invoice_lines||[])
     .filter(x=>["DEM","DEP"].includes(String(x.concept_code||"").toUpperCase()))
@@ -127,12 +133,13 @@ function buildPowerCurve(history:Invoice[]){
   const latestContract=[...valid].reverse().find(i=>contractedBands(i).peak>0);
   const latestRateInvoice=[...valid].reverse().find(i=>powerRate(i)>0);
   const currentKw=Number(latestContract?contractedBands(latestContract).peak:0);
+  const minimumKw=minimumContractedKw(latestContract?.current_tariff_code||latestContract?.meters?.current_tariff_code);
   const rate=Number(latestRateInvoice?powerRate(latestRateInvoice):0);
   const rows=powerMonthNames.map((month,idx)=>{
     const monthNumber=idx+1;
     const matches=valid.filter(i=>Number(periodOf(i).slice(5,7))===monthNumber);
     const observations=matches.map(i=>({period:periodOf(i),demand:values(i).demand}));
-    const proposalKw=observations.length?Math.max(...observations.map(x=>x.demand)):0;
+    const proposalKw=observations.length?Math.max(minimumKw,...observations.map(x=>x.demand)):0;
     const reducibleKw=proposalKw>0?Math.max(0,currentKw-proposalKw):0;
     const savingNet=reducibleKw*rate;
     const saving=savingNet*1.30;
@@ -140,6 +147,7 @@ function buildPowerCurve(history:Invoice[]){
   });
   return{
     currentKw,
+    minimumKw,
     rate,
     rows,
     annualSaving:rows.reduce((sum,row)=>sum+row.saving,0),
@@ -702,7 +710,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
