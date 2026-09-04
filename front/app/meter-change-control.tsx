@@ -312,10 +312,6 @@ export function MeterChangeControlPanel({
         )
         .sort((a, b) => a.billing_period.localeCompare(b.billing_period))
     : [];
-  const selectedTariffPoint =
-    comparableTariffPoints.find(
-      (point) => point.billing_period.slice(0, 7) === selectedComparisonPeriod,
-    ) || comparableTariffPoints.at(-1);
   const normalizeTariff = (value?: string) =>
     String(value || "")
       .toUpperCase()
@@ -331,11 +327,56 @@ export function MeterChangeControlPanel({
     normalizeTariff(point.recommended_tariff)
       ? projectedTariffSavingFor(point)
       : 0;
-  const projectedTariffTrackingTotal = comparableTariffPoints.reduce(
+  const tariffTrackingMonths: Array<
+    TariffComparisonPoint & { is_projection: boolean }
+  > = tariffChange
+    ? Array.from({ length: 12 }, (_, index) => {
+        const [year, month] = tariffChange.effective_period
+          .slice(0, 7)
+          .split("-")
+          .map(Number);
+        const date = new Date(Date.UTC(year, month - 1 + index, 1));
+        const period = `${date.getUTCFullYear()}-${String(
+          date.getUTCMonth() + 1,
+        ).padStart(2, "0")}`;
+        const actual = comparableTariffPoints.find(
+          (point) => point.billing_period.slice(0, 7) === period,
+        );
+        if (actual) return { ...actual, is_projection: false };
+        const reference =
+          comparableTariffPoints.at(-1) || tariffComparisonPoints.at(-1);
+        const projectedSaving = Number(
+          tariffChange.details?.projected_monthly_saving ||
+            projectedTariffMonthlySaving ||
+            0,
+        );
+        const currentCost = Number(reference?.current_cost || projectedSaving);
+        return {
+          billing_period: period,
+          current_tariff:
+            reference?.current_tariff || tariffChange.previous_value || "S/D",
+          recommended_tariff:
+            reference?.recommended_tariff || tariffChange.new_value || "S/D",
+          current_cost: currentCost,
+          recommended_cost: reference
+            ? Number(reference.recommended_cost || 0)
+            : Math.max(0, currentCost - projectedSaving),
+          current_components: reference?.current_components || [],
+          proposed_components: reference?.proposed_components || [],
+          available: true,
+          is_projection: true,
+        };
+      })
+    : [];
+  const selectedTariffPoint =
+    tariffTrackingMonths.find(
+      (point) => point.billing_period.slice(0, 7) === selectedComparisonPeriod,
+    ) || tariffTrackingMonths[0];
+  const projectedTariffTrackingTotal = tariffTrackingMonths.reduce(
     (sum, point) => sum + projectedTariffSavingFor(point),
     0,
   );
-  const perceivedTariffTrackingTotal = comparableTariffPoints.reduce(
+  const perceivedTariffTrackingTotal = tariffTrackingMonths.reduce(
     (sum, point) => sum + perceivedTariffSavingFor(point),
     0,
   );
@@ -1047,7 +1088,7 @@ export function MeterChangeControlPanel({
                           proyectado, el percibido y el detalle de la tarifa.
                         </p>
                       </div>
-                      {tariffChange && comparableTariffPoints.length ? (
+                      {tariffChange && tariffTrackingMonths.length ? (
                         <div className="improvement-projection-switch">
                           <button
                             type="button"
@@ -1056,7 +1097,7 @@ export function MeterChangeControlPanel({
                             }
                             onClick={() => setProjectionMetric("saving")}
                           >
-                            Lo ahorrado
+                            Sin corrección
                           </button>
                           <button
                             type="button"
@@ -1067,7 +1108,7 @@ export function MeterChangeControlPanel({
                             }
                             onClick={() => setProjectionMetric("avoided_cost")}
                           >
-                            Lo que hubiera pagado
+                            Con corrección
                           </button>
                         </div>
                       ) : (
@@ -1080,39 +1121,39 @@ export function MeterChangeControlPanel({
                         </div>
                       )}
                     </div>
-                    {tariffChange && comparableTariffPoints.length ? (
+                    {tariffChange && tariffTrackingMonths.length ? (
                       <div className="improvement-monthly-chart">
                         <div className="improvement-monthly-chart-summary">
                           <span>
                             {projectionMetric === "saving"
-                              ? "AHORRO PROYECTADO ACUMULADO"
-                              : "TOTAL QUE HUBIERA PAGADO"}
+                              ? "TOTAL 12 MESES SIN CORRECCIÓN"
+                              : "TOTAL 12 MESES CON CORRECCIÓN"}
                           </span>
                           <b>
                             {money.format(
-                              comparableTariffPoints.reduce(
+                              tariffTrackingMonths.reduce(
                                 (sum, point) =>
                                   sum +
                                   (projectionMetric === "saving"
-                                    ? projectedTariffSavingFor(point)
-                                    : point.current_cost),
+                                    ? point.current_cost
+                                    : point.recommended_cost),
                                 0,
                               ),
                             )}
                           </b>
                         </div>
                         <div className="improvement-monthly-bars">
-                          {comparableTariffPoints.map((point) => {
+                          {tariffTrackingMonths.map((point) => {
                             const value =
                               projectionMetric === "saving"
-                                ? projectedTariffSavingFor(point)
-                                : point.current_cost;
+                                ? point.current_cost
+                                : point.recommended_cost;
                             const maximum = Math.max(
                               1,
-                              ...comparableTariffPoints.map((item) =>
+                              ...tariffTrackingMonths.map((item) =>
                                 projectionMetric === "saving"
-                                  ? projectedTariffSavingFor(item)
-                                  : item.current_cost,
+                                  ? item.current_cost
+                                  : item.recommended_cost,
                               ),
                             );
                             const period = point.billing_period.slice(0, 7);
@@ -1144,8 +1185,23 @@ export function MeterChangeControlPanel({
                                   />
                                 </span>
                                 <b>{period}</b>
-                                <small>
-                                  {perceived ? "Percibido" : "Proyectado"}
+                                <small className="monthly-saving-values">
+                                  <span>
+                                    Proy.{" "}
+                                    {money.format(
+                                      projectedTariffSavingFor(point),
+                                    )}
+                                  </span>
+                                  <span
+                                    className={
+                                      perceived ? "confirmed" : "pending"
+                                    }
+                                  >
+                                    Conf.{" "}
+                                    {money.format(
+                                      perceivedTariffSavingFor(point),
+                                    )}
+                                  </span>
                                 </small>
                               </button>
                             );
@@ -1244,7 +1300,7 @@ export function MeterChangeControlPanel({
                         </article>
                       </div>
                     </div>
-                    {!comparableTariffPoints.length ? (
+                    {!tariffTrackingMonths.length ? (
                       <div className="improvement-real-empty">
                         Esperando la primera factura posterior al cambio para
                         realizar la comparación efectiva.
