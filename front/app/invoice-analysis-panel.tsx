@@ -796,6 +796,7 @@ export function InvoiceAnalysisPanel({
   hideLocationEditor?: boolean;
 }) {
   const [metric, setMetric] = useState<Metric>("demand");
+  const [controlPageOpen, setControlPageOpen] = useState(false);
   const [powerLine, setPowerLine] = useState<"current" | "proposal">("current");
   const [advancedTariffHistory, setAdvancedTariffHistory] =
     useState<AdvancedTariffHistoryResponse | null>(null);
@@ -1042,6 +1043,40 @@ export function InvoiceAnalysisPanel({
       setNameBusy(false);
     }
   }
+  const controlPowerProposals = powerCurve.rows.map((row) => ({
+    ...latestContractedForMonth(history, row.monthNumber),
+    month: row.month,
+    monthNumber: row.monthNumber,
+    proposalKw: row.proposalKw,
+    method: row.method,
+    quarter: row.quarter,
+  }));
+  if (controlPageOpen && organizationId) {
+    return (
+      <div className="invoice-analysis-backdrop">
+        <div className="invoice-analysis-page improvement-route-page">
+          <MeterChangeControlPanel
+            organizationId={organizationId}
+            meterId={selected.meter_id}
+            selectedPeriod={periodOf(selected)}
+            history={history}
+            controls={changeControls.filter(
+              (row) => row.meter_id === selected.meter_id,
+            )}
+            powerProposals={controlPowerProposals}
+            currentTariff={selected.current_tariff_code}
+            recommendedTariff={
+              advancedTariffHistory?.recommended_tariff ||
+              selectedAssessment?.recommended_tariff
+            }
+            displayMode="page"
+            onClosePage={() => setControlPageOpen(false)}
+            onSaved={() => onChangeControls?.()}
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="invoice-analysis-backdrop">
       <div className="invoice-analysis-page">
@@ -1116,19 +1151,13 @@ export function InvoiceAnalysisPanel({
             controls={changeControls.filter(
               (row) => row.meter_id === selected.meter_id,
             )}
-            powerProposals={powerCurve.rows.map((row) => ({
-              ...latestContractedForMonth(history, row.monthNumber),
-              month: row.month,
-              monthNumber: row.monthNumber,
-              proposalKw: row.proposalKw,
-              method: row.method,
-              quarter: row.quarter,
-            }))}
+            powerProposals={controlPowerProposals}
             currentTariff={selected.current_tariff_code}
             recommendedTariff={
               advancedTariffHistory?.recommended_tariff ||
               selectedAssessment?.recommended_tariff
             }
+            onOpenPage={() => setControlPageOpen(true)}
             onSaved={() => onChangeControls?.()}
           />
         )}
