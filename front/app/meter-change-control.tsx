@@ -313,11 +313,31 @@ export function MeterChangeControlPanel({
     comparableTariffPoints.find(
       (point) => point.billing_period.slice(0, 7) === selectedComparisonPeriod,
     ) || comparableTariffPoints.at(-1);
+  const normalizeTariff = (value?: string) =>
+    String(value || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+  const receivedTariffFor = (point: TariffComparisonPoint) =>
+    history.find(
+      (invoice) => periodOf(invoice) === point.billing_period.slice(0, 7),
+    )?.current_tariff_code;
+  const projectedTariffSavingFor = (point: TariffComparisonPoint) =>
+    Math.max(0, point.current_cost - point.recommended_cost);
+  const perceivedTariffSavingFor = (point: TariffComparisonPoint) =>
+    normalizeTariff(receivedTariffFor(point)) ===
+    normalizeTariff(point.recommended_tariff)
+      ? projectedTariffSavingFor(point)
+      : 0;
+  const projectedTariffTrackingTotal = comparableTariffPoints.reduce(
+    (sum, point) => sum + projectedTariffSavingFor(point),
+    0,
+  );
+  const perceivedTariffTrackingTotal = comparableTariffPoints.reduce(
+    (sum, point) => sum + perceivedTariffSavingFor(point),
+    0,
+  );
   const receivedTariff = selectedTariffPoint
-    ? history.find(
-        (invoice) =>
-          periodOf(invoice) === selectedTariffPoint.billing_period.slice(0, 7),
-      )?.current_tariff_code
+    ? receivedTariffFor(selectedTariffPoint)
     : undefined;
   const tariffComponentCodes = selectedTariffPoint
     ? [
@@ -1084,19 +1104,38 @@ export function MeterChangeControlPanel({
                   <div className="improvement-real-tracking">
                     <div className="improvement-real-head">
                       <div>
-                        <span>SEGUIMIENTO REAL</span>
-                        <h2>Tarifa anterior vs. nueva tarifa</h2>
+                        <span>SEGUIMIENTO DEL AHORRO</span>
+                        <h2>Ahorro proyectado vs. ahorro percibido</h2>
                         <p>
-                          Seleccioná una barra para comprobar el ahorro real
-                          concepto por concepto.
+                          El proyectado simula ambas tarifas con el mismo
+                          consumo. El percibido se confirma cuando la factura
+                          llega con la tarifa nueva.
                         </p>
                       </div>
-                      <div>
-                        <span>TARIFA ESPERADA</span>
-                        <b>{tariffChange.new_value || "S/D"}</b>
-                        <small>
-                          Desde {tariffChange.effective_period.slice(0, 7)}
-                        </small>
+                      <div className="improvement-real-summary">
+                        <article>
+                          <span>AHORRO PROYECTADO</span>
+                          <b>{money.format(projectedTariffTrackingTotal)}</b>
+                          <small>Según simulación tarifaria</small>
+                        </article>
+                        <article className="perceived">
+                          <span>AHORRO PERCIBIDO</span>
+                          <b>{money.format(perceivedTariffTrackingTotal)}</b>
+                          <small>Confirmado en facturas recibidas</small>
+                        </article>
+                        <article className="pending">
+                          <span>PENDIENTE</span>
+                          <b>
+                            {money.format(
+                              Math.max(
+                                0,
+                                projectedTariffTrackingTotal -
+                                  perceivedTariffTrackingTotal,
+                              ),
+                            )}
+                          </b>
+                          <small>Aún no confirmado</small>
+                        </article>
                       </div>
                     </div>
                     {!comparableTariffPoints.length ? (
@@ -1108,11 +1147,9 @@ export function MeterChangeControlPanel({
                       <>
                         <div className="improvement-real-bars">
                           {comparableTariffPoints.map((point) => {
-                            const scale = Math.max(
-                              point.current_cost,
-                              point.recommended_cost,
-                              1,
-                            );
+                            const projected = projectedTariffSavingFor(point);
+                            const perceived = perceivedTariffSavingFor(point);
+                            const scale = Math.max(projected, perceived, 1);
                             const period = point.billing_period.slice(0, 7);
                             return (
                               <button
@@ -1131,36 +1168,31 @@ export function MeterChangeControlPanel({
                               >
                                 <b>{period}</b>
                                 <div>
-                                  <span>Tarifa anterior</span>
+                                  <span>Proyectado</span>
                                   <i
-                                    className="old"
+                                    className="projected"
                                     style={{
-                                      width: `${(point.current_cost / scale) * 100}%`,
+                                      width: `${(projected / scale) * 100}%`,
                                     }}
                                   />
-                                  <em>{money.format(point.current_cost)}</em>
+                                  <em>{money.format(projected)}</em>
                                 </div>
                                 <div>
-                                  <span>Nueva tarifa</span>
+                                  <span>Percibido</span>
                                   <i
-                                    className="new"
+                                    className="perceived"
                                     style={{
-                                      width: `${(point.recommended_cost / scale) * 100}%`,
+                                      width: `${(perceived / scale) * 100}%`,
                                     }}
                                   />
-                                  <em>
-                                    {money.format(point.recommended_cost)}
-                                  </em>
+                                  <em>{money.format(perceived)}</em>
                                 </div>
-                                <strong>
-                                  Ahorro{" "}
-                                  {money.format(
-                                    Math.max(
-                                      0,
-                                      point.current_cost -
-                                        point.recommended_cost,
-                                    ),
-                                  )}
+                                <strong
+                                  className={perceived > 0 ? "ok" : "pending"}
+                                >
+                                  {perceived > 0
+                                    ? "Ahorro confirmado"
+                                    : `Pendiente de factura ${point.recommended_tariff}`}
                                 </strong>
                               </button>
                             );
@@ -1184,8 +1216,10 @@ export function MeterChangeControlPanel({
                               </div>
                               <div
                                 className={
-                                  receivedTariff ===
-                                  selectedTariffPoint.recommended_tariff
+                                  normalizeTariff(receivedTariff) ===
+                                  normalizeTariff(
+                                    selectedTariffPoint.recommended_tariff,
+                                  )
                                     ? "ok"
                                     : "pending"
                                 }
@@ -1193,24 +1227,49 @@ export function MeterChangeControlPanel({
                                 <span>TARIFA RECIBIDA</span>
                                 <b>{receivedTariff || "Aún sin factura"}</b>
                                 <small>
-                                  {receivedTariff ===
-                                  selectedTariffPoint.recommended_tariff
+                                  {normalizeTariff(receivedTariff) ===
+                                  normalizeTariff(
+                                    selectedTariffPoint.recommended_tariff,
+                                  )
                                     ? "Cambio confirmado"
                                     : "Pendiente de confirmar"}
                                 </small>
                               </div>
                               <div>
-                                <span>AHORRO DEL PERÍODO</span>
+                                <span>AHORRO PROYECTADO</span>
                                 <b>
                                   {money.format(
-                                    Math.max(
-                                      0,
-                                      selectedTariffPoint.current_cost -
-                                        selectedTariffPoint.recommended_cost,
+                                    projectedTariffSavingFor(
+                                      selectedTariffPoint,
                                     ),
                                   )}
                                 </b>
+                                <small>Estimado con igual consumo</small>
                               </div>
+                              <div className="perceived-saving">
+                                <span>AHORRO PERCIBIDO</span>
+                                <b>
+                                  {money.format(
+                                    perceivedTariffSavingFor(
+                                      selectedTariffPoint,
+                                    ),
+                                  )}
+                                </b>
+                                <small>
+                                  {perceivedTariffSavingFor(
+                                    selectedTariffPoint,
+                                  ) > 0
+                                    ? "Confirmado por tarifa recibida"
+                                    : "Todavía no confirmado"}
+                                </small>
+                              </div>
+                            </div>
+                            <div className="improvement-real-table-title">
+                              <b>Respaldo del ahorro proyectado</b>
+                              <span>
+                                Comparación concepto por concepto usando el
+                                mismo consumo y período.
+                              </span>
                             </div>
                             <div className="improvement-real-table">
                               <div className="head">
