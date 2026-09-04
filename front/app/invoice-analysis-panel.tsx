@@ -265,6 +265,21 @@ function powerRate(i: Invoice) {
       .map((x) => Number(x.unit_price || 0)),
   );
 }
+function latestContractedForMonth(history: Invoice[], monthNumber: number) {
+  const invoice = [...history]
+    .filter(
+      (row) =>
+        Number(periodOf(row).slice(5, 7)) === monthNumber &&
+        contractedBands(row).peak > 0,
+    )
+    .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))[0];
+  return invoice
+    ? {
+        latestKw: contractedBands(invoice).peak,
+        latestPeriod: periodOf(invoice),
+      }
+    : { latestKw: 0, latestPeriod: "" };
+}
 const epenPowerQuarters = [
   { label: "Noviembre–Enero", months: [11, 12, 1] },
   { label: "Febrero–Abril", months: [2, 3, 4] },
@@ -1102,6 +1117,7 @@ export function InvoiceAnalysisPanel({
               (row) => row.meter_id === selected.meter_id,
             )}
             powerProposals={powerCurve.rows.map((row) => ({
+              ...latestContractedForMonth(history, row.monthNumber),
               month: row.month,
               monthNumber: row.monthNumber,
               proposalKw: row.proposalKw,
