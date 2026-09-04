@@ -578,12 +578,10 @@ export function MeterChangeControlPanel({
       .filter((invoice) => periodOf(invoice) <= effectivePeriod)
       .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))
       .slice(0, 3);
-    const baselineMonthlyCost = baselineInvoices.length
-      ? baselineInvoices.reduce(
-          (sum, invoice) => sum + Number(invoice.total_amount || 0),
-          0,
-        ) / baselineInvoices.length
-      : 0;
+    const effectiveInvoice = history.find(
+      (invoice) => periodOf(invoice) === effectivePeriod,
+    );
+    const baselineMonthlyCost = Number(effectiveInvoice?.total_amount || 0);
     const effectiveMonthNumber = Number(effectivePeriod.slice(5, 7));
     const effectivePowerRow = powerProposals.find(
       (row) => row.monthNumber === effectiveMonthNumber,
