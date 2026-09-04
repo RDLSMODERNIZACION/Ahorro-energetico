@@ -551,6 +551,7 @@ export function InvoiceAnalysisPanel({
           <div className="invoice-analysis-controls">
             <div className="invoice-analysis-metrics">
               <button className={metric==="demand"?"active":""} onClick={()=>setMetric("demand")}>Demanda</button>
+              <button className={metric==="kwh"?"active":""} onClick={()=>setMetric("kwh")}>Consumo</button>
               <button className={metric==="pf"?"active":""} onClick={()=>setMetric("pf")}>Factor de potencia</button>
               <button className={metric==="tariff"?"active":""} onClick={()=>setMetric("tariff")}>Tarifaria</button>
               <button className={metric==="amount"?"active":""} onClick={()=>setMetric("amount")}>Importe</button>
@@ -779,7 +780,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
