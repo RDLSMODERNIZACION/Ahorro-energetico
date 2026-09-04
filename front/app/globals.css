@@ -6018,6 +6018,77 @@ td small {
   font-size: 11px;
   line-height: 1.5;
 }
+.improvement-status-change {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #d7e2dc;
+  border-radius: 11px;
+  background: #fff;
+}
+.improvement-status-change > div,
+.improvement-status-change > label {
+  display: grid;
+  gap: 6px;
+}
+.improvement-status-change span,
+.improvement-status-change label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #60736a;
+}
+.improvement-status-change b {
+  font-size: 18px;
+  color: #173f2f;
+}
+.improvement-status-change small {
+  font-size: 9px;
+  color: #7a8b82;
+  font-weight: 500;
+}
+.improvement-status-arrow {
+  font-size: 24px !important;
+  color: #188b61 !important;
+}
+.improvement-status-change p {
+  grid-column: 1/-1;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #e6ede9;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #65776e;
+}
+.change-deactivation-saving {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #a8ddc4;
+  border-radius: 11px;
+  background: #edf9f3;
+}
+.change-deactivation-saving > div {
+  display: grid;
+  gap: 3px;
+}
+.change-deactivation-saving span {
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  color: #687b71;
+}
+.change-deactivation-saving b {
+  font-size: 14px;
+  color: #087447;
+}
+.change-deactivation-saving small {
+  font-size: 9px;
+  color: #718078;
+}
 .improvement-form .notes {
   max-width: none;
 }
@@ -6087,6 +6158,16 @@ td small {
     min-width: 850px;
   }
   .improvement-specific {
+    grid-template-columns: 1fr;
+  }
+  .improvement-status-change {
+    grid-template-columns: 1fr;
+  }
+  .improvement-status-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+  .change-deactivation-saving {
     grid-template-columns: 1fr;
   }
   .improvement-footer {
