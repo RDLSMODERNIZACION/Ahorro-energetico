@@ -137,7 +137,8 @@ export function MeterChangeControlPanel({
     [actualPowers, setActualPowers] = useState<Record<number, string>>({}),
     [powerAttachment, setPowerAttachment] = useState<File | null>(null),
     [tariffAgreement, setTariffAgreement] = useState<File | null>(null),
-    [tariffCategories, setTariffCategories] = useState<TariffCategory[]>([]);
+    [tariffCategories, setTariffCategories] = useState<TariffCategory[]>([]),
+    [supplyStatus, setSupplyStatus] = useState<"active" | "removed">("active");
   useEffect(() => {
     if (!open || type !== "tariff" || tariffCategories.length) return;
     supabase
@@ -156,6 +157,9 @@ export function MeterChangeControlPanel({
     (row) => String(row.effective_period).slice(0, 7) <= selectedPeriod,
   );
   const phase = applied.length ? "after" : valid.length ? "before" : "none";
+  const deactivationControl = [...valid]
+    .reverse()
+    .find((row) => row.change_type === "supply_deactivation");
   const comparison = useMemo(() => {
     const change = [...valid]
       .reverse()
@@ -210,6 +214,21 @@ export function MeterChangeControlPanel({
       setSaving(false);
       return;
     }
+    if (type === "supply_deactivation" && supplyStatus !== "removed") {
+      setError("Cambiá el estado de Activo a Dado de baja para confirmar.");
+      setSaving(false);
+      return;
+    }
+    const baselineInvoices = [...history]
+      .filter((invoice) => periodOf(invoice) <= effectivePeriod)
+      .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))
+      .slice(0, 3);
+    const baselineMonthlyCost = baselineInvoices.length
+      ? baselineInvoices.reduce(
+          (sum, invoice) => sum + Number(invoice.total_amount || 0),
+          0,
+        ) / baselineInvoices.length
+      : 0;
     const evidenceFile =
       type === "contracted_power"
         ? powerAttachment
@@ -268,15 +287,27 @@ export function MeterChangeControlPanel({
                 new_tariff: newValue || recommendedTariff || null,
                 agreement: attachment,
               }
-            : { deactivated: true };
+            : {
+                deactivated: true,
+                previous_status: "active",
+                new_status: supplyStatus,
+                baseline_monthly_cost: baselineMonthlyCost,
+                annual_saving: baselineMonthlyCost * 12,
+              };
     const resolvedPrevious =
-      type === "tariff" ? previousValue || currentTariff : previousValue;
+      type === "tariff"
+        ? previousValue || currentTariff
+        : type === "supply_deactivation"
+          ? "Activo"
+          : previousValue;
     const resolvedNew =
       type === "tariff"
         ? newValue || recommendedTariff
         : type === "power_factor"
           ? `${capacitorCount || 0} capacitores · ${installedKvar || 0} kVAr`
-          : newValue;
+          : type === "supply_deactivation"
+            ? "Dado de baja"
+            : newValue;
     const { error: insertError } = await supabase
       .from("meter_change_controls")
       .insert({
@@ -304,6 +335,7 @@ export function MeterChangeControlPanel({
       setNotes("");
       setPowerAttachment(null);
       setTariffAgreement(null);
+      setSupplyStatus("active");
       await onSaved();
     }
     setSaving(false);
@@ -511,12 +543,33 @@ export function MeterChangeControlPanel({
                 </label>
               )}
               {type === "supply_deactivation" && (
-                <div className="improvement-warning">
-                  <b>Baja del suministro</b>
+                <div className="improvement-status-change">
+                  <div>
+                    <span>Estado actual</span>
+                    <b>Activo</b>
+                    <small>
+                      El suministro continúa visible en la aplicación.
+                    </small>
+                  </div>
+                  <span className="improvement-status-arrow">→</span>
+                  <label>
+                    Nuevo estado
+                    <select
+                      value={supplyStatus}
+                      onChange={(event) =>
+                        setSupplyStatus(
+                          event.target.value as "active" | "removed",
+                        )
+                      }
+                    >
+                      <option value="active">Activo</option>
+                      <option value="removed">Dado de baja</option>
+                    </select>
+                  </label>
                   <p>
-                    Desde el período efectivo dejará de esperarse una nueva
-                    factura. La baja quedará pendiente de verificación hasta
-                    confirmar que EPEN dejó de facturar.
+                    La baja no elimina el suministro ni su historial. Quedará
+                    identificado para comparar el gasto anterior con el ahorro
+                    generado desde el período efectivo.
                   </p>
                 </div>
               )}
@@ -558,6 +611,33 @@ export function MeterChangeControlPanel({
               {row.notes && <p>{row.notes}</p>}
             </article>
           ))}
+        </div>
+      )}
+      {deactivationControl && (
+        <div className="change-deactivation-saving">
+          <div>
+            <span>SUMINISTRO</span>
+            <b>Activo → Dado de baja</b>
+            <small>
+              Visible para control · desde{" "}
+              {deactivationControl.effective_period.slice(0, 7)}
+            </small>
+          </div>
+          <div>
+            <span>AHORRO POR BAJA</span>
+            <b>
+              {money.format(
+                Number(deactivationControl.details?.baseline_monthly_cost || 0),
+              )}{" "}
+              /mes
+            </b>
+            <small>
+              {money.format(
+                Number(deactivationControl.details?.annual_saving || 0),
+              )}{" "}
+              anual estimado
+            </small>
+          </div>
         </div>
       )}
       {comparison && (
