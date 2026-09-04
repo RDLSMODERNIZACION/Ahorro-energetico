@@ -6731,6 +6731,221 @@ td small {
   }
 }
 
+/* SEGUIMIENTO REAL DE TARIFA */
+.improvement-real-tracking {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid #d4dfda;
+  border-radius: 14px;
+  background: #fff;
+}
+.improvement-real-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 22px;
+}
+.improvement-real-head span,
+.improvement-real-status span {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  color: #667a70;
+}
+.improvement-real-head h2 {
+  margin: 4px 0;
+  font-size: 21px;
+  color: #17382b;
+}
+.improvement-real-head p {
+  margin: 0;
+  color: #718078;
+  font-size: 11px;
+}
+.improvement-real-head > div:last-child {
+  display: grid;
+  text-align: right;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: #eaf7f0;
+}
+.improvement-real-head > div:last-child b {
+  font-size: 20px;
+  color: #087447;
+}
+.improvement-real-head small {
+  font-size: 9px;
+  color: #718078;
+}
+.improvement-real-empty {
+  padding: 28px;
+  text-align: center;
+  border: 1px dashed #b9c9c1;
+  border-radius: 10px;
+  background: #f7faf8;
+  color: #64766d;
+  font-size: 11px;
+}
+.improvement-real-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+.improvement-real-bars > button {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe5e0;
+  border-radius: 11px;
+  background: #fafcfb;
+  text-align: left;
+  cursor: pointer;
+}
+.improvement-real-bars > button.active {
+  border: 2px solid #16885e;
+  background: #f0faf5;
+  box-shadow: 0 6px 16px #16885e18;
+}
+.improvement-real-bars > button > b {
+  font-size: 12px;
+  color: #263f34;
+}
+.improvement-real-bars > button > div {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 7px;
+}
+.improvement-real-bars span {
+  font-size: 8px;
+  color: #687b71;
+}
+.improvement-real-bars i {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  min-width: 3px;
+}
+.improvement-real-bars i.old {
+  background: #d76a58;
+}
+.improvement-real-bars i.new {
+  background: #1d9868;
+}
+.improvement-real-bars em {
+  font-size: 8px;
+  font-style: normal;
+  color: #52655c;
+}
+.improvement-real-bars strong {
+  font-size: 10px;
+  color: #087447;
+  text-align: right;
+}
+.improvement-real-detail {
+  display: grid;
+  gap: 12px;
+}
+.improvement-real-status {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+.improvement-real-status > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #dce5e0;
+  border-radius: 9px;
+  background: #f8faf9;
+}
+.improvement-real-status b {
+  font-size: 13px;
+  color: #203b2f;
+}
+.improvement-real-status small {
+  font-size: 8px;
+  color: #6f8077;
+}
+.improvement-real-status .ok {
+  border-color: #a8ddc4;
+  background: #e9f8f0;
+}
+.improvement-real-status .ok b {
+  color: #087447;
+}
+.improvement-real-status .pending {
+  border-color: #ead8a9;
+  background: #fff9e9;
+}
+.improvement-real-table {
+  border: 1px solid #d8e2dd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.improvement-real-table > div {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(130px, 0.7fr));
+  align-items: center;
+  gap: 12px;
+  padding: 10px 13px;
+  border-top: 1px solid #e8eeeb;
+  font-size: 10px;
+}
+.improvement-real-table > div:first-child {
+  border-top: 0;
+}
+.improvement-real-table .head {
+  background: #edf3f0;
+  color: #687a71;
+  font-size: 8px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.improvement-real-table > div > span:not(:first-child),
+.improvement-real-table > div > strong {
+  text-align: right;
+}
+.improvement-real-table > div > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+.improvement-real-table > div > span:first-child small {
+  font-size: 8px;
+  color: #829088;
+}
+.improvement-real-table > div > strong {
+  color: #087447;
+}
+.improvement-real-table .total {
+  background: #f0f8f4;
+  font-weight: 900;
+}
+.improvement-real-table .total strong {
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .improvement-real-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .improvement-real-head > div:last-child {
+    width: 100%;
+    text-align: left;
+  }
+  .improvement-real-status {
+    grid-template-columns: 1fr 1fr;
+  }
+  .improvement-real-table {
+    overflow: auto;
+  }
+  .improvement-real-table > div {
+    min-width: 760px;
+  }
+}
+
 /* ALUMBRADO PUBLICO V1 */
 .pl-module {
   display: grid;
