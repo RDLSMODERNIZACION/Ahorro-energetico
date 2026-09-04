@@ -902,6 +902,12 @@ export function InvoiceAnalysisPanel({
   const previousDebt = Number(selected.previous_debt_amount || 0);
   const undiscriminatedAmount =
     Number(selected.total_amount || 0) - taxableBase - vatAmount - previousDebt;
+  const undiscriminatedRate =
+    taxableBase > 0 ? (undiscriminatedAmount / taxableBase) * 100 : null;
+  const isVatPerception =
+    undiscriminatedRate != null &&
+    undiscriminatedAmount > 0 &&
+    Math.abs(undiscriminatedRate - 3) <= 0.05;
   const taxRows = [
     ...(vatAmount !== 0
       ? [
@@ -917,13 +923,16 @@ export function InvoiceAnalysisPanel({
     ...(Math.abs(undiscriminatedAmount) >= 0.01
       ? [
           {
-            name:
-              undiscriminatedAmount >= 0
+            name: isVatPerception
+              ? "Percepción de IVA"
+              : undiscriminatedAmount >= 0
                 ? "Otros impuestos, tasas y cargos"
                 : "Ajustes o créditos",
-            source: "Diferencia conciliada con el total de la factura",
-            base: null,
-            rate: null,
+            source: isVatPerception
+              ? "Identificada por conciliación con el total"
+              : "Diferencia conciliada con el total de la factura",
+            base: isVatPerception ? taxableBase : null,
+            rate: isVatPerception ? undiscriminatedRate : null,
             amount: undiscriminatedAmount,
           },
         ]
