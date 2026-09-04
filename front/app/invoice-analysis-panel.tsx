@@ -367,6 +367,7 @@ export function InvoiceAnalysisPanel({
   const[metric,setMetric]=useState<Metric>("demand");
   const[powerLine,setPowerLine]=useState<"current"|"proposal">("current");
   const[advancedTariffHistory,setAdvancedTariffHistory]=useState<AdvancedTariffHistoryResponse|null>(null);
+  const[advancedTariffReady,setAdvancedTariffReady]=useState(false);
   const[editingName,setEditingName]=useState(false);
   const[nameDraft,setNameDraft]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"");
   const[displayName,setDisplayName]=useState(invoice.meters?.service_name||invoice.meters?.sites?.name||"Servicio sin nombre");
@@ -391,12 +392,13 @@ export function InvoiceAnalysisPanel({
   const annualPowerSaving=powerCurve.annualSaving;
   const reactiveSaving=(selected.invoice_lines||[]).filter(x=>x.concept_code==="COS").reduce((s,x)=>s+Math.max(0,Number(x.net_amount||0)),0)*1.30;
   const selectedAssessment=assessment&&(!assessment.billing_period||String(assessment.billing_period).slice(0,7)===periodOf(selected))?assessment:undefined;
-  const assessmentTariffCandidate=Boolean(selectedAssessment?.current_tariff&&selectedAssessment.current_tariff!==selectedAssessment.recommended_tariff);
+  const advancedTariffDefinitive=advancedTariffReady&&advancedTariffHistory!==null;
+  const assessmentTariffCandidate=!advancedTariffDefinitive&&Boolean(selectedAssessment?.current_tariff&&selectedAssessment.current_tariff!==selectedAssessment.recommended_tariff);
   const legacyTariffSaving=Math.max(Number(tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected))?.monthly_saving_with_vat||0),Number(selectedAssessment?.tariff_monthly_saving||0));
   const advancedTariffPoint=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
   const advancedTariffSaving=advancedTariffPoint?.available===false?0:Number(advancedTariffPoint?.monthly_saving||0);
-  const tariffSaving=advancedTariffSaving>0?advancedTariffSaving:legacyTariffSaving;
-  const tariffSavingSource=advancedTariffSaving>0?"T4":legacyTariffSaving>0?"legacy":assessmentTariffCandidate?"candidate":"none";
+  const tariffSaving=advancedTariffDefinitive?advancedTariffSaving:legacyTariffSaving;
+  const tariffSavingSource=advancedTariffSaving>0?"T4":!advancedTariffDefinitive&&legacyTariffSaving>0?"legacy":assessmentTariffCandidate?"candidate":"none";
   const tariffCandidateLabel=assessmentTariffCandidate?`${selectedAssessment?.current_tariff} → ${selectedAssessment?.recommended_tariff}`:"";
   const totalSaving=powerSaving+reactiveSaving+tariffSaving;
   const annualTotalSaving=annualPowerSaving+(reactiveSaving*12)+(tariffSaving*12);
@@ -405,9 +407,14 @@ export function InvoiceAnalysisPanel({
   useEffect(()=>{
     let cancelled=false;
     async function loadTariffHistory(){
+      setAdvancedTariffHistory(null);
+      setAdvancedTariffReady(false);
       try{
         const{data}=await supabase.auth.getSession();
-        if(!data.session||!selected.meter_id)return;
+        if(!data.session||!selected.meter_id){
+          if(!cancelled)setAdvancedTariffReady(true);
+          return;
+        }
         const response=await fetch(`${API}/api/meters/${selected.meter_id}/tariff-saving-history`,{
           cache:"no-store",
           headers:{Authorization:`Bearer ${data.session.access_token}`}
@@ -417,6 +424,8 @@ export function InvoiceAnalysisPanel({
         if(!cancelled)setAdvancedTariffHistory(json);
       }catch{
         if(!cancelled)setAdvancedTariffHistory(null);
+      }finally{
+        if(!cancelled)setAdvancedTariffReady(true);
       }
     }
     loadTariffHistory();
@@ -611,15 +620,16 @@ export function InvoiceAnalysisPanel({
             recommended_tariff:x.current_tariff_code||"S/D",
             available:true
           }));
-          const chartRows=advancedRows.length?advancedRows:legacyRows.length?legacyRows:assessmentRows.length?assessmentRows:invoiceTariffRows;
+          const chartRows=advancedTariffDefinitive?(advancedRows.length?advancedRows:invoiceTariffRows):legacyRows.length?legacyRows:assessmentRows.length?assessmentRows:invoiceTariffRows;
           const detail=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
-          const legacyDetail=tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected));
-          const tariffCurrent=detail?.current_tariff||legacyDetail?.current_tariff||selectedAssessment?.current_tariff||selected.current_tariff_code||"S/D";
-          const tariffRecommended=detail?.recommended_tariff||legacyDetail?.recommended_tariff||selectedAssessment?.recommended_tariff||tariffCurrent;
-          const periodTariffSaving=detail?Number(detail.monthly_saving||0):Math.max(Number(legacyDetail?.monthly_saving_with_vat||0),Number(selectedAssessment?.tariff_monthly_saving||0));
+          const legacyDetail=!advancedTariffDefinitive?tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected)):undefined;
+          const fallbackAssessment=!advancedTariffDefinitive?selectedAssessment:undefined;
+          const tariffCurrent=detail?.current_tariff||legacyDetail?.current_tariff||fallbackAssessment?.current_tariff||selected.current_tariff_code||"S/D";
+          const tariffRecommended=detail?.recommended_tariff||legacyDetail?.recommended_tariff||fallbackAssessment?.recommended_tariff||tariffCurrent;
+          const periodTariffSaving=detail?Number(detail.monthly_saving||0):Math.max(Number(legacyDetail?.monthly_saving_with_vat||0),Number(fallbackAssessment?.tariff_monthly_saving||0));
           const periodTariffAnnual=detail?Number(detail.annualized_saving||0):periodTariffSaving*12;
           const tariffChange=tariffCurrent!==tariffRecommended;
-          const tariffAvailable=detail?detail.available!==false:selectedAssessment?selectedAssessment.tariff_simulation_available||!tariffChange:true;
+          const tariffAvailable=detail?detail.available!==false:fallbackAssessment?fallbackAssessment.tariff_simulation_available||!tariffChange:true;
 
           return <div className="invoice-tariff-detail-view">
             <TariffSavingTrend
@@ -769,7 +779,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
