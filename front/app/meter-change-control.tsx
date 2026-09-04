@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
 export type MeterChangeControl = {
@@ -30,6 +30,7 @@ type Invoice = {
   }>;
   invoice_lines?: Array<{ concept_code?: string; net_amount?: number }>;
 };
+type TariffCategory = { code: string; name?: string | null };
 
 const labels = {
   contracted_power: "Potencia mejorada",
@@ -134,7 +135,20 @@ export function MeterChangeControlPanel({
     [capacitorCount, setCapacitorCount] = useState(""),
     [installedKvar, setInstalledKvar] = useState(""),
     [actualPowers, setActualPowers] = useState<Record<number, string>>({}),
-    [powerAttachment, setPowerAttachment] = useState<File | null>(null);
+    [powerAttachment, setPowerAttachment] = useState<File | null>(null),
+    [tariffAgreement, setTariffAgreement] = useState<File | null>(null),
+    [tariffCategories, setTariffCategories] = useState<TariffCategory[]>([]);
+  useEffect(() => {
+    if (!open || type !== "tariff" || tariffCategories.length) return;
+    supabase
+      .from("tariff_categories")
+      .select("code,name")
+      .order("code")
+      .then(({ data, error: categoryError }) => {
+        if (categoryError) setError(categoryError.message);
+        else setTariffCategories((data || []) as TariffCategory[]);
+      });
+  }, [open, type, tariffCategories.length]);
   const valid = controls
     .filter((row) => row.status !== "cancelled")
     .sort((a, b) => a.effective_period.localeCompare(b.effective_period));
@@ -191,20 +205,31 @@ export function MeterChangeControlPanel({
       setSaving(false);
       return;
     }
-    if (powerAttachment && powerAttachment.size > 10 * 1024 * 1024) {
+    if (type === "tariff" && !tariffAgreement) {
+      setError("Adjuntá el convenio del cambio tarifario.");
+      setSaving(false);
+      return;
+    }
+    const evidenceFile =
+      type === "contracted_power"
+        ? powerAttachment
+        : type === "tariff"
+          ? tariffAgreement
+          : null;
+    if (evidenceFile && evidenceFile.size > 10 * 1024 * 1024) {
       setError("El adjunto no puede superar los 10 MB.");
       setSaving(false);
       return;
     }
     let attachment: Record<string, unknown> | null = null;
     let attachmentPath = "";
-    if (type === "contracted_power" && powerAttachment) {
-      const safeName = powerAttachment.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    if (evidenceFile) {
+      const safeName = evidenceFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       attachmentPath = `${organizationId}/${meterId}/improvements/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from("energy-documents")
-        .upload(attachmentPath, powerAttachment, {
-          contentType: powerAttachment.type || undefined,
+        .upload(attachmentPath, evidenceFile, {
+          contentType: evidenceFile.type || undefined,
           upsert: false,
         });
       if (uploadError) {
@@ -215,9 +240,10 @@ export function MeterChangeControlPanel({
       attachment = {
         bucket: "energy-documents",
         path: attachmentPath,
-        name: powerAttachment.name,
-        mime_type: powerAttachment.type,
-        size: powerAttachment.size,
+        document_type: type === "tariff" ? "Convenio" : "Comprobante",
+        name: evidenceFile.name,
+        mime_type: evidenceFile.type,
+        size: evidenceFile.size,
       };
     }
     const details =
@@ -240,6 +266,7 @@ export function MeterChangeControlPanel({
             ? {
                 previous_tariff: previousValue || currentTariff || null,
                 new_tariff: newValue || recommendedTariff || null,
+                agreement: attachment,
               }
             : { deactivated: true };
     const resolvedPrevious =
@@ -276,6 +303,7 @@ export function MeterChangeControlPanel({
       setNewValue("");
       setNotes("");
       setPowerAttachment(null);
+      setTariffAgreement(null);
       await onSaved();
     }
     setSaving(false);
@@ -419,7 +447,7 @@ export function MeterChangeControlPanel({
                       onChange={(e) => setCapacitorCount(e.target.value)}
                     />
                   </label>
-                  <label>
+                  <label className="unit-field">
                     Compensación total instalada
                     <input
                       type="number"
@@ -436,22 +464,51 @@ export function MeterChangeControlPanel({
               {type === "tariff" && (
                 <div className="improvement-specific">
                   <label>
-                    Tarifa anterior
+                    Tarifa vigente
                     <input
                       required
                       value={previousValue || currentTariff || ""}
-                      onChange={(e) => setPreviousValue(e.target.value)}
+                      readOnly
+                      aria-readonly="true"
                     />
+                    <small>Se toma de la última factura disponible.</small>
                   </label>
                   <label>
                     Tarifa a la que se solicita pasar
-                    <input
+                    <select
                       required
                       value={newValue || recommendedTariff || ""}
                       onChange={(e) => setNewValue(e.target.value)}
-                    />
+                    >
+                      <option value="">Seleccionar tarifa</option>
+                      {tariffCategories
+                        .filter((category) => category.code !== currentTariff)
+                        .map((category) => (
+                          <option key={category.code} value={category.code}>
+                            {category.code}
+                            {category.name ? ` · ${category.name}` : ""}
+                          </option>
+                        ))}
+                    </select>
                   </label>
                 </div>
+              )}
+              {type === "tariff" && (
+                <label className="improvement-attachment">
+                  Convenio
+                  <input
+                    type="file"
+                    required
+                    accept=".pdf,.doc,.docx,image/*"
+                    onChange={(event) =>
+                      setTariffAgreement(event.target.files?.[0] || null)
+                    }
+                  />
+                  <small>
+                    Adjuntá el convenio que autoriza el nuevo encuadramiento.
+                    PDF, Word o imagen; máximo 10 MB.
+                  </small>
+                </label>
               )}
               {type === "supply_deactivation" && (
                 <div className="improvement-warning">
