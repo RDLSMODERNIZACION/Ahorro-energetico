@@ -62,6 +62,8 @@ type Invoice = {
   voltage_level?: string;
   contracted_kw_peak?: number;
   contracted_kw_off_peak?: number;
+  subtotal?: number;
+  net_taxable?: number;
   vat_amount?: number;
   previous_debt_amount?: number;
   meters?: Meter;
@@ -889,6 +891,45 @@ export function InvoiceAnalysisPanel({
   const [selectedPeriod, setSelectedPeriod] = useState(periodOf(invoice));
   const selected =
     history.find((i) => periodOf(i) === selectedPeriod) || invoice;
+  const conceptSubtotal = (selected.invoice_lines || []).reduce(
+    (sum, line) => sum + Number(line.net_amount || 0),
+    0,
+  );
+  const taxableBase = Number(
+    selected.net_taxable || selected.subtotal || conceptSubtotal || 0,
+  );
+  const vatAmount = Number(selected.vat_amount || 0);
+  const previousDebt = Number(selected.previous_debt_amount || 0);
+  const undiscriminatedAmount =
+    Number(selected.total_amount || 0) - taxableBase - vatAmount - previousDebt;
+  const taxRows = [
+    ...(vatAmount !== 0
+      ? [
+          {
+            name: "IVA",
+            source: "Informado en la factura",
+            base: taxableBase,
+            rate: taxableBase > 0 ? (vatAmount / taxableBase) * 100 : null,
+            amount: vatAmount,
+          },
+        ]
+      : []),
+    ...(Math.abs(undiscriminatedAmount) >= 0.01
+      ? [
+          {
+            name:
+              undiscriminatedAmount >= 0
+                ? "Otros impuestos, tasas y cargos"
+                : "Ajustes o créditos",
+            source: "Diferencia conciliada con el total de la factura",
+            base: null,
+            rate: null,
+            amount: undiscriminatedAmount,
+          },
+        ]
+      : []),
+  ];
+  const taxTotal = taxRows.reduce((sum, row) => sum + row.amount, 0);
   const v = values(selected);
   const contractedBand = contractedBands(selected);
   const isT3 = String(selected.current_tariff_code || "")
@@ -2024,6 +2065,73 @@ export function InvoiceAnalysisPanel({
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="invoice-analysis-panel">
+          <h3>Impuestos y tasas de la factura</h3>
+          <div className="invoice-analysis-table-wrap">
+            <table className="invoice-analysis-table">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Origen</th>
+                  <th>Base imponible</th>
+                  <th>Alícuota efectiva</th>
+                  <th>Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxRows.map((row) => (
+                  <tr key={row.name}>
+                    <td>
+                      <b>{row.name}</b>
+                    </td>
+                    <td>{row.source}</td>
+                    <td>{row.base == null ? "—" : money.format(row.base)}</td>
+                    <td>
+                      {row.rate == null ? "—" : `${dec.format(row.rate)}%`}
+                    </td>
+                    <td>
+                      <b>{money.format(row.amount)}</b>
+                    </td>
+                  </tr>
+                ))}
+                {!taxRows.length && (
+                  <tr>
+                    <td colSpan={5}>
+                      Esta factura no trae impuestos discriminados. El importe
+                      total se conserva igualmente para la conciliación.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colSpan={2}>Conciliación de la factura</th>
+                  <td>
+                    Base: <b>{money.format(taxableBase)}</b>
+                  </td>
+                  <td>
+                    Impuestos y ajustes: <b>{money.format(taxTotal)}</b>
+                  </td>
+                  <td>
+                    Total:{" "}
+                    <b>{money.format(Number(selected.total_amount || 0))}</b>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {previousDebt !== 0 && (
+            <p className="invoice-analysis-tax-note">
+              La deuda anterior de {money.format(previousDebt)} se muestra por
+              separado y no se considera un impuesto ni un consumo del período.
+            </p>
+          )}
+          <p className="invoice-analysis-tax-note">
+            Los conceptos no discriminados se obtienen por diferencia para que
+            base, impuestos, ajustes y deuda coincidan con el total facturado.
+          </p>
         </section>
 
         <section className="invoice-analysis-panel">
