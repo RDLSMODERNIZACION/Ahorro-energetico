@@ -2856,6 +2856,75 @@ td small {
 .invoice-admin tr.control-before td:first-child {
   box-shadow: inset 4px 0 #d69a21;
 }
+.invoice-zero-usage-opportunity {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #9ccfe2;
+  border-radius: 13px;
+  background: #eef9fd;
+}
+.invoice-zero-usage-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+}
+.invoice-zero-usage-head span,
+.invoice-zero-usage-options span {
+  color: #237a9c;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.invoice-zero-usage-head h3 {
+  margin: 4px 0;
+  color: #173b49;
+}
+.invoice-zero-usage-head p,
+.invoice-zero-usage-head > small {
+  margin: 0;
+  color: #5d7781;
+  font-size: 9px;
+}
+.invoice-zero-usage-head > small {
+  max-width: 360px;
+  text-align: right;
+}
+.invoice-zero-usage-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.invoice-zero-usage-options article {
+  display: grid;
+  gap: 5px;
+  padding: 15px 17px;
+  border: 1px solid #c9e3ed;
+  border-radius: 10px;
+  background: #fff;
+}
+.invoice-zero-usage-options article.recommended {
+  border-color: #9ed8bc;
+  background: #ecf9f2;
+}
+.invoice-zero-usage-options h4 {
+  margin: 0;
+  color: #17382b;
+  font-size: 14px;
+}
+.invoice-zero-usage-options b {
+  color: #52675d;
+  font-size: 10px;
+}
+.invoice-zero-usage-options strong {
+  color: #087447;
+  font-size: 17px;
+}
+.invoice-zero-usage-options small {
+  color: #74867d;
+  font-size: 8px;
+}
 @media (max-width: 900px) {
   .change-control-head {
     align-items: flex-start;
@@ -2866,6 +2935,16 @@ td small {
   }
   .change-control-form .notes {
     grid-column: span 2;
+  }
+  .invoice-zero-usage-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .invoice-zero-usage-head > small {
+    text-align: left;
+  }
+  .invoice-zero-usage-options {
+    grid-template-columns: 1fr;
   }
   .change-comparison {
     grid-template-columns: 1fr 1fr;
