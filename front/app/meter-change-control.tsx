@@ -32,7 +32,7 @@ type Invoice = {
 };
 
 const labels = {
-  contracted_power: "Potencia contratada",
+  contracted_power: "Potencia mejorada",
   power_factor: "Factor de potencia",
   tariff: "Tarifa",
   supply_deactivation: "Baja del suministro",
@@ -115,6 +115,8 @@ export function MeterChangeControlPanel({
     proposalKw: number;
     method: string;
     quarter: string;
+    latestKw: number;
+    latestPeriod: string;
   }>;
   currentTariff?: string;
   recommendedTariff?: string;
@@ -131,7 +133,8 @@ export function MeterChangeControlPanel({
     [notes, setNotes] = useState(""),
     [capacitorCount, setCapacitorCount] = useState(""),
     [installedKvar, setInstalledKvar] = useState(""),
-    [actualPowers, setActualPowers] = useState<Record<number, string>>({});
+    [actualPowers, setActualPowers] = useState<Record<number, string>>({}),
+    [powerAttachment, setPowerAttachment] = useState<File | null>(null);
   const valid = controls
     .filter((row) => row.status !== "cancelled")
     .sort((a, b) => a.effective_period.localeCompare(b.effective_period));
@@ -183,6 +186,40 @@ export function MeterChangeControlPanel({
       setSaving(false);
       return;
     }
+    if (type === "contracted_power" && !powerAttachment) {
+      setError("Adjuntá el comprobante con la potencia corregida.");
+      setSaving(false);
+      return;
+    }
+    if (powerAttachment && powerAttachment.size > 10 * 1024 * 1024) {
+      setError("El adjunto no puede superar los 10 MB.");
+      setSaving(false);
+      return;
+    }
+    let attachment: Record<string, unknown> | null = null;
+    let attachmentPath = "";
+    if (type === "contracted_power" && powerAttachment) {
+      const safeName = powerAttachment.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      attachmentPath = `${organizationId}/${meterId}/improvements/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("energy-documents")
+        .upload(attachmentPath, powerAttachment, {
+          contentType: powerAttachment.type || undefined,
+          upsert: false,
+        });
+      if (uploadError) {
+        setError(`No se pudo subir el adjunto: ${uploadError.message}`);
+        setSaving(false);
+        return;
+      }
+      attachment = {
+        bucket: "energy-documents",
+        path: attachmentPath,
+        name: powerAttachment.name,
+        mime_type: powerAttachment.type,
+        size: powerAttachment.size,
+      };
+    }
     const details =
       type === "contracted_power"
         ? {
@@ -192,6 +229,7 @@ export function MeterChangeControlPanel({
                 actualPowers[row.monthNumber] || row.proposalKw,
               ),
             })),
+            attachment,
           }
         : type === "power_factor"
           ? {
@@ -226,12 +264,18 @@ export function MeterChangeControlPanel({
         notes: notes || null,
         created_by: data.session.user.id,
       });
-    if (insertError) setError(insertError.message);
-    else {
+    if (insertError) {
+      if (attachmentPath)
+        await supabase.storage
+          .from("energy-documents")
+          .remove([attachmentPath]);
+      setError(insertError.message);
+    } else {
       setOpen(false);
       setPreviousValue("");
       setNewValue("");
       setNotes("");
+      setPowerAttachment(null);
       await onSaved();
     }
     setSaving(false);
@@ -301,12 +345,21 @@ export function MeterChangeControlPanel({
                 <div className="improvement-power-table">
                   <div className="improvement-power-head">
                     <span>Mes</span>
+                    <span>Última potencia disponible</span>
                     <span>Propuesta calculada</span>
                     <span>Potencia efectivamente contratada</span>
                   </div>
                   {powerProposals.map((row) => (
                     <div key={row.monthNumber}>
                       <b>{row.month}</b>
+                      <span>
+                        {row.latestKw > 0
+                          ? `${number.format(row.latestKw)} kW`
+                          : "S/D"}
+                        <small>
+                          {row.latestPeriod || "Sin factura disponible"}
+                        </small>
+                      </span>
                       <span>
                         {number.format(row.proposalKw)} kW
                         <small>
@@ -336,6 +389,23 @@ export function MeterChangeControlPanel({
                     </div>
                   ))}
                 </div>
+              )}
+              {type === "contracted_power" && (
+                <label className="improvement-attachment">
+                  Comprobante de potencia corregida
+                  <input
+                    type="file"
+                    required
+                    accept=".pdf,.xlsx,.xls,image/*"
+                    onChange={(event) =>
+                      setPowerAttachment(event.target.files?.[0] || null)
+                    }
+                  />
+                  <small>
+                    Adjuntá la nota, factura, resolución o planilla confirmada
+                    por EPEN. PDF, imagen o Excel; máximo 10 MB.
+                  </small>
+                </label>
               )}
               {type === "power_factor" && (
                 <div className="improvement-specific">
