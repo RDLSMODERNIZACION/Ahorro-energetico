@@ -90,6 +90,10 @@ type TariffAssessment = {
   tariff_simulation_available: boolean;
   tariff_current_simulated?: number;
   tariff_recommended_simulated?: number;
+  zero_consumption_periods?: number;
+  deactivation_candidate?: boolean;
+  deactivation_monthly_saving?: number;
+  deactivation_annual_saving?: number;
 };
 type AdvancedTariffHistoryPoint = {
   billing_period: string;
@@ -854,13 +858,12 @@ export function InvoiceAnalysisPanel({
       : undefined;
   const advancedTariffDefinitive =
     advancedTariffReady && advancedTariffHistory !== null;
-  const assessmentTariffCandidate =
-    !advancedTariffDefinitive &&
-    Boolean(
-      selectedAssessment?.current_tariff &&
-      selectedAssessment.current_tariff !==
-        selectedAssessment.recommended_tariff,
-    );
+  const assessmentTariffCandidate = Boolean(
+    selectedAssessment?.current_tariff &&
+    selectedAssessment.current_tariff !==
+      selectedAssessment.recommended_tariff &&
+    (!advancedTariffDefinitive || selectedAssessment.deactivation_candidate),
+  );
   const legacyTariffSaving = Math.max(
     Number(
       tariffSavings.find(
@@ -878,9 +881,8 @@ export function InvoiceAnalysisPanel({
     advancedTariffPoint?.available === false
       ? 0
       : Number(advancedTariffPoint?.monthly_saving || 0);
-  const tariffSaving = advancedTariffDefinitive
-    ? advancedTariffSaving
-    : legacyTariffSaving;
+  const tariffSaving =
+    advancedTariffSaving > 0 ? advancedTariffSaving : legacyTariffSaving;
   const tariffSavingSource =
     advancedTariffSaving > 0
       ? "T4"
@@ -892,9 +894,23 @@ export function InvoiceAnalysisPanel({
   const tariffCandidateLabel = assessmentTariffCandidate
     ? `${selectedAssessment?.current_tariff} → ${selectedAssessment?.recommended_tariff}`
     : "";
-  const totalSaving = powerSaving + reactiveSaving + tariffSaving;
-  const annualTotalSaving =
+  const deactivationSaving = selectedAssessment?.deactivation_candidate
+    ? Number(selectedAssessment.deactivation_monthly_saving || 0)
+    : 0;
+  const deactivationAnnualSaving = selectedAssessment?.deactivation_candidate
+    ? Number(
+        selectedAssessment.deactivation_annual_saving ||
+          deactivationSaving * 12,
+      )
+    : 0;
+  const optimizationSaving = powerSaving + reactiveSaving + tariffSaving;
+  const optimizationAnnualSaving =
     annualPowerSaving + reactiveSaving * 12 + tariffSaving * 12;
+  const totalSaving = Math.max(optimizationSaving, deactivationSaving);
+  const annualTotalSaving = Math.max(
+    optimizationAnnualSaving,
+    deactivationAnnualSaving,
+  );
   const m = selected.meters || invoice.meters;
   const sorted = [...history].sort((a, b) =>
     periodOf(a).localeCompare(periodOf(b)),
@@ -1271,6 +1287,52 @@ export function InvoiceAnalysisPanel({
             <small>{money.format(annualTotalSaving)} anual según curva</small>
           </article>
         </div>
+
+        {selectedAssessment?.deactivation_candidate && (
+          <section className="invoice-zero-usage-opportunity">
+            <div className="invoice-zero-usage-head">
+              <div>
+                <span>SUMINISTRO SIN UTILIZACIÓN</span>
+                <h3>Dos alternativas posibles de ahorro</h3>
+                <p>
+                  Períodos consecutivos con consumo y demanda cero:{" "}
+                  {selectedAssessment.zero_consumption_periods || 2}.
+                </p>
+              </div>
+              <small>
+                Son alternativas excluyentes: el total toma la más conveniente y
+                no suma ambas.
+              </small>
+            </div>
+            <div className="invoice-zero-usage-options">
+              <article>
+                <span>SI DEBE CONTINUAR ACTIVO</span>
+                <h4>Cambio tarifario</h4>
+                <b>
+                  {selectedAssessment.current_tariff ||
+                    selected.current_tariff_code ||
+                    "T3"}{" "}
+                  → {selectedAssessment.recommended_tariff}
+                </b>
+                <strong>
+                  {tariffSaving > 0
+                    ? `${money.format(tariffSaving)} /mes`
+                    : "Pendiente de valorización"}
+                </strong>
+                <small>Mantiene el suministro disponible.</small>
+              </article>
+              <article className="recommended">
+                <span>SI YA NO SE UTILIZARÁ</span>
+                <h4>Baja del suministro</h4>
+                <b>Eliminar cargos fijos y contratación</b>
+                <strong>{money.format(deactivationSaving)} /mes</strong>
+                <small>
+                  {money.format(deactivationAnnualSaving)} anual estimado.
+                </small>
+              </article>
+            </div>
+          </section>
+        )}
 
         <section className="invoice-analysis-panel">
           <div className="invoice-analysis-chart-head">
@@ -1843,11 +1905,25 @@ export function InvoiceAnalysisPanel({
                           : "Sin ahorro tarifario valorizado"}
                 </small>
               </div>
+              {selectedAssessment?.deactivation_candidate && (
+                <div>
+                  <span>Baja del suministro</span>
+                  <b>{money.format(deactivationSaving)}</b>
+                  <small>
+                    Alternativa si continuará sin uso ·{" "}
+                    {selectedAssessment.zero_consumption_periods || 2} períodos
+                    consecutivos en cero
+                  </small>
+                </div>
+              )}
               <div className="total">
                 <span>Total mensual</span>
                 <b>{money.format(totalSaving)}</b>
                 <small>
-                  {money.format(annualTotalSaving)} / año según curva
+                  {money.format(annualTotalSaving)} / año
+                  {selectedAssessment?.deactivation_candidate
+                    ? " · se toma la mejor alternativa, sin duplicar"
+                    : " según curva"}
                 </small>
               </div>
             </div>
