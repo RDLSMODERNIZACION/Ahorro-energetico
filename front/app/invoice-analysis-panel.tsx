@@ -57,7 +57,7 @@ type AdvancedTariffHistoryPoint={
 };
 type AdvancedTariffHistoryResponse={
   meter_id:string;
-  mode:"t4"|"mt"|"none";
+  mode:"t4"|"mt"|"downshift"|"none";
   current_tariff?:string;
   recommended_tariff?:string;
   taxes_included?:boolean;
@@ -650,9 +650,9 @@ export function InvoiceAnalysisPanel({
               {detail?.available!==false&&detail&&<>
                 <div className="invoice-tariff-summary-grid">
                   <article>
-                    <span>TARIFA ACTUAL REAL</span>
+                    <span>{advancedTariffHistory?.mode==="downshift"?"TARIFA BASE COMPARABLE":"TARIFA ACTUAL REAL"}</span>
                     <b>{money.format(Number(detail.current_cost||0))}</b>
-                    <small>Subtotal real tomado de invoice_lines</small>
+                    <small>{advancedTariffHistory?.mode==="downshift"?"T2 simulada al mínimo reglamentario de 10 kW":"Subtotal real tomado de invoice_lines"}</small>
                   </article>
                   <article>
                     <span>TARIFA PROPUESTA SIMULADA</span>
@@ -668,7 +668,7 @@ export function InvoiceAnalysisPanel({
 
                 <div className="invoice-tariff-comparison-grid">
                   <div>
-                    <h5>{detail.current_tariff} real facturada</h5>
+                    <h5>{detail.current_tariff}{advancedTariffHistory?.mode==="downshift"?" simulada":" real facturada"}</h5>
                     <table>
                       <thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio</th><th>Importe</th></tr></thead>
                       <tbody>{(detail.current_components||[]).map((row,index)=><tr key={`${row.code}-${index}`}>
@@ -697,7 +697,7 @@ export function InvoiceAnalysisPanel({
                 <div className="invoice-tariff-formula">
                   <span>FÓRMULA DEL AHORRO</span>
                   <b>{money.format(Number(detail.current_cost||0))} − {money.format(Number(detail.recommended_cost||0))} = {money.format(Number(detail.monthly_saving||0))}</b>
-                  <small>Actual real facturada − tarifa propuesta simulada · antes de impuestos{advancedTariffHistory?.mode==="mt"?" · BT→MT sujeto a factibilidad EPEN":""}</small>
+                  <small>{advancedTariffHistory?.mode==="downshift"?"T2 a 10 kW − T1 propuesta; no duplica el ahorro por potencia":"Actual real facturada − tarifa propuesta simulada"} · antes de impuestos{advancedTariffHistory?.mode==="mt"?" · BT→MT sujeto a factibilidad EPEN":""}</small>
                 </div>
               </>}
 
@@ -769,8 +769,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
-
 
 
 
