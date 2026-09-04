@@ -5836,6 +5836,33 @@ td small {
   box-shadow: 0 24px 70px #071c1455;
   overflow: hidden;
 }
+.improvement-route-page {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding: 0;
+  background: #f5f8f6;
+}
+.improvement-route-page .change-control-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.improvement-standalone {
+  min-height: 100vh;
+  background: #f5f8f6;
+}
+.improvement-standalone .improvement-page {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
 .improvement-head {
   display: flex;
   align-items: flex-start;
