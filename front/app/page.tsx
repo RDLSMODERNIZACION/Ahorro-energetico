@@ -896,13 +896,18 @@ export default function Home() {
             (row) => row.meter_id === invoice.meter_id && row.available,
           )
         : undefined;
-    return calculateCanonicalSavings({
-      invoice,
-      history: invoices.filter((row) => row.meter_id === invoice.meter_id),
-      assessment: assessments.find((row) => row.meter_id === invoice.meter_id),
-      tariffSavings,
-      advancedTariffPoint: advancedPoint,
-    });
+    return {
+      meterId: invoice.meter_id,
+      ...calculateCanonicalSavings({
+        invoice,
+        history: invoices.filter((row) => row.meter_id === invoice.meter_id),
+        assessment: assessments.find(
+          (row) => row.meter_id === invoice.meter_id,
+        ),
+        tariffSavings,
+        advancedTariffPoint: advancedPoint,
+      }),
+    };
   });
   const powerAnnual = canonicalLatestSavings.reduce(
     (sum, row) => sum + row.powerAnnual,
@@ -1893,6 +1898,11 @@ export default function Home() {
               </div>
               <TariffTable
                 rows={visibleAssessments}
+                canonicalSavings={
+                  new Map(
+                    canonicalLatestSavings.map((row) => [row.meterId, row]),
+                  )
+                }
                 onMeter={(id) => {
                   const i = invoices.find((x) => x.meter_id === id);
                   if (i) openMeter(i);
@@ -2744,9 +2754,14 @@ function InvoiceTable({
 
 function TariffTable({
   rows,
+  canonicalSavings,
   onMeter,
 }: {
   rows: TariffAssessment[];
+  canonicalSavings: Map<
+    string,
+    ReturnType<typeof calculateCanonicalSavings> & { meterId: string }
+  >;
   onMeter: (id: string) => void;
 }) {
   const labels = {
@@ -2773,7 +2788,8 @@ function TariffTable({
           ? (x.power_factor ?? -1)
           : sort === "tariff"
             ? x.current_tariff || ""
-            : x.estimated_monthly_saving,
+            : (canonicalSavings.get(x.meter_id)?.totalMonthly ??
+              x.estimated_monthly_saving),
     sorted = [...rows].sort((a, b) => {
       if (!sort) return 0;
       const av = value(a),
@@ -2826,7 +2842,12 @@ function TariffTable({
                   {x.contracted_kw} kW → {x.recommended_kw} kW
                 </b>
                 <small>Máxima registrada: {x.maximum_demand_kw} kW</small>
-                <Saving value={x.power_monthly_saving} />
+                <Saving
+                  value={
+                    canonicalSavings.get(x.meter_id)?.powerMonthly ??
+                    x.power_monthly_saving
+                  }
+                />
               </td>
               <td>
                 <b>
@@ -2837,7 +2858,12 @@ function TariffTable({
                     ? "Corregir banco de capacitores"
                     : "Sin penalización detectada"}
                 </small>
-                <Saving value={x.reactive_monthly_saving} />
+                <Saving
+                  value={
+                    canonicalSavings.get(x.meter_id)?.reactiveMonthly ??
+                    x.reactive_monthly_saving
+                  }
+                />
               </td>
               <td>
                 <div>
@@ -2862,7 +2888,12 @@ function TariffTable({
                       ? "Estimación con precios observados"
                       : "Falta cuadro tarifario del período"}
                 </small>
-                <Saving value={x.tariff_monthly_saving} />
+                <Saving
+                  value={
+                    canonicalSavings.get(x.meter_id)?.tariffMonthly ??
+                    x.tariff_monthly_saving
+                  }
+                />
                 {x.tariff_simulation_available &&
                   x.tariff_current_simulated != null &&
                   x.tariff_recommended_simulated != null && (
@@ -2880,10 +2911,19 @@ function TariffTable({
               </td>
               <td>
                 <strong className="grand-saving">
-                  {money.format(x.estimated_monthly_saving)}
+                  {money.format(
+                    canonicalSavings.get(x.meter_id)?.totalMonthly ??
+                      x.estimated_monthly_saving,
+                  )}
                   <small>/mes</small>
                 </strong>
-                <small>{money.format(x.estimated_annual_saving)} /año</small>
+                <small>
+                  {money.format(
+                    canonicalSavings.get(x.meter_id)?.totalAnnual ??
+                      x.estimated_annual_saving,
+                  )}{" "}
+                  /año
+                </small>
               </td>
             </tr>
           ))}
