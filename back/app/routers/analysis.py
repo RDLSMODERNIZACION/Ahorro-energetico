@@ -202,7 +202,9 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         price_source="official" if official_simulated is not None else None
         monthly_tariff_saving=max(Decimal(0),official_current_adjusted-official_simulated).quantize(Decimal("0.01")) if not correctly_framed and official_available else Decimal(0)
         zero_invoices=history[:zero_periods]
-        deactivation_saving=(sum(_num(x.get("total_amount")) for x in zero_invoices)/len(zero_invoices)).quantize(Decimal("0.01")) if zero_invoices else Decimal(0)
+        # La baja se compara contra la misma factura seleccionada. Promediar
+        # otros periodos hacía que pudiera resultar menor que un cambio tarifario.
+        deactivation_saving=_num(latest.get("total_amount")).quantize(Decimal("0.01")) if zero_invoices else Decimal(0)
         deactivation_candidate=zero_periods>=2 and active==0 and demand==0
         monthly_total=max(monthly_power_saving+reactive_saving+monthly_tariff_saving,deactivation_saving if deactivation_candidate else Decimal(0))
         reasons=[]
