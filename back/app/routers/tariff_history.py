@@ -168,13 +168,62 @@ def _proposed_t4_components(rates_rows, invoice, tariff, voltage, capacity_kw):
     return total.quantize(Decimal("0.01")), components, schedule
 
 
+def _simple_tariff_components(rates_rows, invoice, tariff, voltage, capacity_kw, label):
+    """Simula categorías con cargo fijo, potencia y energía no horaria."""
+    period = _period(invoice)
+    rates, schedule = _rate_set(rates_rows, period, tariff, voltage, capacity_kw)
+    if not rates:
+        return None, [], schedule
+
+    active = _active_kwh(invoice)
+    components = []
+    total = Decimal("0")
+
+    for code, quantity, description in (
+        ("CFI", Decimal("1"), f"Cargo fijo {label}"),
+        ("DEM", _d(capacity_kw), f"Potencia contratada {label}"),
+        ("DEP", _d(capacity_kw), f"Potencia en punta {label}"),
+        ("DFP", _d(capacity_kw), f"Potencia fuera de punta {label}"),
+        ("ECO", active, f"Energía {label}"),
+        ("CAV", active, f"Cargo adicional variable {label}"),
+    ):
+        if code not in rates or (quantity <= 0 and code != "CFI"):
+            continue
+        amount = quantity * rates[code]
+        total += amount
+        components.append({
+            "code": code,
+            "description": description,
+            "quantity": float(quantity),
+            "unit_price": float(rates[code]),
+            "net_amount": float(amount.quantize(Decimal("0.01"))),
+        })
+
+    if not components:
+        return None, [], schedule
+    return total.quantize(Decimal("0.01")), components, schedule
+
+
+def _t1_category(active_kwh):
+    """Categoría residencial/general T1 aplicable según consumo mensual."""
+    active_kwh = _d(active_kwh)
+    if active_kwh <= Decimal("250"):
+        return "T1G"
+    if active_kwh <= Decimal("1000"):
+        return "T1G2"
+    if active_kwh <= Decimal("2000"):
+        return "T1G3"
+    return "T1G4"
+
+
 def _scenario_for_history(history, selected):
     """
     Devuelve el escenario recomendado para el período seleccionado.
 
     Prioridad:
-    1) si está en BT => BT→MT
-    2) si está en MT/AT y cumple 12/12 >=100 kW => T4
+    1) T2 con demanda histórica menor a 10 kW => T1
+    2) si está en BT => BT→MT
+    3) si está en MT/AT y cumple 12/12 >=100 kW => T4
     """
     meter = selected.get("meters") or {}
     tariff = _tariff_key(selected.get("current_tariff_code") or meter.get("current_tariff_code"))
@@ -184,6 +233,23 @@ def _scenario_for_history(history, selected):
     last12 = [x for x in history if _period(x) <= period][-12:]
     max_any_12 = max([_max_demand(x) for x in last12] or [Decimal("0")])
     months_over_100 = sum(1 for x in last12 if _max_demand(x) >= Decimal("100"))
+
+    # T2 tiene un piso contratable de 10 kW. Si la demanda máxima promedio de
+    # 15 minutos permanece por debajo de ese límite, comparamos T2 a su piso
+    # contra la categoría T1 que corresponde al consumo de cada período.
+    if tariff == "T2" and max_any_12 < Decimal("10"):
+        return {
+            "mode": "downshift",
+            "status": "candidate" if len(last12) >= 12 else "preliminary",
+            "current_label": "T2",
+            "recommended_label": "T1",
+            "target_tariff": "T1",
+            "target_voltage": "NA",
+            "current_floor_kw": 10.0,
+            "requires_epen_contract": True,
+            "months_evaluated": len(last12),
+            "max_demand_12m_kw": float(max_any_12),
+        }
 
     if voltage == "BT" and tariff in {"T2", "T3", "T3A"}:
         if max_any_12 >= Decimal("300"):
@@ -249,6 +315,7 @@ def _point_for_invoice(rates, history, invoice, scenario):
     capacity_kw = max(peak_kw, off_kw, demand)
 
     actual_cost, actual_components = _actual_tariff_cost(invoice)
+    current_cost_source = "actual_invoice_lines"
 
     proposed_cost = None
     proposed_components = []
@@ -266,6 +333,23 @@ def _point_for_invoice(rates, history, invoice, scenario):
             rates, invoice, target, voltage, capacity_kw
         )
         current_label = f"{tariff}-{voltage}"
+        recommended_label = target
+    elif scenario["mode"] == "downshift":
+        # El ahorro por bajar la potencia T2 de la contratada actual a 10 kW se
+        # informa por separado. Aquí se compara T2 ya optimizada a su mínimo
+        # contra T1, evitando contabilizar dos veces el mismo ahorro.
+        current_floor_kw = _d(scenario.get("current_floor_kw") or 10)
+        target = _t1_category(_active_kwh(invoice))
+        current_voltage = voltage if voltage != "NA" else "BT"
+        actual_cost, actual_components, _ = _simple_tariff_components(
+            rates, invoice, "T2", current_voltage, current_floor_kw, "T2 mínima"
+        )
+        proposed_cost, proposed_components, schedule = _simple_tariff_components(
+            rates, invoice, target, "NA", Decimal("0"), target
+        )
+        capacity_kw = current_floor_kw
+        current_cost_source = "simulated_current_tariff_at_regulatory_floor"
+        current_label = "T2 (10 kW)"
         recommended_label = target
     else:
         return None
@@ -289,7 +373,7 @@ def _point_for_invoice(rates, history, invoice, scenario):
             "missing_actual_tariff_lines" if actual_cost is None
             else "missing_tariff_schedule"
         ),
-        "current_cost_source": "actual_invoice_lines",
+        "current_cost_source": current_cost_source,
         "current_components": actual_components,
         "proposed_components": proposed_components,
         "resolution_number": None if not schedule else schedule.get("resolution_number"),
@@ -303,6 +387,7 @@ def _point_for_invoice(rates, history, invoice, scenario):
 def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_user)):
     """
     Histórico por medidor:
+    - T2 con demanda menor a 10 kW: T2 mínima vs T1 según consumo.
     - BT: tarifa REAL BT vs misma tarifa simulada en MT.
     - MT/AT elegible: T3/T3A REAL vs T4 simulada.
     """
@@ -369,8 +454,16 @@ def tariff_saving_history(meter_id: str, user: CurrentUser = Depends(current_use
         "months_over_100kw_last12": latest_scenario.get("months_over_100kw_last12"),
         "max_demand_12m_kw": latest_scenario.get("max_demand_12m_kw"),
         "taxes_included": False,
-        "current_cost_source": "actual_invoice_lines",
-        "formula": "actual_current_tariff_cost - simulated_proposed_tariff_cost",
+        "current_cost_source": (
+            "simulated_current_tariff_at_regulatory_floor"
+            if latest_scenario["mode"] == "downshift"
+            else "actual_invoice_lines"
+        ),
+        "formula": (
+            "simulated_current_tariff_at_floor - simulated_proposed_tariff_cost"
+            if latest_scenario["mode"] == "downshift"
+            else "actual_current_tariff_cost - simulated_proposed_tariff_cost"
+        ),
         "requires_epen_feasibility": latest_scenario.get("requires_epen_feasibility", False),
         "requires_epen_contract": latest_scenario.get("requires_epen_contract", False),
         "points": points,
