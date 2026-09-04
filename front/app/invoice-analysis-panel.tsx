@@ -399,6 +399,76 @@ function buildPowerCurve(history: Invoice[]) {
       currentKw > 0 && rate > 0 && rows.some((row) => row.proposalKw > 0),
   };
 }
+
+export function calculateCanonicalSavings({
+  invoice,
+  history,
+  assessment,
+  tariffSavings,
+  advancedTariffPoint,
+}: {
+  invoice: Invoice;
+  history: Invoice[];
+  assessment?: TariffAssessment;
+  tariffSavings: TariffSaving[];
+  advancedTariffPoint?: {
+    available?: boolean;
+    monthly_saving?: number;
+  };
+}) {
+  const curve = buildPowerCurve(history);
+  const monthNumber = Number(periodOf(invoice).slice(5, 7));
+  const powerMonthly = Number(
+    curve.rows.find((row) => row.monthNumber === monthNumber)?.saving || 0,
+  );
+  const reactiveMonthly =
+    (invoice.invoice_lines || [])
+      .filter((line) => line.concept_code === "COS")
+      .reduce(
+        (sum, line) => sum + Math.max(0, Number(line.net_amount || 0)),
+        0,
+      ) * 1.3;
+  const legacyTariffMonthly = Math.max(
+    Number(
+      tariffSavings.find(
+        (row) =>
+          row.meter_id === invoice.meter_id &&
+          String(row.billing_period).slice(0, 7) === periodOf(invoice),
+      )?.monthly_saving_with_vat || 0,
+    ),
+    Number(assessment?.tariff_monthly_saving || 0),
+  );
+  const advancedTariffMonthlyNet =
+    advancedTariffPoint?.available === false
+      ? 0
+      : Number(advancedTariffPoint?.monthly_saving || 0);
+  const advancedTariffMonthly = advancedTariffMonthlyNet * 1.3;
+  const tariffMonthly =
+    advancedTariffMonthly > 0 ? advancedTariffMonthly : legacyTariffMonthly;
+  const deactivationMonthly = assessment?.deactivation_candidate
+    ? Number(assessment.deactivation_monthly_saving || 0)
+    : 0;
+  const operationalMonthly = powerMonthly + reactiveMonthly + tariffMonthly;
+  const operationalAnnual =
+    curve.annualSaving + reactiveMonthly * 12 + tariffMonthly * 12;
+  const deactivationAnnual = assessment?.deactivation_candidate
+    ? Number(assessment.deactivation_annual_saving || deactivationMonthly * 12)
+    : 0;
+  return {
+    powerMonthly,
+    powerAnnual: curve.annualSaving,
+    reactiveMonthly,
+    reactiveAnnual: reactiveMonthly * 12,
+    tariffMonthly,
+    tariffAnnual: tariffMonthly * 12,
+    deactivationMonthly,
+    deactivationAnnual,
+    operationalMonthly,
+    operationalAnnual,
+    totalMonthly: Math.max(operationalMonthly, deactivationMonthly),
+    totalAnnual: Math.max(operationalAnnual, deactivationAnnual),
+  };
+}
 function xmlCell(value: string | number, type: "String" | "Number" = "String") {
   const escaped = String(value)
     .replace(/&/g, "&amp;")
@@ -844,12 +914,6 @@ export function InvoiceAnalysisPanel({
   const currentPower = powerCurve.currentKw || v.contracted;
   const proposedPower = Number(selectedPowerProposal?.proposalKw || 0);
   const rate = powerCurve.rate || selectedRate;
-  const powerSaving = Number(selectedPowerProposal?.saving || 0);
-  const annualPowerSaving = powerCurve.annualSaving;
-  const reactiveSaving =
-    (selected.invoice_lines || [])
-      .filter((x) => x.concept_code === "COS")
-      .reduce((s, x) => s + Math.max(0, Number(x.net_amount || 0)), 0) * 1.3;
   const selectedAssessment =
     assessment &&
     (!assessment.billing_period ||
@@ -881,8 +945,17 @@ export function InvoiceAnalysisPanel({
     advancedTariffPoint?.available === false
       ? 0
       : Number(advancedTariffPoint?.monthly_saving || 0);
-  const tariffSaving =
-    advancedTariffSaving > 0 ? advancedTariffSaving : legacyTariffSaving;
+  const canonicalSaving = calculateCanonicalSavings({
+    invoice: selected,
+    history,
+    assessment: selectedAssessment,
+    tariffSavings,
+    advancedTariffPoint,
+  });
+  const powerSaving = canonicalSaving.powerMonthly;
+  const annualPowerSaving = canonicalSaving.powerAnnual;
+  const reactiveSaving = canonicalSaving.reactiveMonthly;
+  const tariffSaving = canonicalSaving.tariffMonthly;
   const tariffSavingSource =
     advancedTariffSaving > 0
       ? "T4"
@@ -894,23 +967,10 @@ export function InvoiceAnalysisPanel({
   const tariffCandidateLabel = assessmentTariffCandidate
     ? `${selectedAssessment?.current_tariff} → ${selectedAssessment?.recommended_tariff}`
     : "";
-  const deactivationSaving = selectedAssessment?.deactivation_candidate
-    ? Number(selectedAssessment.deactivation_monthly_saving || 0)
-    : 0;
-  const deactivationAnnualSaving = selectedAssessment?.deactivation_candidate
-    ? Number(
-        selectedAssessment.deactivation_annual_saving ||
-          deactivationSaving * 12,
-      )
-    : 0;
-  const optimizationSaving = powerSaving + reactiveSaving + tariffSaving;
-  const optimizationAnnualSaving =
-    annualPowerSaving + reactiveSaving * 12 + tariffSaving * 12;
-  const totalSaving = Math.max(optimizationSaving, deactivationSaving);
-  const annualTotalSaving = Math.max(
-    optimizationAnnualSaving,
-    deactivationAnnualSaving,
-  );
+  const deactivationSaving = canonicalSaving.deactivationMonthly;
+  const deactivationAnnualSaving = canonicalSaving.deactivationAnnual;
+  const totalSaving = canonicalSaving.totalMonthly;
+  const annualTotalSaving = canonicalSaving.totalAnnual;
   const m = selected.meters || invoice.meters;
   const sorted = [...history].sort((a, b) =>
     periodOf(a).localeCompare(periodOf(b)),
