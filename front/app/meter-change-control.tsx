@@ -21,6 +21,8 @@ type Invoice = {
   billing_period?: string;
   period_start: string;
   total_amount: number;
+  contracted_kw_peak?: number;
+  contracted_kw_off_peak?: number;
   current_tariff_code?: string;
   invoice_measurements?: Array<{
     active_energy_kwh?: number;
@@ -395,6 +397,102 @@ export function MeterChangeControlPanel({
         ]),
       ]
     : [];
+  const trackableControls = valid.filter((row) =>
+    ["contracted_power", "power_factor", "tariff"].includes(row.change_type),
+  );
+  const trackingStart =
+    trackableControls[0]?.effective_period.slice(0, 7) || selectedPeriod;
+  const baselineRows = [...history]
+    .filter((invoice) => periodOf(invoice) < trackingStart)
+    .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))
+    .slice(0, 3);
+  const baselineTrackingCost = baselineRows.length
+    ? baselineRows.reduce(
+        (sum, invoice) => sum + Number(invoice.total_amount || 0),
+        0,
+      ) / baselineRows.length
+    : Number(history.at(-1)?.total_amount || 0);
+  function targetPowerFor(row: MeterChangeControl, period: string) {
+    const monthNumber = Number(period.slice(5, 7));
+    const months = Array.isArray(row.details?.months)
+      ? (row.details.months as Array<Record<string, unknown>>)
+      : [];
+    const month = months.find(
+      (item) => Number(item.monthNumber) === monthNumber,
+    );
+    return Number(
+      month?.effective_kw ||
+        String(row.new_value || "")
+          .replace(/[^0-9.,-]/g, "")
+          .replace(",", ".") ||
+        0,
+    );
+  }
+  function confirmedSavingFor(
+    row: MeterChangeControl,
+    period: string,
+    invoice?: Invoice,
+  ) {
+    if (!invoice) return 0;
+    const projected = projectionOf(row).monthly;
+    if (row.change_type === "contracted_power") {
+      const target = targetPowerFor(row, period);
+      return target > 0 &&
+        Number(invoice.contracted_kw_peak || 0) <= target + 0.1
+        ? projected
+        : 0;
+    }
+    if (row.change_type === "power_factor") {
+      const metrics = invoiceMetrics(invoice);
+      return metrics.pf >= 0.95
+        ? projected
+        : Math.min(projected, Math.max(0, projected - metrics.reactive));
+    }
+    if (row.change_type === "tariff") {
+      const point = tariffTrackingMonths.find(
+        (item) => item.billing_period.slice(0, 7) === period,
+      );
+      return point ? perceivedTariffSavingFor(point) : 0;
+    }
+    return 0;
+  }
+  const improvementTrackingMonths = Array.from({ length: 12 }, (_, index) => {
+    const [year, month] = trackingStart.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1 + index, 1));
+    const period = `${date.getUTCFullYear()}-${String(
+      date.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
+    const invoice = history.find((item) => periodOf(item) === period);
+    const measures = trackableControls
+      .filter((row) => row.effective_period.slice(0, 7) <= period)
+      .map((row) => ({
+        row,
+        projected: projectionOf(row).monthly,
+        confirmed: confirmedSavingFor(row, period, invoice),
+      }));
+    const projected = measures.reduce((sum, item) => sum + item.projected, 0);
+    const confirmed = measures.reduce((sum, item) => sum + item.confirmed, 0);
+    const billed = Number(invoice?.total_amount || 0);
+    const withoutCorrection = invoice
+      ? billed + confirmed
+      : baselineTrackingCost;
+    const withCorrection = invoice
+      ? Math.max(0, billed - Math.max(0, projected - confirmed))
+      : Math.max(0, baselineTrackingCost - projected);
+    return {
+      period,
+      invoice,
+      measures,
+      projected,
+      confirmed,
+      withoutCorrection,
+      withCorrection,
+    };
+  });
+  const selectedTrackingMonth =
+    improvementTrackingMonths.find(
+      (item) => item.period === selectedComparisonPeriod,
+    ) || improvementTrackingMonths[0];
   function beginEdit(row: MeterChangeControl) {
     setEditingId(row.id);
     setEditPeriod(String(row.effective_period).slice(0, 7));
@@ -1085,10 +1183,10 @@ export function MeterChangeControlPanel({
                         <h2>Evolución mensual del cambio</h2>
                         <p>
                           Seleccioná un mes para ver debajo el ahorro
-                          proyectado, el percibido y el detalle de la tarifa.
+                          proyectado, el confirmado y el aporte de cada mejora.
                         </p>
                       </div>
-                      {tariffChange && tariffTrackingMonths.length ? (
+                      {trackableControls.length ? (
                         <div className="improvement-projection-switch">
                           <button
                             type="button"
@@ -1121,7 +1219,7 @@ export function MeterChangeControlPanel({
                         </div>
                       )}
                     </div>
-                    {tariffChange && tariffTrackingMonths.length ? (
+                    {trackableControls.length ? (
                       <div className="improvement-monthly-chart">
                         <div className="improvement-monthly-chart-summary">
                           <span>
@@ -1131,43 +1229,39 @@ export function MeterChangeControlPanel({
                           </span>
                           <b>
                             {money.format(
-                              tariffTrackingMonths.reduce(
+                              improvementTrackingMonths.reduce(
                                 (sum, point) =>
                                   sum +
                                   (projectionMetric === "saving"
-                                    ? point.current_cost
-                                    : point.recommended_cost),
+                                    ? point.withoutCorrection
+                                    : point.withCorrection),
                                 0,
                               ),
                             )}
                           </b>
                         </div>
                         <div className="improvement-monthly-bars">
-                          {tariffTrackingMonths.map((point) => {
+                          {improvementTrackingMonths.map((point) => {
                             const value =
                               projectionMetric === "saving"
-                                ? point.current_cost
-                                : point.recommended_cost;
+                                ? point.withoutCorrection
+                                : point.withCorrection;
                             const maximum = Math.max(
                               1,
-                              ...tariffTrackingMonths.map((item) =>
+                              ...improvementTrackingMonths.map((item) =>
                                 projectionMetric === "saving"
-                                  ? item.current_cost
-                                  : item.recommended_cost,
+                                  ? item.withoutCorrection
+                                  : item.withCorrection,
                               ),
                             );
-                            const period = point.billing_period.slice(0, 7);
-                            const perceived =
-                              perceivedTariffSavingFor(point) > 0;
+                            const period = point.period;
+                            const perceived = point.confirmed > 0;
                             return (
                               <button
                                 type="button"
                                 key={period}
                                 className={
-                                  selectedTariffPoint?.billing_period.slice(
-                                    0,
-                                    7,
-                                  ) === period
+                                  selectedTrackingMonth?.period === period
                                     ? "active"
                                     : ""
                                 }
@@ -1187,20 +1281,14 @@ export function MeterChangeControlPanel({
                                 <b>{period}</b>
                                 <small className="monthly-saving-values">
                                   <span>
-                                    Proy.{" "}
-                                    {money.format(
-                                      projectedTariffSavingFor(point),
-                                    )}
+                                    Proy. {money.format(point.projected)}
                                   </span>
                                   <span
                                     className={
                                       perceived ? "confirmed" : "pending"
                                     }
                                   >
-                                    Conf.{" "}
-                                    {money.format(
-                                      perceivedTariffSavingFor(point),
-                                    )}
+                                    Conf. {money.format(point.confirmed)}
                                   </span>
                                 </small>
                               </button>
@@ -1259,6 +1347,64 @@ export function MeterChangeControlPanel({
                           })}
                         </div>
                       </>
+                    )}
+                    {!!trackableControls.length && selectedTrackingMonth && (
+                      <div className="improvement-month-detail">
+                        <div className="improvement-month-detail-head">
+                          <div>
+                            <span>MES SELECCIONADO</span>
+                            <b>{selectedTrackingMonth.period}</b>
+                            <small>
+                              {selectedTrackingMonth.invoice
+                                ? "Factura recibida"
+                                : "Mes proyectado · factura pendiente"}
+                            </small>
+                          </div>
+                          <div>
+                            <span>AHORRO PROYECTADO</span>
+                            <b>
+                              {money.format(selectedTrackingMonth.projected)}
+                            </b>
+                          </div>
+                          <div className="confirmed">
+                            <span>AHORRO CONFIRMADO</span>
+                            <b>
+                              {money.format(selectedTrackingMonth.confirmed)}
+                            </b>
+                          </div>
+                        </div>
+                        <div className="improvement-month-measures">
+                          {selectedTrackingMonth.measures.map((item) => (
+                            <article key={item.row.id}>
+                              <div>
+                                <span>MEJORA</span>
+                                <b>{labels[item.row.change_type]}</b>
+                                <small>
+                                  {item.row.previous_value || "S/D"} →{" "}
+                                  {item.row.new_value || "Aplicada"}
+                                </small>
+                              </div>
+                              <div>
+                                <span>PROYECTADO</span>
+                                <b>{money.format(item.projected)}</b>
+                              </div>
+                              <div
+                                className={
+                                  item.confirmed > 0 ? "confirmed" : "pending"
+                                }
+                              >
+                                <span>CONFIRMADO</span>
+                                <b>{money.format(item.confirmed)}</b>
+                                <small>
+                                  {item.confirmed > 0
+                                    ? "Validado con la factura"
+                                    : "Pendiente de validación"}
+                                </small>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
