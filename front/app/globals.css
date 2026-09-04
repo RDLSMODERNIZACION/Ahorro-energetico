@@ -5838,7 +5838,7 @@ td small {
 }
 .improvement-route-page {
   width: 100%;
-  max-width: none;
+  max-width: 100%;
   min-height: 100vh;
   padding: 0;
   background: #f5f8f6;
@@ -5856,7 +5856,8 @@ td small {
   background: #f5f8f6;
 }
 .improvement-standalone .improvement-page {
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   min-height: 100vh;
   margin: 0;
   border: 0;
@@ -5868,7 +5869,7 @@ td small {
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  padding: 25px 28px;
+  padding: 30px 42px;
   background: #164733;
   color: #fff;
 }
@@ -5880,12 +5881,31 @@ td small {
 }
 .improvement-head h2 {
   margin: 6px 0 4px;
-  font-size: 25px;
+  font-size: 30px;
 }
 .improvement-head p {
   margin: 0;
   color: #c8e4d7;
-  font-size: 11px;
+  font-size: 12px;
+}
+.improvement-meter-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 17px;
+  padding-top: 14px;
+  border-top: 1px solid #ffffff20;
+}
+.improvement-meter-identity b {
+  font-size: 13px;
+}
+.improvement-meter-identity span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #ffffff12;
+  color: #bce3d1;
+  font-size: 9px;
+  letter-spacing: 0.02em;
 }
 .improvement-head button {
   border: 1px solid #ffffff2e;
@@ -5912,7 +5932,7 @@ td small {
 .improvement-workspace-tabs {
   display: flex;
   gap: 8px;
-  padding: 14px 28px;
+  padding: 16px 42px;
   background: #e8f0ec;
   border-bottom: 1px solid #d5e1da;
 }
@@ -5921,7 +5941,7 @@ td small {
   border-radius: 9px;
   background: #fff;
   color: #486057;
-  padding: 11px 16px;
+  padding: 12px 18px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -5933,29 +5953,55 @@ td small {
 .improvement-history-page {
   display: grid;
   gap: 18px;
-  padding: 24px 28px 30px;
+  padding: 28px 42px 42px;
+  max-width: 1500px;
+  width: 100%;
+  margin: 0 auto;
 }
 .improvement-history-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 14px;
 }
 .improvement-history-kpis article {
   display: grid;
   gap: 5px;
-  padding: 14px;
+  padding: 18px 20px;
   border: 1px solid #d9e4de;
-  border-radius: 10px;
+  border-radius: 13px;
   background: #fff;
 }
 .improvement-history-kpis span {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 850;
   color: #718178;
 }
 .improvement-history-kpis b {
-  font-size: 21px;
+  font-size: 26px;
   color: #173f2f;
+}
+.improvement-history-kpis article:nth-child(2) {
+  border-color: #b7dfcc;
+  background: #effaf4;
+}
+.improvement-history-kpis article:nth-child(2) b {
+  color: #087447;
+}
+.improvement-history-kpis article:nth-child(3) {
+  border-color: #bfd7ef;
+  background: #f1f7fd;
+}
+.improvement-history-kpis article:nth-child(3) b {
+  color: #195fa8;
+}
+.improvement-history-kpis article:nth-child(4) {
+  background: #f4f6f5;
+}
+.improvement-history-list:before {
+  content: "Historial de intervenciones";
+  font-size: 16px;
+  font-weight: 800;
+  color: #203c30;
 }
 .improvement-history-empty {
   display: grid;
@@ -5972,10 +6018,10 @@ td small {
   gap: 12px;
 }
 .improvement-history-list > article {
-  padding: 17px 18px;
+  padding: 22px 24px;
   border: 1px solid #d8e3dd;
   border-left: 5px solid #16885e;
-  border-radius: 11px;
+  border-radius: 14px;
   background: #fff;
 }
 .improvement-history-list > article.cancelled {
@@ -5994,13 +6040,13 @@ td small {
 }
 .improvement-history-card-head h3 {
   margin: 4px 0;
-  font-size: 15px;
+  font-size: 18px;
 }
 .improvement-history-card-head p,
 .improvement-history-notes {
   margin: 0;
   color: #607168;
-  font-size: 10px;
+  font-size: 11px;
 }
 .improvement-history-notes {
   margin-top: 10px;
@@ -6042,7 +6088,7 @@ td small {
   border-radius: 8px;
   background: #fff;
   color: #3f5a4e;
-  padding: 8px 11px;
+  padding: 10px 14px;
   font-weight: 750;
   cursor: pointer;
 }
@@ -6091,14 +6137,31 @@ td small {
   color: #fff;
 }
 .improvement-tracking-block {
-  padding-top: 6px;
+  padding: 22px;
+  border: 1px solid #d9e4de;
+  border-radius: 14px;
+  background: #fff;
 }
 .improvement-tracking-block > h3 {
-  margin: 0 0 10px;
-  font-size: 15px;
+  margin: 0 0 16px;
+  font-size: 18px;
 }
 .improvement-tracking-block .change-comparison {
   margin-top: 10px;
+}
+@media (max-width: 900px) {
+  .improvement-history-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+  .improvement-history-page {
+    padding: 22px;
+  }
+  .improvement-head {
+    padding: 24px;
+  }
+  .improvement-workspace-tabs {
+    padding: 14px 22px;
+  }
 }
 .improvement-tabs button {
   border: 1px solid #d8e3dd;
