@@ -2834,8 +2834,24 @@ td small {
   color: #087447 !important;
   font-weight: 700;
 }
+.invoice-admin tr.control-after td {
+  background: #edf8fc !important;
+  border-top-color: #c9e5f1;
+  border-bottom-color: #c9e5f1;
+}
 .invoice-admin tr.control-after td:first-child {
-  box-shadow: inset 4px 0 #1d9a68;
+  background: #e5f5fb !important;
+  box-shadow:
+    inset 4px 0 #2e9ac5,
+    1px 0 0 #c9e5f1;
+}
+.invoice-admin tr.control-after:hover td,
+.invoice-admin-scroll .invoice-admin tr.control-after:hover td:first-child {
+  background: #dff2f9 !important;
+}
+.invoice-admin tr.control-after .invoice-control-badge.after {
+  background: #ccecf7;
+  color: #176b8c;
 }
 .invoice-admin tr.control-before td:first-child {
   box-shadow: inset 4px 0 #d69a21;
