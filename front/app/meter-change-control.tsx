@@ -21,6 +21,7 @@ type Invoice = {
   billing_period?: string;
   period_start: string;
   total_amount: number;
+  current_tariff_code?: string;
   invoice_measurements?: Array<{
     active_energy_kwh?: number;
     demand_kw?: number;
@@ -30,11 +31,30 @@ type Invoice = {
   }>;
   invoice_lines?: Array<{
     concept_code?: string;
+    description?: string;
     unit_price?: number;
     net_amount?: number;
   }>;
 };
 type TariffCategory = { code: string; name?: string | null };
+type TariffComparisonPoint = {
+  billing_period: string;
+  current_tariff: string;
+  recommended_tariff: string;
+  current_cost: number;
+  recommended_cost: number;
+  available?: boolean;
+  current_components?: Array<{
+    code: string;
+    description?: string;
+    net_amount: number;
+  }>;
+  proposed_components?: Array<{
+    code: string;
+    description?: string;
+    net_amount: number;
+  }>;
+};
 
 const labels = {
   contracted_power: "Potencia mejorada",
@@ -123,6 +143,7 @@ export function MeterChangeControlPanel({
   currentTariff,
   recommendedTariff,
   projectedTariffMonthlySaving = 0,
+  tariffComparisonPoints = [],
   meterName,
   meterReference,
   displayMode = "launcher",
@@ -147,6 +168,7 @@ export function MeterChangeControlPanel({
   currentTariff?: string;
   recommendedTariff?: string;
   projectedTariffMonthlySaving?: number;
+  tariffComparisonPoints?: TariffComparisonPoint[];
   meterName?: string;
   meterReference?: string;
   displayMode?: "launcher" | "page";
@@ -164,6 +186,7 @@ export function MeterChangeControlPanel({
     [editNotes, setEditNotes] = useState(""),
     [editStatus, setEditStatus] =
       useState<MeterChangeControl["status"]>("applied");
+  const [selectedComparisonPeriod, setSelectedComparisonPeriod] = useState("");
   const [type, setType] =
     useState<MeterChangeControl["change_type"]>("contracted_power");
   const [effectivePeriod, setEffectivePeriod] = useState(selectedPeriod),
@@ -273,6 +296,41 @@ export function MeterChangeControlPanel({
     (sum, row) => sum + projectionOf(row).monthly,
     0,
   );
+  const tariffChange = [...valid]
+    .reverse()
+    .find((row) => row.change_type === "tariff");
+  const comparableTariffPoints = tariffChange
+    ? tariffComparisonPoints
+        .filter(
+          (point) =>
+            point.available !== false &&
+            point.billing_period.slice(0, 7) >=
+              tariffChange.effective_period.slice(0, 7),
+        )
+        .sort((a, b) => a.billing_period.localeCompare(b.billing_period))
+    : [];
+  const selectedTariffPoint =
+    comparableTariffPoints.find(
+      (point) => point.billing_period.slice(0, 7) === selectedComparisonPeriod,
+    ) || comparableTariffPoints.at(-1);
+  const receivedTariff = selectedTariffPoint
+    ? history.find(
+        (invoice) =>
+          periodOf(invoice) === selectedTariffPoint.billing_period.slice(0, 7),
+      )?.current_tariff_code
+    : undefined;
+  const tariffComponentCodes = selectedTariffPoint
+    ? [
+        ...new Set([
+          ...(selectedTariffPoint.current_components || []).map(
+            (item) => item.code,
+          ),
+          ...(selectedTariffPoint.proposed_components || []).map(
+            (item) => item.code,
+          ),
+        ]),
+      ]
+    : [];
   function beginEdit(row: MeterChangeControl) {
     setEditingId(row.id);
     setEditPeriod(String(row.effective_period).slice(0, 7));
@@ -1020,6 +1078,202 @@ export function MeterChangeControlPanel({
                         );
                       })}
                     </div>
+                  </div>
+                )}
+                {tariffChange && (
+                  <div className="improvement-real-tracking">
+                    <div className="improvement-real-head">
+                      <div>
+                        <span>SEGUIMIENTO REAL</span>
+                        <h2>Tarifa anterior vs. nueva tarifa</h2>
+                        <p>
+                          Seleccioná una barra para comprobar el ahorro real
+                          concepto por concepto.
+                        </p>
+                      </div>
+                      <div>
+                        <span>TARIFA ESPERADA</span>
+                        <b>{tariffChange.new_value || "S/D"}</b>
+                        <small>
+                          Desde {tariffChange.effective_period.slice(0, 7)}
+                        </small>
+                      </div>
+                    </div>
+                    {!comparableTariffPoints.length ? (
+                      <div className="improvement-real-empty">
+                        Esperando la primera factura posterior al cambio para
+                        realizar la comparación efectiva.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="improvement-real-bars">
+                          {comparableTariffPoints.map((point) => {
+                            const scale = Math.max(
+                              point.current_cost,
+                              point.recommended_cost,
+                              1,
+                            );
+                            const period = point.billing_period.slice(0, 7);
+                            return (
+                              <button
+                                key={period}
+                                className={
+                                  selectedTariffPoint?.billing_period.slice(
+                                    0,
+                                    7,
+                                  ) === period
+                                    ? "active"
+                                    : ""
+                                }
+                                onClick={() =>
+                                  setSelectedComparisonPeriod(period)
+                                }
+                              >
+                                <b>{period}</b>
+                                <div>
+                                  <span>Tarifa anterior</span>
+                                  <i
+                                    className="old"
+                                    style={{
+                                      width: `${(point.current_cost / scale) * 100}%`,
+                                    }}
+                                  />
+                                  <em>{money.format(point.current_cost)}</em>
+                                </div>
+                                <div>
+                                  <span>Nueva tarifa</span>
+                                  <i
+                                    className="new"
+                                    style={{
+                                      width: `${(point.recommended_cost / scale) * 100}%`,
+                                    }}
+                                  />
+                                  <em>
+                                    {money.format(point.recommended_cost)}
+                                  </em>
+                                </div>
+                                <strong>
+                                  Ahorro{" "}
+                                  {money.format(
+                                    Math.max(
+                                      0,
+                                      point.current_cost -
+                                        point.recommended_cost,
+                                    ),
+                                  )}
+                                </strong>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {selectedTariffPoint && (
+                          <div className="improvement-real-detail">
+                            <div className="improvement-real-status">
+                              <div>
+                                <span>PERÍODO</span>
+                                <b>
+                                  {selectedTariffPoint.billing_period.slice(
+                                    0,
+                                    7,
+                                  )}
+                                </b>
+                              </div>
+                              <div>
+                                <span>TARIFA QUE DEBÍA LLEGAR</span>
+                                <b>{selectedTariffPoint.recommended_tariff}</b>
+                              </div>
+                              <div
+                                className={
+                                  receivedTariff ===
+                                  selectedTariffPoint.recommended_tariff
+                                    ? "ok"
+                                    : "pending"
+                                }
+                              >
+                                <span>TARIFA RECIBIDA</span>
+                                <b>{receivedTariff || "Aún sin factura"}</b>
+                                <small>
+                                  {receivedTariff ===
+                                  selectedTariffPoint.recommended_tariff
+                                    ? "Cambio confirmado"
+                                    : "Pendiente de confirmar"}
+                                </small>
+                              </div>
+                              <div>
+                                <span>AHORRO DEL PERÍODO</span>
+                                <b>
+                                  {money.format(
+                                    Math.max(
+                                      0,
+                                      selectedTariffPoint.current_cost -
+                                        selectedTariffPoint.recommended_cost,
+                                    ),
+                                  )}
+                                </b>
+                              </div>
+                            </div>
+                            <div className="improvement-real-table">
+                              <div className="head">
+                                <span>Concepto</span>
+                                <span>Tarifa anterior</span>
+                                <span>Nueva tarifa</span>
+                                <span>Ahorro</span>
+                              </div>
+                              {tariffComponentCodes.map((code) => {
+                                const oldItem =
+                                  selectedTariffPoint.current_components?.find(
+                                    (item) => item.code === code,
+                                  );
+                                const newItem =
+                                  selectedTariffPoint.proposed_components?.find(
+                                    (item) => item.code === code,
+                                  );
+                                const oldAmount = Number(
+                                    oldItem?.net_amount || 0,
+                                  ),
+                                  newAmount = Number(newItem?.net_amount || 0);
+                                return (
+                                  <div key={code}>
+                                    <span>
+                                      <b>{code}</b>
+                                      <small>
+                                        {newItem?.description ||
+                                          oldItem?.description ||
+                                          "Concepto tarifario"}
+                                      </small>
+                                    </span>
+                                    <span>{money.format(oldAmount)}</span>
+                                    <span>{money.format(newAmount)}</span>
+                                    <strong>
+                                      {money.format(oldAmount - newAmount)}
+                                    </strong>
+                                  </div>
+                                );
+                              })}
+                              <div className="total">
+                                <span>TOTAL</span>
+                                <span>
+                                  {money.format(
+                                    selectedTariffPoint.current_cost,
+                                  )}
+                                </span>
+                                <span>
+                                  {money.format(
+                                    selectedTariffPoint.recommended_cost,
+                                  )}
+                                </span>
+                                <strong>
+                                  {money.format(
+                                    selectedTariffPoint.current_cost -
+                                      selectedTariffPoint.recommended_cost,
+                                  )}
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
