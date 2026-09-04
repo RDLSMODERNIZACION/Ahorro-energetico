@@ -34,7 +34,7 @@ type Invoice={
   meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];
 };
 type TariffSaving={meter_id:string;billing_period:string;current_tariff?:string;recommended_tariff?:string;current_cost_with_vat?:number;recommended_cost_with_vat?:number;monthly_saving_with_vat:number;annual_saving_with_vat?:number};
-type TariffAssessment={meter_id:string;billing_period?:string;current_tariff?:string;recommended_tariff:string;status:string;maximum_demand_kw:number;tariff_monthly_saving:number;tariff_annual_saving:number;tariff_simulation_available:boolean};
+type TariffAssessment={meter_id:string;billing_period?:string;current_tariff?:string;recommended_tariff:string;status:string;maximum_demand_kw:number;tariff_monthly_saving:number;tariff_annual_saving:number;tariff_simulation_available:boolean;tariff_current_simulated?:number;tariff_recommended_simulated?:number};
 type AdvancedTariffHistoryPoint={
   billing_period:string;
   current_tariff:string;
@@ -235,7 +235,7 @@ function TariffSavingTrend({rows,selectedPeriod,onPeriod}:{rows:{billing_period:
 
     <div className="invoice-tariff-legend">
       <span><i className="saving"/>Ahorro valorizado</span>
-      {data.some(d=>!d.available)&&<span><i className="missing"/>Falta cuadro T4 para ese mes</span>}
+      {data.some(d=>!d.available)&&<span><i className="missing"/>Falta cuadro tarifario para ese mes</span>}
     </div>
   </div>
 }
@@ -597,8 +597,29 @@ export function InvoiceAnalysisPanel({
             available:x.available!==false
           }));
 
-          const chartRows=advancedRows.length?advancedRows:legacyRows;
+          const assessmentRows=selectedAssessment?[{
+            billing_period:String(selectedAssessment.billing_period||periodOf(selected)).slice(0,7),
+            monthly_saving:Number(selectedAssessment.tariff_monthly_saving||0),
+            current_tariff:selectedAssessment.current_tariff||selected.current_tariff_code,
+            recommended_tariff:selectedAssessment.recommended_tariff,
+            available:selectedAssessment.tariff_simulation_available||!assessmentTariffCandidate
+          }]:[];
+          const invoiceTariffRows=history.map(x=>({
+            billing_period:periodOf(x),
+            monthly_saving:0,
+            current_tariff:x.current_tariff_code||"S/D",
+            recommended_tariff:x.current_tariff_code||"S/D",
+            available:true
+          }));
+          const chartRows=advancedRows.length?advancedRows:legacyRows.length?legacyRows:assessmentRows.length?assessmentRows:invoiceTariffRows;
           const detail=advancedTariffHistory?.points.find(x=>String(x.billing_period).slice(0,7)===periodOf(selected));
+          const legacyDetail=tariffSavings.find(x=>x.meter_id===selected.meter_id&&String(x.billing_period).slice(0,7)===periodOf(selected));
+          const tariffCurrent=detail?.current_tariff||legacyDetail?.current_tariff||selectedAssessment?.current_tariff||selected.current_tariff_code||"S/D";
+          const tariffRecommended=detail?.recommended_tariff||legacyDetail?.recommended_tariff||selectedAssessment?.recommended_tariff||tariffCurrent;
+          const periodTariffSaving=detail?Number(detail.monthly_saving||0):Math.max(Number(legacyDetail?.monthly_saving_with_vat||0),Number(selectedAssessment?.tariff_monthly_saving||0));
+          const periodTariffAnnual=detail?Number(detail.annualized_saving||0):periodTariffSaving*12;
+          const tariffChange=tariffCurrent!==tariffRecommended;
+          const tariffAvailable=detail?detail.available!==false:selectedAssessment?selectedAssessment.tariff_simulation_available||!tariffChange:true;
 
           return <div className="invoice-tariff-detail-view">
             <TariffSavingTrend
@@ -611,15 +632,20 @@ export function InvoiceAnalysisPanel({
               <div className="invoice-tariff-period-head">
                 <div>
                   <span>DETALLE DEL PERÍODO</span>
-                  <h4>{periodOf(selected)} · {detail?.current_tariff||selected.current_tariff_code||"Actual"} → {detail?.recommended_tariff||"T4"}</h4>
-                  <p>{detail?.available===false?"No se puede valorizar este mes porque falta el cuadro oficial T4 correspondiente.":"Comparación entre lo realmente facturado y la tarifa propuesta simulada del mismo período."}</p>
+                  <h4>{periodOf(selected)} · {tariffCurrent}{tariffChange?` → ${tariffRecommended}`:" · encuadramiento sin cambio"}</h4>
+                  <p>{!tariffAvailable?`Se detectó el posible cambio a ${tariffRecommended}, pero falta el cuadro oficial para valorizarlo.`:tariffChange?"Comparación entre la tarifa actual y la categoría propuesta por la regla de demanda máxima promedio de 15 minutos.":"La tarifa informada no presenta un cambio de categoría según los datos disponibles."}</p>
                 </div>
-                <div className={detail?.available===false?"missing":"saving"}>
+                <div className={!tariffAvailable?"missing":"saving"}>
                   <span>AHORRO TARIFARIO</span>
-                  <b>{detail?.available===false?"S/D":money.format(Number(detail?.monthly_saving||0))}</b>
-                  <small>{detail?.available===false?"Falta cuadro tarifario":`${money.format(Number(detail?.annualized_saving||0))} anualizado`}</small>
+                  <b>{!tariffAvailable?"POSIBLE AHORRO":money.format(periodTariffSaving)}</b>
+                  <small>{!tariffAvailable?"Falta cuadro tarifario":`${money.format(periodTariffAnnual)} anualizado`}</small>
                 </div>
               </div>
+
+              {!detail&&tariffChange&&<div className="invoice-tariff-missing-detail">
+                <b>Regla detectada: demanda máxima {nf.format(Number(selectedAssessment?.maximum_demand_kw||v.demand))} kW</b>
+                <span>{tariffCurrent} → {tariffRecommended}. Al estar por debajo de 10 kW promedio en 15 minutos, se muestra como posible ahorro tarifario sujeto a validación de EPEN.</span>
+              </div>}
 
               {detail?.available!==false&&detail&&<>
                 <div className="invoice-tariff-summary-grid">
@@ -743,10 +769,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
-
-
-
 
 
 
