@@ -6629,14 +6629,18 @@ td small {
   font-size: 9px;
   color: #688076;
 }
-.improvement-projections-head > .improvement-projection-switch {
+.improvement-projections-head > div.improvement-projection-switch:last-child {
   display: flex;
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  align-items: center;
   gap: 4px;
   padding: 4px;
   border: 1px solid #bfd6ca;
   border-radius: 999px;
   background: #edf4f0;
   text-align: left;
+  white-space: nowrap;
 }
 .improvement-projection-switch button {
   min-height: 34px;
@@ -6667,6 +6671,35 @@ td small {
   align-items: baseline;
   justify-content: space-between;
   gap: 14px;
+}
+.improvement-monthly-chart-summary > div {
+  display: grid;
+  gap: 7px;
+}
+.improvement-bar-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #718078;
+  font-size: 8px;
+}
+.improvement-bar-legend i {
+  width: 9px;
+  height: 9px;
+  margin-left: 5px;
+  border-radius: 3px;
+}
+.improvement-bar-legend i:first-child {
+  margin-left: 0;
+}
+.improvement-bar-legend .without {
+  background: #a7b0ac;
+}
+.improvement-bar-legend .proposed {
+  background: #397ebd;
+}
+.improvement-bar-legend .actual {
+  background: #1d9868;
 }
 .improvement-monthly-chart-summary span {
   color: #64786e;
@@ -6722,6 +6755,7 @@ td small {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  gap: 5px;
   width: 100%;
   height: 130px;
   border-radius: 7px 7px 0 0;
@@ -6730,12 +6764,20 @@ td small {
 }
 .improvement-monthly-bars .bar-track i {
   display: block;
-  width: 68%;
+  width: 38%;
   border-radius: 6px 6px 0 0;
-  background: #397ebd;
   transition: height 0.2s ease;
 }
-.improvement-monthly-bars .bar-track i.perceived {
+.improvement-monthly-bars .bar-track i.single {
+  width: 68%;
+}
+.improvement-monthly-bars .bar-track i.without {
+  background: #a7b0ac;
+}
+.improvement-monthly-bars .bar-track i.proposed {
+  background: #397ebd;
+}
+.improvement-monthly-bars .bar-track i.actual {
   background: #1d9868;
 }
 .improvement-monthly-bars button > b {
