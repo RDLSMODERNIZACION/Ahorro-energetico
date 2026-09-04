@@ -28,7 +28,11 @@ type Invoice = {
     power_factor?: number;
     resolved_power_factor?: number;
   }>;
-  invoice_lines?: Array<{ concept_code?: string; net_amount?: number }>;
+  invoice_lines?: Array<{
+    concept_code?: string;
+    unit_price?: number;
+    net_amount?: number;
+  }>;
 };
 type TariffCategory = { code: string; name?: string | null };
 
@@ -118,6 +122,7 @@ export function MeterChangeControlPanel({
   powerProposals,
   currentTariff,
   recommendedTariff,
+  projectedTariffMonthlySaving = 0,
   meterName,
   meterReference,
   displayMode = "launcher",
@@ -141,6 +146,7 @@ export function MeterChangeControlPanel({
   }>;
   currentTariff?: string;
   recommendedTariff?: string;
+  projectedTariffMonthlySaving?: number;
   meterName?: string;
   meterReference?: string;
   displayMode?: "launcher" | "page";
@@ -227,6 +233,42 @@ export function MeterChangeControlPanel({
       afterCount: after.length,
     };
   }, [history, valid]);
+  function projectionOf(row: MeterChangeControl) {
+    const stored = Number(
+      row.details?.projected_monthly_saving ||
+        row.details?.baseline_monthly_cost ||
+        0,
+    );
+    const recent = [...history]
+      .filter(
+        (invoice) => periodOf(invoice) <= row.effective_period.slice(0, 7),
+      )
+      .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))
+      .slice(0, 3);
+    const reactiveAverage = recent.length
+      ? recent.reduce(
+          (sum, invoice) => sum + invoiceMetrics(invoice).reactive,
+          0,
+        ) / recent.length
+      : 0;
+    const monthly =
+      stored > 0
+        ? stored
+        : row.change_type === "power_factor"
+          ? reactiveAverage
+          : row.change_type === "tariff"
+            ? projectedTariffMonthlySaving
+            : 0;
+    const expectation =
+      row.change_type === "contracted_power"
+        ? `Próximas facturas con ${row.new_value || "la potencia aplicada"} y menor cargo fijo.`
+        : row.change_type === "power_factor"
+          ? "Factor de potencia ≥ 0,95 y eliminación del recargo por energía reactiva."
+          : row.change_type === "tariff"
+            ? `Facturación bajo ${row.new_value || "la nueva tarifa"} desde el período efectivo.`
+            : "Sin nuevas facturas: gasto esperado $0 manteniendo el suministro en el historial.";
+    return { monthly, annual: monthly * 12, expectation };
+  }
   function beginEdit(row: MeterChangeControl) {
     setEditingId(row.id);
     setEditPeriod(String(row.effective_period).slice(0, 7));
@@ -318,6 +360,35 @@ export function MeterChangeControlPanel({
           0,
         ) / baselineInvoices.length
       : 0;
+    const effectiveMonthNumber = Number(effectivePeriod.slice(5, 7));
+    const effectivePowerRow = powerProposals.find(
+      (row) => row.monthNumber === effectiveMonthNumber,
+    );
+    const effectivePowerKw = Number(
+      actualPowers[effectiveMonthNumber] || effectivePowerRow?.proposalKw || 0,
+    );
+    const latestPowerRate = Math.max(
+      0,
+      ...history.flatMap((invoice) =>
+        (invoice.invoice_lines || [])
+          .filter((line) =>
+            ["DEM", "DEP"].includes(
+              String(line.concept_code || "").toUpperCase(),
+            ),
+          )
+          .map((line) => Number(line.unit_price || 0)),
+      ),
+    );
+    const projectedPowerMonthlySaving =
+      Math.max(0, Number(effectivePowerRow?.latestKw || 0) - effectivePowerKw) *
+      latestPowerRate *
+      1.3;
+    const projectedReactiveMonthlySaving = baselineInvoices.length
+      ? baselineInvoices.reduce(
+          (sum, invoice) => sum + invoiceMetrics(invoice).reactive,
+          0,
+        ) / baselineInvoices.length
+      : 0;
     const evidenceFile =
       type === "contracted_power"
         ? powerAttachment
@@ -364,17 +435,20 @@ export function MeterChangeControlPanel({
               ),
             })),
             attachment,
+            projected_monthly_saving: projectedPowerMonthlySaving,
           }
         : type === "power_factor"
           ? {
               capacitor_count: Number(capacitorCount || 0),
               installed_kvar: Number(installedKvar || 0),
+              projected_monthly_saving: projectedReactiveMonthlySaving,
             }
           : type === "tariff"
             ? {
                 previous_tariff: previousValue || currentTariff || null,
                 new_tariff: newValue || recommendedTariff || null,
                 agreement: attachment,
+                projected_monthly_saving: projectedTariffMonthlySaving,
               }
             : {
                 deactivated: true,
@@ -723,38 +797,21 @@ export function MeterChangeControlPanel({
             )}
             {workspace === "history" && (
               <div className="improvement-history-page">
-                <div className="improvement-history-kpis">
-                  <article>
-                    <span>TOTAL REGISTRADAS</span>
-                    <b>{controls.length}</b>
-                  </article>
-                  <article>
-                    <span>APLICADAS</span>
-                    <b>
-                      {
-                        controls.filter((row) => row.status === "applied")
-                          .length
-                      }
-                    </b>
-                  </article>
-                  <article>
-                    <span>VERIFICADAS</span>
-                    <b>
-                      {
-                        controls.filter((row) => row.status === "verified")
-                          .length
-                      }
-                    </b>
-                  </article>
-                  <article>
-                    <span>DESHECHAS</span>
-                    <b>
-                      {
-                        controls.filter((row) => row.status === "cancelled")
-                          .length
-                      }
-                    </b>
-                  </article>
+                <div className="improvement-history-title">
+                  <div>
+                    <span>REGISTRO DE CAMBIOS</span>
+                    <h2>Cambios realizados</h2>
+                    <p>
+                      Lista cronológica de las mejoras aplicadas al suministro.
+                    </p>
+                  </div>
+                  <b>
+                    {
+                      controls.filter((row) => row.status !== "cancelled")
+                        .length
+                    }{" "}
+                    vigentes
+                  </b>
                 </div>
                 {!controls.length && (
                   <div className="improvement-history-empty">
@@ -765,6 +822,15 @@ export function MeterChangeControlPanel({
                   </div>
                 )}
                 <div className="improvement-history-list">
+                  {!!controls.length && (
+                    <div className="improvement-history-list-head">
+                      <span>Período</span>
+                      <span>Mejora aplicada</span>
+                      <span>Cambio</span>
+                      <span>Estado</span>
+                      <span>Acciones</span>
+                    </div>
+                  )}
                   {[...controls]
                     .sort((a, b) =>
                       b.effective_period.localeCompare(a.effective_period),
@@ -776,27 +842,39 @@ export function MeterChangeControlPanel({
                           row.status === "cancelled" ? "cancelled" : ""
                         }
                       >
-                        <div className="improvement-history-card-head">
+                        <div className="improvement-history-row">
+                          <b>{String(row.effective_period).slice(0, 7)}</b>
                           <div>
-                            <span>
-                              {String(row.effective_period).slice(0, 7)}
-                            </span>
-                            <h3>{labels[row.change_type]}</h3>
-                            <p>
-                              {row.previous_value || "S/D"} →{" "}
-                              {row.new_value || "S/D"}
-                            </p>
+                            <b>{labels[row.change_type]}</b>
+                            {row.notes && <small>{row.notes}</small>}
                           </div>
+                          <span>
+                            {row.previous_value || "S/D"} →{" "}
+                            {row.new_value || "S/D"}
+                          </span>
                           <span className={`improvement-status ${row.status}`}>
                             {statusLabels[row.status]}
                           </span>
+                          <div className="improvement-history-actions">
+                            {attachmentOf(row) && (
+                              <button onClick={() => viewAttachment(row)}>
+                                Adjunto
+                              </button>
+                            )}
+                            <button onClick={() => beginEdit(row)}>
+                              Modificar
+                            </button>
+                            {row.status !== "cancelled" && (
+                              <button
+                                className="danger-action"
+                                onClick={() => undoControl(row)}
+                              >
+                                Deshacer
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {row.notes && (
-                          <p className="improvement-history-notes">
-                            {row.notes}
-                          </p>
-                        )}
-                        {editingId === row.id ? (
+                        {editingId === row.id && (
                           <form
                             className="improvement-edit-form"
                             onSubmit={updateControl}
@@ -868,100 +946,73 @@ export function MeterChangeControlPanel({
                               </button>
                             </div>
                           </form>
-                        ) : (
-                          <div className="improvement-history-actions">
-                            {attachmentOf(row) && (
-                              <button onClick={() => viewAttachment(row)}>
-                                Ver {attachmentOf(row)?.type.toLowerCase()}
-                              </button>
-                            )}
-                            <button onClick={() => beginEdit(row)}>
-                              Modificar
-                            </button>
-                            {row.status !== "cancelled" && (
-                              <button
-                                className="danger-action"
-                                onClick={() => undoControl(row)}
-                              >
-                                Deshacer cambio
-                              </button>
-                            )}
-                          </div>
                         )}
                       </article>
                     ))}
                 </div>
                 {error && <small className="danger">{error}</small>}
                 {!!valid.length && (
-                  <div className="improvement-tracking-block">
-                    <h3>Seguimiento antes y después</h3>
-                    {deactivationControl && (
-                      <div className="change-deactivation-saving">
-                        <div>
-                          <span>SUMINISTRO</span>
-                          <b>Activo → Dado de baja</b>
-                          <small>
-                            Visible para control · desde{" "}
-                            {deactivationControl.effective_period.slice(0, 7)}
-                          </small>
-                        </div>
-                        <div>
-                          <span>AHORRO POR BAJA</span>
-                          <b>
-                            {money.format(
-                              Number(
-                                deactivationControl.details
-                                  ?.baseline_monthly_cost || 0,
-                              ),
-                            )}{" "}
-                            /mes
-                          </b>
-                          <small>
-                            {money.format(
-                              Number(
-                                deactivationControl.details?.annual_saving || 0,
-                              ),
-                            )}{" "}
-                            anual estimado
-                          </small>
-                        </div>
+                  <div className="improvement-projections">
+                    <div className="improvement-projections-head">
+                      <div>
+                        <span>PROYECCIÓN FUTURA</span>
+                        <h2>Resultados esperados</h2>
+                        <p>
+                          Qué debería ocurrir después de aplicar cada cambio.
+                        </p>
                       </div>
-                    )}
-                    {comparison && (
-                      <div className="change-comparison">
-                        <div>
-                          <span>LÍNEA BASE</span>
-                          <b>
-                            {comparison.beforeCount} factura
-                            {comparison.beforeCount === 1 ? "" : "s"} anteriores
-                          </b>
-                        </div>
-                        <Comparison
-                          label="Importe promedio"
-                          before={comparison.before?.total}
-                          after={comparison.after?.total}
-                          format={money.format}
-                        />
-                        <Comparison
-                          label="Consumo promedio"
-                          before={comparison.before?.kwh}
-                          after={comparison.after?.kwh}
-                          format={(value) => `${number.format(value)} kWh`}
-                        />
-                        <Comparison
-                          label="Demanda promedio"
-                          before={comparison.before?.demand}
-                          after={comparison.after?.demand}
-                          format={(value) => `${number.format(value)} kW`}
-                        />
-                        <Comparison
-                          label="Recargo FP promedio"
-                          before={comparison.before?.reactive}
-                          after={comparison.after?.reactive}
-                          format={money.format}
-                        />
+                      <div>
+                        <span>AHORRO TOTAL PROYECTADO</span>
+                        <b>
+                          {money.format(
+                            valid.reduce(
+                              (sum, row) => sum + projectionOf(row).monthly,
+                              0,
+                            ),
+                          )}{" "}
+                          /mes
+                        </b>
+                        <small>
+                          {money.format(
+                            valid.reduce(
+                              (sum, row) => sum + projectionOf(row).annual,
+                              0,
+                            ),
+                          )}{" "}
+                          anual
+                        </small>
                       </div>
-                    )}
+                    </div>
+                    <div className="improvement-projection-list">
+                      {valid.map((row) => {
+                        const projection = projectionOf(row);
+                        return (
+                          <article key={row.id}>
+                            <div>
+                              <span>{labels[row.change_type]}</span>
+                              <b>{row.new_value || "Mejora aplicada"}</b>
+                              <small>
+                                Desde {row.effective_period.slice(0, 7)}
+                              </small>
+                            </div>
+                            <p>{projection.expectation}</p>
+                            <div>
+                              <span>AHORRO ESPERADO</span>
+                              <b>
+                                {projection.monthly > 0
+                                  ? `${money.format(projection.monthly)} /mes`
+                                  : "A validar"}
+                              </b>
+                              <small>
+                                {projection.annual > 0
+                                  ? `${money.format(projection.annual)} anual`
+                                  : "Se confirmará con próximas facturas"}
+                              </small>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
