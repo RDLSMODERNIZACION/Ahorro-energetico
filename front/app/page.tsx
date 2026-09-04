@@ -10,7 +10,10 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { HistoricalAnalysis } from "./analysis-charts";
-import { InvoiceAnalysisPanel } from "./invoice-analysis-panel";
+import {
+  calculateCanonicalSavings,
+  InvoiceAnalysisPanel,
+} from "./invoice-analysis-panel";
 import {
   EpenOptimizationPanel,
   type EpenOptimizationMeter,
@@ -821,15 +824,7 @@ export default function Home() {
           0,
         ),
       0,
-    ),
-    annualSaving = assessments.length
-      ? assessments.reduce(
-          (s, x) => s + Number(x.estimated_annual_saving || 0),
-          0,
-        )
-      : opportunities
-          .filter((x) => x.status !== "dismissed")
-          .reduce((s, x) => s + Number(x.estimated_annual_saving || 0), 0);
+    );
   const invoiceMonth = (x: Invoice) =>
     (x.billing_period || x.period_start).slice(0, 7);
   const periods = [...new Set(invoices.map(invoiceMonth))].sort().reverse();
@@ -893,30 +888,42 @@ export default function Home() {
       (invoice, index, list) =>
         list.findIndex((x) => x.meter_id === invoice.meter_id) === index,
     );
-  const localPowerAnnual = latestInvoiceByMeter.reduce(
-    (sum, invoice) => sum + invoicePowerSaving(invoice).amount * 12,
+  const canonicalLatestSavings = latestInvoiceByMeter.map((invoice) => {
+    const invoicePeriod = invoiceMonth(invoice);
+    const advancedPoint =
+      advancedTariffSummary?.billing_period === invoicePeriod
+        ? advancedTariffSummary.meters.find(
+            (row) => row.meter_id === invoice.meter_id && row.available,
+          )
+        : undefined;
+    return calculateCanonicalSavings({
+      invoice,
+      history: invoices.filter((row) => row.meter_id === invoice.meter_id),
+      assessment: assessments.find((row) => row.meter_id === invoice.meter_id),
+      tariffSavings,
+      advancedTariffPoint: advancedPoint,
+    });
+  });
+  const powerAnnual = canonicalLatestSavings.reduce(
+    (sum, row) => sum + row.powerAnnual,
     0,
   );
-  const localReactiveAnnual = latestInvoiceByMeter.reduce(
-    (sum, invoice) => sum + invoiceReactiveSaving(invoice) * 12,
+  const reactiveAnnual = canonicalLatestSavings.reduce(
+    (sum, row) => sum + row.reactiveAnnual,
     0,
   );
-  const powerAnnual = assessments.length
-    ? assessments.reduce((s, x) => s + Number(x.power_annual_saving || 0), 0)
-    : localPowerAnnual;
-  const reactiveAnnual = assessments.length
-    ? assessments.reduce((s, x) => s + Number(x.reactive_annual_saving || 0), 0)
-    : localReactiveAnnual;
-  const rateAnnual = tariffSavings.length
-      ? tariffSavings.reduce(
-          (s, x) => s + Number(x.annual_saving_with_vat || 0),
-          0,
-        )
-      : assessments.reduce(
-          (s, x) => s + Number(x.tariff_annual_saving || 0),
-          0,
-        ),
-    tariffAnnual = powerAnnual + reactiveAnnual + rateAnnual;
+  const rateAnnual = canonicalLatestSavings.reduce(
+    (sum, row) => sum + row.tariffAnnual,
+    0,
+  );
+  const deactivationAnnual = canonicalLatestSavings.reduce(
+    (sum, row) => sum + row.deactivationAnnual,
+    0,
+  );
+  const tariffAnnual = canonicalLatestSavings.reduce(
+    (sum, row) => sum + row.totalAnnual,
+    0,
+  );
   const reviewCount = assessments.length
     ? assessments.filter((x) => x.status !== "correct").length
     : latestInvoiceByMeter.filter(
@@ -1131,20 +1138,6 @@ export default function Home() {
   const dashboardMissing = activeMeters.filter(
     (m) => !dashboardPresentIds.has(m.id),
   );
-  const dashboardPowerCurve = buildDashboardPowerCurve(
-    invoices,
-    dashboardPeriod,
-  );
-  const dashboardPowerMonthly = dashboardPowerCurve.monthlySaving;
-  const dashboardPowerAnnual = dashboardPowerCurve.annualSaving;
-  const dashboardReactiveMonthly = dashboardInvoices.reduce(
-    (sum, i) => sum + invoiceReactiveSaving(i),
-    0,
-  );
-  const legacyDashboardRateMonthly = tariffSavings
-    .filter((x) => String(x.billing_period).slice(0, 7) === dashboardPeriod)
-    .reduce((sum, x) => sum + Number(x.monthly_saving_with_vat || 0), 0);
-
   const dashboardAdvancedRows =
     advancedTariffSummary?.billing_period === dashboardPeriod
       ? advancedTariffSummary.meters.filter(
@@ -1152,91 +1145,57 @@ export default function Home() {
         )
       : [];
 
-  const dashboardAdvancedMeterIds = new Set(
-    dashboardAdvancedRows.map((x) => x.meter_id),
+  const dashboardCanonicalRows = dashboardInvoices.map((invoice) => ({
+    meterId: invoice.meter_id,
+    saving: calculateCanonicalSavings({
+      invoice,
+      history: invoices.filter((row) => row.meter_id === invoice.meter_id),
+      assessment: assessments.find((row) => row.meter_id === invoice.meter_id),
+      tariffSavings,
+      advancedTariffPoint: dashboardAdvancedRows.find(
+        (row) => row.meter_id === invoice.meter_id,
+      ),
+    }),
+  }));
+  const dashboardPowerMonthly = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.powerMonthly,
+    0,
   );
-
-  const dashboardOptimizationFallbackRows = dashboardInvoices
-    .map((i) => {
-      if (dashboardAdvancedMeterIds.has(i.meter_id)) return null;
-
-      const opt = epenOptimization.find((x) => x.meter_id === i.meter_id);
-      if (!opt) return null;
-
-      const mtSaving = ["strong", "candidate", "preliminary"].includes(
-        opt.mt.status,
-      )
-        ? Number(opt.mt.monthly_saving_before_taxes || 0)
-        : 0;
-
-      const t4Saving =
-        opt.t4.status === "candidate"
-          ? Number(opt.t4.monthly_saving_before_taxes || 0)
-          : 0;
-
-      const saving = mtSaving > 0 ? mtSaving : t4Saving;
-      if (saving <= 0) return null;
-
-      return {
-        meter_id: i.meter_id,
-        monthly_saving: saving,
-        scenario: mtSaving > 0 ? "mt" : "t4",
-      };
-    })
-    .filter(
-      (
-        x,
-      ): x is {
-        meter_id: string;
-        monthly_saving: number;
-        scenario: "mt" | "t4";
-      } => Boolean(x),
-    );
-
-  const dashboardOptimizationFallbackMonthly =
-    dashboardOptimizationFallbackRows.reduce(
-      (sum, x) => sum + x.monthly_saving,
-      0,
-    );
-
-  const dashboardRateMonthly =
-    advancedTariffSummary?.billing_period === dashboardPeriod
-      ? Number(advancedTariffSummary.monthly_saving || 0) +
-        dashboardOptimizationFallbackMonthly
-      : legacyDashboardRateMonthly + dashboardOptimizationFallbackMonthly;
-
-  const dashboardTariffValuedCount =
-    dashboardAdvancedRows.length + dashboardOptimizationFallbackRows.length;
-  const dashboardTotalMonthly =
-    dashboardPowerMonthly + dashboardReactiveMonthly + dashboardRateMonthly;
-  const dashboardTotalAnnual =
-    dashboardPowerAnnual +
-    dashboardReactiveMonthly * 12 +
-    dashboardRateMonthly * 12;
-  const dashboardOpportunityIds = new Set<string>();
-  for (const i of dashboardInvoices) {
-    const hasPower = dashboardPowerCurve.opportunityMeterIds.has(i.meter_id);
-    const hasReactive = invoiceReactiveSaving(i) > 0;
-    const hasTariff =
-      dashboardAdvancedMeterIds.has(i.meter_id) ||
-      dashboardOptimizationFallbackRows.some(
-        (x) => x.meter_id === i.meter_id,
-      ) ||
-      (advancedTariffSummary?.billing_period !== dashboardPeriod &&
-        tariffSavings.some(
-          (x) =>
-            x.meter_id === i.meter_id &&
-            String(x.billing_period).slice(0, 7) === dashboardPeriod &&
-            Number(x.monthly_saving_with_vat || 0) > 0,
-        ));
-    if (hasPower || hasReactive || hasTariff)
-      dashboardOpportunityIds.add(i.meter_id);
-  }
+  const dashboardPowerAnnual = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.powerAnnual,
+    0,
+  );
+  const dashboardReactiveMonthly = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.reactiveMonthly,
+    0,
+  );
+  const dashboardRateMonthly = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.tariffMonthly,
+    0,
+  );
+  const dashboardTariffValuedCount = dashboardCanonicalRows.filter(
+    (row) => row.saving.tariffMonthly > 0,
+  ).length;
+  const dashboardTotalMonthly = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.totalMonthly,
+    0,
+  );
+  const dashboardTotalAnnual = dashboardCanonicalRows.reduce(
+    (sum, row) => sum + row.saving.totalAnnual,
+    0,
+  );
+  const dashboardOpportunityIds = new Set(
+    dashboardCanonicalRows
+      .filter((row) => row.saving.totalMonthly > 0)
+      .map((row) => row.meterId),
+  );
   const dashboardLowPf = dashboardInvoices.filter((i) => {
     const p = metrics(i).pf;
     return p > 0 && p < 0.95;
   }).length;
-  const dashboardPowerExcess = dashboardPowerCurve.opportunityMeterIds.size;
+  const dashboardPowerExcess = dashboardCanonicalRows.filter(
+    (row) => row.saving.powerMonthly > 0,
+  ).length;
   const openMeter = (i: Invoice) => {
     setSelectedInvoice(i);
     setSelectedMeter(i.meter_id);
@@ -1697,6 +1656,7 @@ export default function Home() {
                   <div className="invoice-unified-scroll">
                     <InvoiceTable
                       invoices={filteredInvoices}
+                      allInvoices={invoices}
                       assessments={assessments}
                       tariffSavings={tariffSavings}
                       epenOptimization={epenOptimization}
@@ -1872,6 +1832,11 @@ export default function Home() {
                 <b>{money.format(rateAnnual)}</b>
                 <small>ahorro anual simulado</small>
               </article>
+              <article>
+                <span>Baja del suministro</span>
+                <b>{money.format(deactivationAnnual)}</b>
+                <small>alternativa, no se suma dos veces</small>
+              </article>
               <article className="total">
                 <span>Total de propuestas</span>
                 <b>{money.format(tariffAnnual)}</b>
@@ -1941,6 +1906,9 @@ export default function Home() {
                   (x) => x.meter_id === selectedInvoice.meter_id,
                 )}
                 tariffSavings={tariffSavings}
+                assessment={assessments.find(
+                  (x) => x.meter_id === selectedInvoice.meter_id,
+                )}
                 optimization={epenOptimization.find(
                   (x) => x.meter_id === selectedInvoice.meter_id,
                 )}
@@ -2321,6 +2289,7 @@ function metrics(i: Invoice) {
 }
 function InvoiceTable({
   invoices,
+  allInvoices,
   assessments,
   tariffSavings,
   epenOptimization,
@@ -2332,6 +2301,7 @@ function InvoiceTable({
   onSelectMeter,
 }: {
   invoices: Invoice[];
+  allInvoices: Invoice[];
   assessments: TariffAssessment[];
   tariffSavings: TariffSaving[];
   epenOptimization: EpenOptimizationMeter[];
@@ -2492,13 +2462,6 @@ function InvoiceTable({
                   candidate.billing_period.slice(0, 7) === period)
                   ? candidate
                   : undefined,
-              power = invoicePowerSaving(i),
-              powerSaving =
-                power.amount || Number(assessment?.power_monthly_saving || 0),
-              invoiceReactive = invoiceReactiveSaving(i),
-              reactiveSaving =
-                invoiceReactive ||
-                Number(assessment?.reactive_monthly_saving || 0),
               advancedTariffRow =
                 advancedTariffSummary?.billing_period === period
                   ? advancedTariffSummary.meters.find(
@@ -2515,60 +2478,32 @@ function InvoiceTable({
               advancedSummarySaving = Number(
                 advancedTariffRow?.monthly_saving || 0,
               ),
-              optimizationMtSaving =
-                advanced &&
-                ["strong", "candidate", "preliminary"].includes(
-                  advanced.mt.status,
-                )
-                  ? Number(advanced.mt.monthly_saving_before_taxes || 0)
-                  : 0,
-              optimizationT4Saving =
-                advanced?.t4.status === "candidate"
-                  ? Number(advanced.t4.monthly_saving_before_taxes || 0)
-                  : 0,
-              advancedTariffSaving =
-                advancedSummarySaving > 0
-                  ? advancedSummarySaving
-                  : optimizationMtSaving > 0
-                    ? optimizationMtSaving
-                    : optimizationT4Saving,
-              legacyTariffSaving = Math.max(
-                Number(tariffResult?.monthly_saving_with_vat || 0),
-                Number(assessment?.tariff_monthly_saving || 0),
-                Math.max(
-                  0,
-                  Number(assessment?.tariff_current_simulated || 0) -
-                    Number(assessment?.tariff_recommended_simulated || 0),
-                ),
-              ),
-              tariffSaving =
-                advancedTariffSaving > 0
-                  ? advancedTariffSaving
-                  : legacyTariffSaving,
               advancedTariffLabel =
                 advancedSummarySaving > 0
                   ? `${advancedTariffRow?.current_tariff || "Tarifa"} → ${advancedTariffRow?.recommended_tariff || "Propuesta"}`
-                  : optimizationMtSaving > 0
-                    ? `${String(i.current_tariff_code || i.meters?.current_tariff_code || "Tarifa")}-BT → ${String(i.current_tariff_code || i.meters?.current_tariff_code || "Tarifa")}-MT`
-                    : optimizationT4Saving > 0
-                      ? `${String(i.current_tariff_code || i.meters?.current_tariff_code || "T3")}-${String(i.voltage_level || i.meters?.voltage_level || "MT")} → ${advanced?.t4.target_tariff || "T4"}`
-                      : assessment?.current_tariff &&
-                          assessment.current_tariff !==
-                            assessment.recommended_tariff
-                        ? `${assessment.current_tariff} → ${assessment.recommended_tariff}`
-                        : "Tarifaria",
-              deactivationSaving = assessment?.deactivation_candidate
-                ? Number(assessment.deactivation_monthly_saving || 0)
-                : 0,
-              optimizationSaving = powerSaving + reactiveSaving + tariffSaving,
-              estimatedSaving = Math.max(
-                optimizationSaving,
-                deactivationSaving,
-              ),
+                  : assessment?.current_tariff &&
+                      assessment.current_tariff !==
+                        assessment.recommended_tariff
+                    ? `${assessment.current_tariff} → ${assessment.recommended_tariff}`
+                    : "Tarifaria",
+              canonicalSaving = calculateCanonicalSavings({
+                invoice: i,
+                history: allInvoices.filter(
+                  (invoice) => invoice.meter_id === i.meter_id,
+                ),
+                assessment,
+                tariffSavings,
+                advancedTariffPoint: advancedTariffRow,
+              }),
+              powerSaving = canonicalSaving.powerMonthly,
+              reactiveSaving = canonicalSaving.reactiveMonthly,
+              tariffSaving = canonicalSaving.tariffMonthly,
+              deactivationSaving = canonicalSaving.deactivationMonthly,
+              estimatedSaving = canonicalSaving.totalMonthly,
               measures = [
                 powerSaving > 0 ? "Potencia contratada" : "",
                 tariffSaving > 0
-                  ? advancedTariffSaving > 0
+                  ? advancedSummarySaving > 0
                     ? advancedTariffLabel
                     : "Tarifaria"
                   : "",
@@ -2719,12 +2654,9 @@ function InvoiceTable({
                 <td>
                   {estimatedSaving > 0 ? (
                     <strong className="row-saving">
-                      {money.format(estimatedSaving * 12)}
+                      {money.format(canonicalSaving.totalAnnual)}
                       <small>
-                        {money.format(estimatedSaving)} mensual × 12
-                        {advancedTariffSaving > 0
-                          ? " · tarifa antes de impuestos"
-                          : ""}
+                        {money.format(estimatedSaving)} mensual · cálculo único
                       </small>
                     </strong>
                   ) : (
