@@ -1222,11 +1222,22 @@ export function MeterChangeControlPanel({
                     {trackableControls.length ? (
                       <div className="improvement-monthly-chart">
                         <div className="improvement-monthly-chart-summary">
-                          <span>
-                            {projectionMetric === "saving"
-                              ? "TOTAL 12 MESES SIN CORRECCIÓN"
-                              : "TOTAL 12 MESES CON CORRECCIÓN"}
-                          </span>
+                          <div>
+                            <span>
+                              {projectionMetric === "saving"
+                                ? "TOTAL 12 MESES SIN CORRECCIÓN"
+                                : "TOTAL 12 MESES CON CORRECCIÓN"}
+                            </span>
+                            <small className="improvement-bar-legend">
+                              <i className="without" /> Sin corrección
+                              {projectionMetric === "avoided_cost" && (
+                                <>
+                                  <i className="proposed" /> Propuesta
+                                  <i className="actual" /> Confirmada
+                                </>
+                              )}
+                            </small>
+                          </div>
                           <b>
                             {money.format(
                               improvementTrackingMonths.reduce(
@@ -1248,14 +1259,15 @@ export function MeterChangeControlPanel({
                                 : point.withCorrection;
                             const maximum = Math.max(
                               1,
-                              ...improvementTrackingMonths.map((item) =>
-                                projectionMetric === "saving"
-                                  ? item.withoutCorrection
-                                  : item.withCorrection,
+                              ...improvementTrackingMonths.map(
+                                (item) => item.withoutCorrection,
                               ),
                             );
                             const period = point.period;
                             const perceived = point.confirmed > 0;
+                            const fullyConfirmed =
+                              point.projected > 0 &&
+                              point.confirmed >= point.projected - 0.5;
                             return (
                               <button
                                 type="button"
@@ -1272,11 +1284,33 @@ export function MeterChangeControlPanel({
                                 <strong>{money.format(value)}</strong>
                                 <span className="bar-track">
                                   <i
-                                    className={perceived ? "perceived" : ""}
+                                    className={`without ${
+                                      projectionMetric === "saving"
+                                        ? "single"
+                                        : ""
+                                    }`}
                                     style={{
-                                      height: `${Math.max(4, (value / maximum) * 100)}%`,
+                                      height: `${Math.max(
+                                        4,
+                                        (point.withoutCorrection / maximum) *
+                                          100,
+                                      )}%`,
                                     }}
                                   />
+                                  {projectionMetric === "avoided_cost" && (
+                                    <i
+                                      className={
+                                        fullyConfirmed ? "actual" : "proposed"
+                                      }
+                                      style={{
+                                        height: `${Math.max(
+                                          4,
+                                          (point.withCorrection / maximum) *
+                                            100,
+                                        )}%`,
+                                      }}
+                                    />
+                                  )}
                                 </span>
                                 <b>{period}</b>
                                 <small className="monthly-saving-values">
