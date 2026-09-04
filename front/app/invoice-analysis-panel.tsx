@@ -1101,6 +1101,18 @@ export function InvoiceAnalysisPanel({
             controls={changeControls.filter(
               (row) => row.meter_id === selected.meter_id,
             )}
+            powerProposals={powerCurve.rows.map((row) => ({
+              month: row.month,
+              monthNumber: row.monthNumber,
+              proposalKw: row.proposalKw,
+              method: row.method,
+              quarter: row.quarter,
+            }))}
+            currentTariff={selected.current_tariff_code}
+            recommendedTariff={
+              advancedTariffHistory?.recommended_tariff ||
+              selectedAssessment?.recommended_tariff
+            }
             onSaved={() => onChangeControls?.()}
           />
         )}
