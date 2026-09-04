@@ -7,6 +7,7 @@ create table if not exists public.meter_change_controls (
   status text not null default 'applied' check (status in ('planned','applied','verified','cancelled')),
   previous_value text,
   new_value text,
+  details jsonb not null default '{}'::jsonb,
   notes text,
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
