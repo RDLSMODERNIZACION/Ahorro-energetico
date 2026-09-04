@@ -118,6 +118,9 @@ export function MeterChangeControlPanel({
   powerProposals,
   currentTariff,
   recommendedTariff,
+  displayMode = "launcher",
+  onOpenPage,
+  onClosePage,
   onSaved,
 }: {
   organizationId: string;
@@ -136,10 +139,12 @@ export function MeterChangeControlPanel({
   }>;
   currentTariff?: string;
   recommendedTariff?: string;
+  displayMode?: "launcher" | "page";
+  onOpenPage?: () => void;
+  onClosePage?: () => void;
   onSaved: () => Promise<void> | void;
 }) {
-  const [open, setOpen] = useState(false),
-    [saving, setSaving] = useState(false),
+  const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   const [workspace, setWorkspace] = useState<"register" | "history">("history"),
     [editingId, setEditingId] = useState<string | null>(null),
@@ -163,7 +168,8 @@ export function MeterChangeControlPanel({
     [tariffCategories, setTariffCategories] = useState<TariffCategory[]>([]),
     [supplyStatus, setSupplyStatus] = useState<"active" | "removed">("active");
   useEffect(() => {
-    if (!open || type !== "tariff" || tariffCategories.length) return;
+    if (displayMode !== "page" || type !== "tariff" || tariffCategories.length)
+      return;
     supabase
       .from("tariff_categories")
       .select("code,name")
@@ -172,7 +178,7 @@ export function MeterChangeControlPanel({
         if (categoryError) setError(categoryError.message);
         else setTariffCategories((data || []) as TariffCategory[]);
       });
-  }, [open, type, tariffCategories.length]);
+  }, [displayMode, type, tariffCategories.length]);
   const valid = controls
     .filter((row) => row.status !== "cancelled")
     .sort((a, b) => a.effective_period.localeCompare(b.effective_period));
@@ -425,35 +431,37 @@ export function MeterChangeControlPanel({
   }
   return (
     <section className="invoice-analysis-panel change-control-panel">
-      <div className="change-control-head">
-        <div>
-          <span>CONTROL DE CAMBIOS</span>
-          <h3>Seguimiento antes y después</h3>
-          <p>
-            Las facturas se clasifican desde el período efectivo de cada
-            intervención.
-          </p>
+      {displayMode === "launcher" && (
+        <div className="change-control-head">
+          <div>
+            <span>CONTROL DE CAMBIOS</span>
+            <h3>Seguimiento antes y después</h3>
+            <p>
+              Las facturas se clasifican desde el período efectivo de cada
+              intervención.
+            </p>
+          </div>
+          <div className="change-control-actions">
+            <span className={`change-phase ${phase}`}>
+              {phase === "after"
+                ? "DESPUÉS DEL CAMBIO"
+                : phase === "before"
+                  ? "ANTES DEL CAMBIO"
+                  : "SIN CAMBIOS REGISTRADOS"}
+            </span>
+            <button
+              onClick={() => {
+                setWorkspace("history");
+                onOpenPage?.();
+              }}
+            >
+              Abrir control de mejoras →
+            </button>
+          </div>
         </div>
-        <div className="change-control-actions">
-          <span className={`change-phase ${phase}`}>
-            {phase === "after"
-              ? "DESPUÉS DEL CAMBIO"
-              : phase === "before"
-                ? "ANTES DEL CAMBIO"
-                : "SIN CAMBIOS REGISTRADOS"}
-          </span>
-          <button
-            onClick={() => {
-              setWorkspace("history");
-              setOpen(true);
-            }}
-          >
-            Abrir control de mejoras →
-          </button>
-        </div>
-      </div>
-      {open && (
-        <div className="improvement-backdrop">
+      )}
+      {displayMode === "page" && (
+        <div className="improvement-standalone">
           <div className="improvement-page">
             <div className="improvement-head">
               <div>
@@ -464,7 +472,7 @@ export function MeterChangeControlPanel({
                   suministro.
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)}>
+              <button type="button" onClick={onClosePage}>
                 ← Volver al análisis
               </button>
             </div>
@@ -693,7 +701,7 @@ export function MeterChangeControlPanel({
                     <button
                       type="button"
                       className="secondary"
-                      onClick={() => setOpen(false)}
+                      onClick={onClosePage}
                     >
                       Cancelar
                     </button>
