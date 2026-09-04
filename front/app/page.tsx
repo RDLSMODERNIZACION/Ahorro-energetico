@@ -2373,8 +2373,21 @@ function InvoiceTable({
               : sort === "pf"
                 ? metrics(i).pf
                 : i.current_tariff_code || "",
+    hasImplementedImprovement = (i: Invoice) => {
+      const invoicePeriod = (i.billing_period || i.period_start).slice(0, 7);
+      return changeControls.some(
+        (row) =>
+          row.meter_id === i.meter_id &&
+          ["applied", "verified"].includes(row.status) &&
+          String(row.effective_period).slice(0, 7) <= invoicePeriod,
+      );
+    },
     sorted = [...invoices].sort((a, b) => {
-      if (!sort) return 0;
+      if (!sort)
+        return (
+          Number(hasImplementedImprovement(b)) -
+          Number(hasImplementedImprovement(a))
+        );
       if (sort === "pf") {
         const ap = metrics(a).pf,
           bp = metrics(b).pf,
@@ -2547,10 +2560,17 @@ function InvoiceTable({
                 reactiveSaving > 0 ? "Factor de potencia" : "",
               ].filter(Boolean),
               meterControls = changeControls
-                .filter((row) => row.meter_id === i.meter_id && row.status !== "cancelled")
-                .sort((a, b) => a.effective_period.localeCompare(b.effective_period)),
+                .filter(
+                  (row) =>
+                    row.meter_id === i.meter_id && row.status !== "cancelled",
+                )
+                .sort((a, b) =>
+                  a.effective_period.localeCompare(b.effective_period),
+                ),
               appliedControls = meterControls.filter(
-                (row) => String(row.effective_period).slice(0, 7) <= period,
+                (row) =>
+                  ["applied", "verified"].includes(row.status) &&
+                  String(row.effective_period).slice(0, 7) <= period,
               ),
               controlPhase = appliedControls.length
                 ? "after"
@@ -2580,7 +2600,9 @@ function InvoiceTable({
                   <small>Factura {i.invoice_number || "S/D"}</small>
                   {controlPhase !== "none" && (
                     <span className={`invoice-control-badge ${controlPhase}`}>
-                      {controlPhase === "after" ? "DESPUÉS DEL CAMBIO" : "ANTES DEL CAMBIO"}
+                      {controlPhase === "after"
+                        ? "DESPUÉS DEL CAMBIO"
+                        : "ANTES DEL CAMBIO"}
                     </span>
                   )}
                   {appliedControls.length > 0 && (
