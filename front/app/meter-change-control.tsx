@@ -118,6 +118,8 @@ export function MeterChangeControlPanel({
   powerProposals,
   currentTariff,
   recommendedTariff,
+  meterName,
+  meterReference,
   displayMode = "launcher",
   onOpenPage,
   onClosePage,
@@ -139,6 +141,8 @@ export function MeterChangeControlPanel({
   }>;
   currentTariff?: string;
   recommendedTariff?: string;
+  meterName?: string;
+  meterReference?: string;
   displayMode?: "launcher" | "page";
   onOpenPage?: () => void;
   onClosePage?: () => void;
@@ -471,6 +475,10 @@ export function MeterChangeControlPanel({
                   Registro, historial, correcciones y seguimiento del
                   suministro.
                 </p>
+                <div className="improvement-meter-identity">
+                  <b>{meterName || "Suministro seleccionado"}</b>
+                  <span>{meterReference || meterId}</span>
+                </div>
               </div>
               <button type="button" onClick={onClosePage}>
                 ← Volver al análisis
