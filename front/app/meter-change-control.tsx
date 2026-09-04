@@ -187,6 +187,9 @@ export function MeterChangeControlPanel({
     [editStatus, setEditStatus] =
       useState<MeterChangeControl["status"]>("applied");
   const [selectedComparisonPeriod, setSelectedComparisonPeriod] = useState("");
+  const [projectionMetric, setProjectionMetric] = useState<
+    "saving" | "avoided_cost"
+  >("saving");
   const [type, setType] =
     useState<MeterChangeControl["change_type"]>("contracted_power");
   const [effectivePeriod, setEffectivePeriod] = useState(selectedPeriod),
@@ -1037,67 +1040,170 @@ export function MeterChangeControlPanel({
                   <div className="improvement-projections">
                     <div className="improvement-projections-head">
                       <div>
-                        <span>PROYECCIÓN FUTURA</span>
-                        <h2>Proyección de ahorro esperada</h2>
+                        <span>PROYECCIÓN Y SEGUIMIENTO</span>
+                        <h2>Evolución mensual del cambio</h2>
                         <p>
-                          Impacto económico acumulado desde la aplicación de las
-                          mejoras.
+                          Seleccioná un mes para ver debajo el ahorro
+                          proyectado, el percibido y el detalle de la tarifa.
                         </p>
                       </div>
-                      <div>
-                        <span>AHORRO TOTAL PROYECTADO</span>
-                        <b>{money.format(projectedMonthlyTotal)} /mes</b>
-                        <small>
-                          {money.format(projectedMonthlyTotal * 12)} anual
-                        </small>
-                      </div>
+                      {tariffChange && comparableTariffPoints.length ? (
+                        <div className="improvement-projection-switch">
+                          <button
+                            type="button"
+                            className={
+                              projectionMetric === "saving" ? "active" : ""
+                            }
+                            onClick={() => setProjectionMetric("saving")}
+                          >
+                            Lo ahorrado
+                          </button>
+                          <button
+                            type="button"
+                            className={
+                              projectionMetric === "avoided_cost"
+                                ? "active"
+                                : ""
+                            }
+                            onClick={() => setProjectionMetric("avoided_cost")}
+                          >
+                            Lo que hubiera pagado
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <span>AHORRO TOTAL PROYECTADO</span>
+                          <b>{money.format(projectedMonthlyTotal)} /mes</b>
+                          <small>
+                            {money.format(projectedMonthlyTotal * 12)} anual
+                          </small>
+                        </div>
+                      )}
                     </div>
-                    <div className="improvement-projection-summary">
-                      {[
-                        { label: "PRÓXIMO MES", months: 1 },
-                        { label: "EN 3 MESES", months: 3 },
-                        { label: "EN 6 MESES", months: 6 },
-                        { label: "EN 12 MESES", months: 12 },
-                      ].map((item) => (
-                        <article key={item.months}>
-                          <span>{item.label}</span>
+                    {tariffChange && comparableTariffPoints.length ? (
+                      <div className="improvement-monthly-chart">
+                        <div className="improvement-monthly-chart-summary">
+                          <span>
+                            {projectionMetric === "saving"
+                              ? "AHORRO PROYECTADO ACUMULADO"
+                              : "TOTAL QUE HUBIERA PAGADO"}
+                          </span>
                           <b>
-                            {money.format(projectedMonthlyTotal * item.months)}
+                            {money.format(
+                              comparableTariffPoints.reduce(
+                                (sum, point) =>
+                                  sum +
+                                  (projectionMetric === "saving"
+                                    ? projectedTariffSavingFor(point)
+                                    : point.current_cost),
+                                0,
+                              ),
+                            )}
                           </b>
-                          <small>Ahorro acumulado estimado</small>
-                        </article>
-                      ))}
-                    </div>
-                    <div className="improvement-projection-list">
-                      {valid.map((row) => {
-                        const projection = projectionOf(row);
-                        return (
-                          <article key={row.id}>
-                            <div>
-                              <span>{labels[row.change_type]}</span>
-                              <b>{row.new_value || "Mejora aplicada"}</b>
-                              <small>
-                                Desde {row.effective_period.slice(0, 7)}
-                              </small>
-                            </div>
-                            <p>{projection.expectation}</p>
-                            <div>
-                              <span>AHORRO ESPERADO</span>
+                        </div>
+                        <div className="improvement-monthly-bars">
+                          {comparableTariffPoints.map((point) => {
+                            const value =
+                              projectionMetric === "saving"
+                                ? projectedTariffSavingFor(point)
+                                : point.current_cost;
+                            const maximum = Math.max(
+                              1,
+                              ...comparableTariffPoints.map((item) =>
+                                projectionMetric === "saving"
+                                  ? projectedTariffSavingFor(item)
+                                  : item.current_cost,
+                              ),
+                            );
+                            const period = point.billing_period.slice(0, 7);
+                            const perceived =
+                              perceivedTariffSavingFor(point) > 0;
+                            return (
+                              <button
+                                type="button"
+                                key={period}
+                                className={
+                                  selectedTariffPoint?.billing_period.slice(
+                                    0,
+                                    7,
+                                  ) === period
+                                    ? "active"
+                                    : ""
+                                }
+                                onClick={() =>
+                                  setSelectedComparisonPeriod(period)
+                                }
+                              >
+                                <strong>{money.format(value)}</strong>
+                                <span className="bar-track">
+                                  <i
+                                    className={perceived ? "perceived" : ""}
+                                    style={{
+                                      height: `${Math.max(4, (value / maximum) * 100)}%`,
+                                    }}
+                                  />
+                                </span>
+                                <b>{period}</b>
+                                <small>
+                                  {perceived ? "Percibido" : "Proyectado"}
+                                </small>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="improvement-projection-summary">
+                          {[
+                            { label: "PRÓXIMO MES", months: 1 },
+                            { label: "EN 3 MESES", months: 3 },
+                            { label: "EN 6 MESES", months: 6 },
+                            { label: "EN 12 MESES", months: 12 },
+                          ].map((item) => (
+                            <article key={item.months}>
+                              <span>{item.label}</span>
                               <b>
-                                {projection.monthly > 0
-                                  ? `${money.format(projection.monthly)} /mes`
-                                  : "A validar"}
+                                {money.format(
+                                  projectedMonthlyTotal * item.months,
+                                )}
                               </b>
-                              <small>
-                                {projection.annual > 0
-                                  ? `${money.format(projection.annual)} anual`
-                                  : "Se confirmará con próximas facturas"}
-                              </small>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
+                              <small>Ahorro acumulado estimado</small>
+                            </article>
+                          ))}
+                        </div>
+                        <div className="improvement-projection-list">
+                          {valid.map((row) => {
+                            const projection = projectionOf(row);
+                            return (
+                              <article key={row.id}>
+                                <div>
+                                  <span>{labels[row.change_type]}</span>
+                                  <b>{row.new_value || "Mejora aplicada"}</b>
+                                  <small>
+                                    Desde {row.effective_period.slice(0, 7)}
+                                  </small>
+                                </div>
+                                <p>{projection.expectation}</p>
+                                <div>
+                                  <span>AHORRO ESPERADO</span>
+                                  <b>
+                                    {projection.monthly > 0
+                                      ? `${money.format(projection.monthly)} /mes`
+                                      : "A validar"}
+                                  </b>
+                                  <small>
+                                    {projection.annual > 0
+                                      ? `${money.format(projection.annual)} anual`
+                                      : "Se confirmará con próximas facturas"}
+                                  </small>
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 {tariffChange && (
@@ -1145,59 +1251,6 @@ export function MeterChangeControlPanel({
                       </div>
                     ) : (
                       <>
-                        <div className="improvement-real-bars">
-                          {comparableTariffPoints.map((point) => {
-                            const projected = projectedTariffSavingFor(point);
-                            const perceived = perceivedTariffSavingFor(point);
-                            const scale = Math.max(projected, perceived, 1);
-                            const period = point.billing_period.slice(0, 7);
-                            return (
-                              <button
-                                key={period}
-                                className={
-                                  selectedTariffPoint?.billing_period.slice(
-                                    0,
-                                    7,
-                                  ) === period
-                                    ? "active"
-                                    : ""
-                                }
-                                onClick={() =>
-                                  setSelectedComparisonPeriod(period)
-                                }
-                              >
-                                <b>{period}</b>
-                                <div>
-                                  <span>Proyectado</span>
-                                  <i
-                                    className="projected"
-                                    style={{
-                                      width: `${(projected / scale) * 100}%`,
-                                    }}
-                                  />
-                                  <em>{money.format(projected)}</em>
-                                </div>
-                                <div>
-                                  <span>Percibido</span>
-                                  <i
-                                    className="perceived"
-                                    style={{
-                                      width: `${(perceived / scale) * 100}%`,
-                                    }}
-                                  />
-                                  <em>{money.format(perceived)}</em>
-                                </div>
-                                <strong
-                                  className={perceived > 0 ? "ok" : "pending"}
-                                >
-                                  {perceived > 0
-                                    ? "Ahorro confirmado"
-                                    : `Pendiente de factura ${point.recommended_tariff}`}
-                                </strong>
-                              </button>
-                            );
-                          })}
-                        </div>
                         {selectedTariffPoint && (
                           <div className="improvement-real-detail">
                             <div className="improvement-real-status">
