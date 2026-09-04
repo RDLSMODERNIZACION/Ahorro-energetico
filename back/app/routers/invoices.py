@@ -11,7 +11,8 @@ router = APIRouter(tags=["Facturas"])
 INVOICE_LIST_SELECT = (
     "id,organization_id,meter_id,invoice_number,"
     "period_start,period_end,issue_date,due_date,current_tariff_code,"
-    "voltage_level,contracted_kw_peak,contracted_kw_off_peak,total_amount,"
+    "voltage_level,contracted_kw_peak,contracted_kw_off_peak,subtotal,"
+    "net_taxable,total_amount,"
     "amount_due,billing_period,tariff_name,tariff_class,vat_amount,"
     "previous_debt_amount,"
     "meters(id,meter_number,nis,tracking_code,supply_number,contract_number,"
