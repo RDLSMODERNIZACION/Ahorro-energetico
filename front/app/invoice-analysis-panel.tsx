@@ -1070,6 +1070,7 @@ export function InvoiceAnalysisPanel({
               selectedAssessment?.recommended_tariff
             }
             projectedTariffMonthlySaving={tariffSaving}
+            tariffComparisonPoints={advancedTariffHistory?.points || []}
             meterName={displayName}
             meterReference={`${m?.tracking_code || "Sin ID"} · Medidor ${m?.meter_number || "S/D"} · Suministro ${m?.supply_number || "S/D"}`}
             displayMode="page"
@@ -1161,6 +1162,7 @@ export function InvoiceAnalysisPanel({
               selectedAssessment?.recommended_tariff
             }
             projectedTariffMonthlySaving={tariffSaving}
+            tariffComparisonPoints={advancedTariffHistory?.points || []}
             meterName={displayName}
             meterReference={`${m?.tracking_code || "Sin ID"} · Medidor ${m?.meter_number || "S/D"}`}
             onOpenPage={() => setControlPageOpen(true)}
