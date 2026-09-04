@@ -93,6 +93,21 @@ function average(rows: Invoice[]) {
     { kwh: 0, demand: 0, pf: 0, reactive: 0, total: 0 },
   );
 }
+function attachmentOf(row: MeterChangeControl) {
+  const value =
+    row.change_type === "tariff"
+      ? row.details?.agreement
+      : row.details?.attachment;
+  if (!value || typeof value !== "object") return null;
+  const document = value as Record<string, unknown>;
+  return typeof document.path === "string"
+    ? {
+        path: document.path,
+        name: String(document.name || "Adjunto"),
+        type: String(document.document_type || "Adjunto"),
+      }
+    : null;
+}
 
 export function MeterChangeControlPanel({
   organizationId,
@@ -126,6 +141,14 @@ export function MeterChangeControlPanel({
   const [open, setOpen] = useState(false),
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
+  const [workspace, setWorkspace] = useState<"register" | "history">("history"),
+    [editingId, setEditingId] = useState<string | null>(null),
+    [editPeriod, setEditPeriod] = useState(""),
+    [editPrevious, setEditPrevious] = useState(""),
+    [editNew, setEditNew] = useState(""),
+    [editNotes, setEditNotes] = useState(""),
+    [editStatus, setEditStatus] =
+      useState<MeterChangeControl["status"]>("applied");
   const [type, setType] =
     useState<MeterChangeControl["change_type"]>("contracted_power");
   const [effectivePeriod, setEffectivePeriod] = useState(selectedPeriod),
@@ -194,6 +217,62 @@ export function MeterChangeControlPanel({
       afterCount: after.length,
     };
   }, [history, valid]);
+  function beginEdit(row: MeterChangeControl) {
+    setEditingId(row.id);
+    setEditPeriod(String(row.effective_period).slice(0, 7));
+    setEditPrevious(row.previous_value || "");
+    setEditNew(row.new_value || "");
+    setEditNotes(row.notes || "");
+    setEditStatus(row.status);
+    setError("");
+  }
+  async function updateControl(event: FormEvent) {
+    event.preventDefault();
+    if (!editingId) return;
+    setSaving(true);
+    setError("");
+    const { error: updateError } = await supabase
+      .from("meter_change_controls")
+      .update({
+        effective_period: `${editPeriod}-01`,
+        previous_value: editPrevious || null,
+        new_value: editNew || null,
+        notes: editNotes || null,
+        status: editStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editingId)
+      .eq("organization_id", organizationId);
+    if (updateError) setError(updateError.message);
+    else {
+      setEditingId(null);
+      await onSaved();
+    }
+    setSaving(false);
+  }
+  async function undoControl(row: MeterChangeControl) {
+    if (!window.confirm(`¿Deshacer ${labels[row.change_type]}?`)) return;
+    setSaving(true);
+    setError("");
+    const { error: updateError } = await supabase
+      .from("meter_change_controls")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("organization_id", organizationId);
+    if (updateError) setError(updateError.message);
+    else await onSaved();
+    setSaving(false);
+  }
+  async function viewAttachment(row: MeterChangeControl) {
+    const document = attachmentOf(row);
+    if (!document) return;
+    setError("");
+    const { data, error: signedError } = await supabase.storage
+      .from("energy-documents")
+      .createSignedUrl(document.path, 60);
+    if (signedError) setError(signedError.message);
+    else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }
   async function save(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -299,7 +378,9 @@ export function MeterChangeControlPanel({
         ? previousValue || currentTariff
         : type === "supply_deactivation"
           ? "Activo"
-          : previousValue;
+          : type === "contracted_power"
+            ? `${number.format(powerProposals.find((row) => row.monthNumber === Number(effectivePeriod.slice(5, 7)))?.latestKw || 0)} kW`
+            : previousValue;
     const resolvedNew =
       type === "tariff"
         ? newValue || recommendedTariff
@@ -307,7 +388,9 @@ export function MeterChangeControlPanel({
           ? `${capacitorCount || 0} capacitores · ${installedKvar || 0} kVAr`
           : type === "supply_deactivation"
             ? "Dado de baja"
-            : newValue;
+            : type === "contracted_power"
+              ? `${number.format(Number(actualPowers[Number(effectivePeriod.slice(5, 7))] || powerProposals.find((row) => row.monthNumber === Number(effectivePeriod.slice(5, 7)))?.proposalKw || 0))} kW`
+              : newValue;
     const { error: insertError } = await supabase
       .from("meter_change_controls")
       .insert({
@@ -329,7 +412,7 @@ export function MeterChangeControlPanel({
           .remove([attachmentPath]);
       setError(insertError.message);
     } else {
-      setOpen(false);
+      setWorkspace("history");
       setPreviousValue("");
       setNewValue("");
       setNotes("");
@@ -359,7 +442,14 @@ export function MeterChangeControlPanel({
                 ? "ANTES DEL CAMBIO"
                 : "SIN CAMBIOS REGISTRADOS"}
           </span>
-          <button onClick={() => setOpen(true)}>＋ Registrar mejora</button>
+          <button
+            onClick={() => {
+              setWorkspace("history");
+              setOpen(true);
+            }}
+          >
+            Abrir control de mejoras →
+          </button>
         </div>
       </div>
       {open && (
@@ -368,233 +458,498 @@ export function MeterChangeControlPanel({
             <div className="improvement-head">
               <div>
                 <span>CONTROL DE IMPLEMENTACIÓN</span>
-                <h2>Registrar mejora</h2>
+                <h2>Gestión de mejoras</h2>
                 <p>
-                  Indicá exactamente qué se aplicó y desde qué factura debe
-                  controlarse.
+                  Registro, historial, correcciones y seguimiento del
+                  suministro.
                 </p>
               </div>
               <button type="button" onClick={() => setOpen(false)}>
                 ← Volver al análisis
               </button>
             </div>
-            <div className="improvement-tabs">
-              {Object.entries(labels).map(([value, label]) => (
-                <button
-                  key={value}
-                  className={type === value ? "active" : ""}
-                  onClick={() =>
-                    setType(value as MeterChangeControl["change_type"])
-                  }
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="improvement-workspace-tabs">
+              <button
+                className={workspace === "register" ? "active" : ""}
+                onClick={() => setWorkspace("register")}
+              >
+                ＋ Registrar mejora
+              </button>
+              <button
+                className={workspace === "history" ? "active" : ""}
+                onClick={() => setWorkspace("history")}
+              >
+                Historial y seguimiento ({controls.length})
+              </button>
             </div>
-            <form className="improvement-form" onSubmit={save}>
-              <label>
-                Período efectivo
-                <input
-                  type="month"
-                  required
-                  value={effectivePeriod}
-                  onChange={(e) => setEffectivePeriod(e.target.value)}
-                />
-              </label>
-              {type === "contracted_power" && (
-                <div className="improvement-power-table">
-                  <div className="improvement-power-head">
-                    <span>Mes</span>
-                    <span>Última potencia disponible</span>
-                    <span>Propuesta calculada</span>
-                    <span>Potencia efectivamente contratada</span>
-                  </div>
-                  {powerProposals.map((row) => (
-                    <div key={row.monthNumber}>
-                      <b>{row.month}</b>
-                      <span>
-                        {row.latestKw > 0
-                          ? `${number.format(row.latestKw)} kW`
-                          : "S/D"}
-                        <small>
-                          {row.latestPeriod || "Sin factura disponible"}
-                        </small>
-                      </span>
-                      <span>
-                        {number.format(row.proposalKw)} kW
-                        <small>
-                          {row.method === "trimestral"
-                            ? `Trimestre ${row.quarter}`
-                            : "Propuesta mensual"}
-                        </small>
-                      </span>
+            {workspace === "register" && (
+              <>
+                <div className="improvement-tabs">
+                  {Object.entries(labels).map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={type === value ? "active" : ""}
+                      onClick={() =>
+                        setType(value as MeterChangeControl["change_type"])
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <form className="improvement-form" onSubmit={save}>
+                  <label>
+                    Período efectivo
+                    <input
+                      type="month"
+                      required
+                      value={effectivePeriod}
+                      onChange={(e) => setEffectivePeriod(e.target.value)}
+                    />
+                  </label>
+                  {type === "contracted_power" && (
+                    <div className="improvement-power-table">
+                      <div className="improvement-power-head">
+                        <span>Mes</span>
+                        <span>Última potencia disponible</span>
+                        <span>Propuesta calculada</span>
+                        <span>Potencia efectivamente contratada</span>
+                      </div>
+                      {powerProposals.map((row) => (
+                        <div key={row.monthNumber}>
+                          <b>{row.month}</b>
+                          <span>
+                            {row.latestKw > 0
+                              ? `${number.format(row.latestKw)} kW`
+                              : "S/D"}
+                            <small>
+                              {row.latestPeriod || "Sin factura disponible"}
+                            </small>
+                          </span>
+                          <span>
+                            {number.format(row.proposalKw)} kW
+                            <small>
+                              {row.method === "trimestral"
+                                ? `Trimestre ${row.quarter}`
+                                : "Propuesta mensual"}
+                            </small>
+                          </span>
+                          <label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={
+                                actualPowers[row.monthNumber] ??
+                                String(row.proposalKw)
+                              }
+                              onChange={(e) =>
+                                setActualPowers((values) => ({
+                                  ...values,
+                                  [row.monthNumber]: e.target.value,
+                                }))
+                              }
+                            />{" "}
+                            kW
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {type === "contracted_power" && (
+                    <label className="improvement-attachment">
+                      Comprobante de potencia corregida
+                      <input
+                        type="file"
+                        required
+                        accept=".pdf,.xlsx,.xls,image/*"
+                        onChange={(event) =>
+                          setPowerAttachment(event.target.files?.[0] || null)
+                        }
+                      />
+                      <small>
+                        Adjuntá la nota, factura, resolución o planilla
+                        confirmada por EPEN. PDF, imagen o Excel; máximo 10 MB.
+                      </small>
+                    </label>
+                  )}
+                  {type === "power_factor" && (
+                    <div className="improvement-specific">
                       <label>
+                        Cantidad de capacitores
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={capacitorCount}
+                          onChange={(e) => setCapacitorCount(e.target.value)}
+                        />
+                      </label>
+                      <label className="unit-field">
+                        Compensación total instalada
                         <input
                           type="number"
                           min="0"
                           step="0.1"
-                          value={
-                            actualPowers[row.monthNumber] ??
-                            String(row.proposalKw)
-                          }
-                          onChange={(e) =>
-                            setActualPowers((values) => ({
-                              ...values,
-                              [row.monthNumber]: e.target.value,
-                            }))
-                          }
-                        />{" "}
-                        kW
+                          required
+                          value={installedKvar}
+                          onChange={(e) => setInstalledKvar(e.target.value)}
+                        />
+                        <small>kVAr</small>
                       </label>
                     </div>
-                  ))}
-                </div>
-              )}
-              {type === "contracted_power" && (
-                <label className="improvement-attachment">
-                  Comprobante de potencia corregida
-                  <input
-                    type="file"
-                    required
-                    accept=".pdf,.xlsx,.xls,image/*"
-                    onChange={(event) =>
-                      setPowerAttachment(event.target.files?.[0] || null)
-                    }
-                  />
-                  <small>
-                    Adjuntá la nota, factura, resolución o planilla confirmada
-                    por EPEN. PDF, imagen o Excel; máximo 10 MB.
-                  </small>
-                </label>
-              )}
-              {type === "power_factor" && (
-                <div className="improvement-specific">
-                  <label>
-                    Cantidad de capacitores
+                  )}
+                  {type === "tariff" && (
+                    <div className="improvement-specific">
+                      <label>
+                        Tarifa vigente
+                        <input
+                          required
+                          value={previousValue || currentTariff || ""}
+                          readOnly
+                          aria-readonly="true"
+                        />
+                        <small>Se toma de la última factura disponible.</small>
+                      </label>
+                      <label>
+                        Tarifa a la que se solicita pasar
+                        <select
+                          required
+                          value={newValue || recommendedTariff || ""}
+                          onChange={(e) => setNewValue(e.target.value)}
+                        >
+                          <option value="">Seleccionar tarifa</option>
+                          {tariffCategories
+                            .filter(
+                              (category) => category.code !== currentTariff,
+                            )
+                            .map((category) => (
+                              <option key={category.code} value={category.code}>
+                                {category.code}
+                                {category.name ? ` · ${category.name}` : ""}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                  {type === "tariff" && (
+                    <label className="improvement-attachment">
+                      Convenio
+                      <input
+                        type="file"
+                        required
+                        accept=".pdf,.doc,.docx,image/*"
+                        onChange={(event) =>
+                          setTariffAgreement(event.target.files?.[0] || null)
+                        }
+                      />
+                      <small>
+                        Adjuntá el convenio que autoriza el nuevo
+                        encuadramiento. PDF, Word o imagen; máximo 10 MB.
+                      </small>
+                    </label>
+                  )}
+                  {type === "supply_deactivation" && (
+                    <div className="improvement-status-change">
+                      <div>
+                        <span>Estado actual</span>
+                        <b>Activo</b>
+                        <small>
+                          El suministro continúa visible en la aplicación.
+                        </small>
+                      </div>
+                      <span className="improvement-status-arrow">→</span>
+                      <label>
+                        Nuevo estado
+                        <select
+                          value={supplyStatus}
+                          onChange={(event) =>
+                            setSupplyStatus(
+                              event.target.value as "active" | "removed",
+                            )
+                          }
+                        >
+                          <option value="active">Activo</option>
+                          <option value="removed">Dado de baja</option>
+                        </select>
+                      </label>
+                      <p>
+                        La baja no elimina el suministro ni su historial.
+                        Quedará identificado para comparar el gasto anterior con
+                        el ahorro generado desde el período efectivo.
+                      </p>
+                    </div>
+                  )}
+                  <label className="notes">
+                    Observaciones
                     <input
-                      type="number"
-                      min="0"
-                      required
-                      value={capacitorCount}
-                      onChange={(e) => setCapacitorCount(e.target.value)}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Trabajo realizado, expediente, orden o referencia EPEN"
                     />
                   </label>
-                  <label className="unit-field">
-                    Compensación total instalada
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      required
-                      value={installedKvar}
-                      onChange={(e) => setInstalledKvar(e.target.value)}
-                    />
-                    <small>kVAr</small>
-                  </label>
-                </div>
-              )}
-              {type === "tariff" && (
-                <div className="improvement-specific">
-                  <label>
-                    Tarifa vigente
-                    <input
-                      required
-                      value={previousValue || currentTariff || ""}
-                      readOnly
-                      aria-readonly="true"
-                    />
-                    <small>Se toma de la última factura disponible.</small>
-                  </label>
-                  <label>
-                    Tarifa a la que se solicita pasar
-                    <select
-                      required
-                      value={newValue || recommendedTariff || ""}
-                      onChange={(e) => setNewValue(e.target.value)}
+                  <div className="improvement-footer">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setOpen(false)}
                     >
-                      <option value="">Seleccionar tarifa</option>
-                      {tariffCategories
-                        .filter((category) => category.code !== currentTariff)
-                        .map((category) => (
-                          <option key={category.code} value={category.code}>
-                            {category.code}
-                            {category.name ? ` · ${category.name}` : ""}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                </div>
-              )}
-              {type === "tariff" && (
-                <label className="improvement-attachment">
-                  Convenio
-                  <input
-                    type="file"
-                    required
-                    accept=".pdf,.doc,.docx,image/*"
-                    onChange={(event) =>
-                      setTariffAgreement(event.target.files?.[0] || null)
-                    }
-                  />
-                  <small>
-                    Adjuntá el convenio que autoriza el nuevo encuadramiento.
-                    PDF, Word o imagen; máximo 10 MB.
-                  </small>
-                </label>
-              )}
-              {type === "supply_deactivation" && (
-                <div className="improvement-status-change">
-                  <div>
-                    <span>Estado actual</span>
-                    <b>Activo</b>
-                    <small>
-                      El suministro continúa visible en la aplicación.
-                    </small>
+                      Cancelar
+                    </button>
+                    <button disabled={saving}>
+                      {saving ? "Guardando…" : "Guardar mejora aplicada"}
+                    </button>
                   </div>
-                  <span className="improvement-status-arrow">→</span>
-                  <label>
-                    Nuevo estado
-                    <select
-                      value={supplyStatus}
-                      onChange={(event) =>
-                        setSupplyStatus(
-                          event.target.value as "active" | "removed",
-                        )
+                  {error && <small className="danger">{error}</small>}
+                </form>
+              </>
+            )}
+            {workspace === "history" && (
+              <div className="improvement-history-page">
+                <div className="improvement-history-kpis">
+                  <article>
+                    <span>TOTAL REGISTRADAS</span>
+                    <b>{controls.length}</b>
+                  </article>
+                  <article>
+                    <span>APLICADAS</span>
+                    <b>
+                      {
+                        controls.filter((row) => row.status === "applied")
+                          .length
                       }
-                    >
-                      <option value="active">Activo</option>
-                      <option value="removed">Dado de baja</option>
-                    </select>
-                  </label>
-                  <p>
-                    La baja no elimina el suministro ni su historial. Quedará
-                    identificado para comparar el gasto anterior con el ahorro
-                    generado desde el período efectivo.
-                  </p>
+                    </b>
+                  </article>
+                  <article>
+                    <span>VERIFICADAS</span>
+                    <b>
+                      {
+                        controls.filter((row) => row.status === "verified")
+                          .length
+                      }
+                    </b>
+                  </article>
+                  <article>
+                    <span>DESHECHAS</span>
+                    <b>
+                      {
+                        controls.filter((row) => row.status === "cancelled")
+                          .length
+                      }
+                    </b>
+                  </article>
                 </div>
-              )}
-              <label className="notes">
-                Observaciones
-                <input
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Trabajo realizado, expediente, orden o referencia EPEN"
-                />
-              </label>
-              <div className="improvement-footer">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancelar
-                </button>
-                <button disabled={saving}>
-                  {saving ? "Guardando…" : "Guardar mejora aplicada"}
-                </button>
+                {!controls.length && (
+                  <div className="improvement-history-empty">
+                    <b>Sin mejoras registradas</b>
+                    <span>
+                      Usá “Registrar mejora” para iniciar el seguimiento.
+                    </span>
+                  </div>
+                )}
+                <div className="improvement-history-list">
+                  {[...controls]
+                    .sort((a, b) =>
+                      b.effective_period.localeCompare(a.effective_period),
+                    )
+                    .map((row) => (
+                      <article
+                        key={row.id}
+                        className={
+                          row.status === "cancelled" ? "cancelled" : ""
+                        }
+                      >
+                        <div className="improvement-history-card-head">
+                          <div>
+                            <span>
+                              {String(row.effective_period).slice(0, 7)}
+                            </span>
+                            <h3>{labels[row.change_type]}</h3>
+                            <p>
+                              {row.previous_value || "S/D"} →{" "}
+                              {row.new_value || "S/D"}
+                            </p>
+                          </div>
+                          <span className={`improvement-status ${row.status}`}>
+                            {statusLabels[row.status]}
+                          </span>
+                        </div>
+                        {row.notes && (
+                          <p className="improvement-history-notes">
+                            {row.notes}
+                          </p>
+                        )}
+                        {editingId === row.id ? (
+                          <form
+                            className="improvement-edit-form"
+                            onSubmit={updateControl}
+                          >
+                            <label>
+                              Período
+                              <input
+                                type="month"
+                                required
+                                value={editPeriod}
+                                onChange={(event) =>
+                                  setEditPeriod(event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Valor anterior
+                              <input
+                                value={editPrevious}
+                                onChange={(event) =>
+                                  setEditPrevious(event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Valor aplicado
+                              <input
+                                value={editNew}
+                                onChange={(event) =>
+                                  setEditNew(event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Estado
+                              <select
+                                value={editStatus}
+                                onChange={(event) =>
+                                  setEditStatus(
+                                    event.target
+                                      .value as MeterChangeControl["status"],
+                                  )
+                                }
+                              >
+                                <option value="planned">Planificado</option>
+                                <option value="applied">Aplicado</option>
+                                <option value="verified">Verificado</option>
+                                <option value="cancelled">Cancelado</option>
+                              </select>
+                            </label>
+                            <label className="wide">
+                              Observaciones
+                              <input
+                                value={editNotes}
+                                onChange={(event) =>
+                                  setEditNotes(event.target.value)
+                                }
+                              />
+                            </label>
+                            <div className="improvement-edit-actions">
+                              <button
+                                type="button"
+                                onClick={() => setEditingId(null)}
+                              >
+                                Cancelar
+                              </button>
+                              <button disabled={saving}>
+                                Guardar modificación
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="improvement-history-actions">
+                            {attachmentOf(row) && (
+                              <button onClick={() => viewAttachment(row)}>
+                                Ver {attachmentOf(row)?.type.toLowerCase()}
+                              </button>
+                            )}
+                            <button onClick={() => beginEdit(row)}>
+                              Modificar
+                            </button>
+                            {row.status !== "cancelled" && (
+                              <button
+                                className="danger-action"
+                                onClick={() => undoControl(row)}
+                              >
+                                Deshacer cambio
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                </div>
+                {error && <small className="danger">{error}</small>}
+                {!!valid.length && (
+                  <div className="improvement-tracking-block">
+                    <h3>Seguimiento antes y después</h3>
+                    {deactivationControl && (
+                      <div className="change-deactivation-saving">
+                        <div>
+                          <span>SUMINISTRO</span>
+                          <b>Activo → Dado de baja</b>
+                          <small>
+                            Visible para control · desde{" "}
+                            {deactivationControl.effective_period.slice(0, 7)}
+                          </small>
+                        </div>
+                        <div>
+                          <span>AHORRO POR BAJA</span>
+                          <b>
+                            {money.format(
+                              Number(
+                                deactivationControl.details
+                                  ?.baseline_monthly_cost || 0,
+                              ),
+                            )}{" "}
+                            /mes
+                          </b>
+                          <small>
+                            {money.format(
+                              Number(
+                                deactivationControl.details?.annual_saving || 0,
+                              ),
+                            )}{" "}
+                            anual estimado
+                          </small>
+                        </div>
+                      </div>
+                    )}
+                    {comparison && (
+                      <div className="change-comparison">
+                        <div>
+                          <span>LÍNEA BASE</span>
+                          <b>
+                            {comparison.beforeCount} factura
+                            {comparison.beforeCount === 1 ? "" : "s"} anteriores
+                          </b>
+                        </div>
+                        <Comparison
+                          label="Importe promedio"
+                          before={comparison.before?.total}
+                          after={comparison.after?.total}
+                          format={money.format}
+                        />
+                        <Comparison
+                          label="Consumo promedio"
+                          before={comparison.before?.kwh}
+                          after={comparison.after?.kwh}
+                          format={(value) => `${number.format(value)} kWh`}
+                        />
+                        <Comparison
+                          label="Demanda promedio"
+                          before={comparison.before?.demand}
+                          after={comparison.after?.demand}
+                          format={(value) => `${number.format(value)} kW`}
+                        />
+                        <Comparison
+                          label="Recargo FP promedio"
+                          before={comparison.before?.reactive}
+                          after={comparison.after?.reactive}
+                          format={money.format}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {error && <small className="danger">{error}</small>}
-            </form>
+            )}
           </div>
         </div>
       )}
