@@ -148,6 +148,10 @@ type TariffAssessment = {
   tariff_annual_saving: number;
   tariff_simulation_available: boolean;
   tariff_price_source?: "official" | "observed";
+  zero_consumption_periods?: number;
+  deactivation_candidate?: boolean;
+  deactivation_monthly_saving?: number;
+  deactivation_annual_saving?: number;
   official_schedule?: {
     resolution_number: string;
     consumption_month: string;
@@ -2548,8 +2552,19 @@ function InvoiceTable({
                     ? `${String(i.current_tariff_code || i.meters?.current_tariff_code || "Tarifa")}-BT → ${String(i.current_tariff_code || i.meters?.current_tariff_code || "Tarifa")}-MT`
                     : optimizationT4Saving > 0
                       ? `${String(i.current_tariff_code || i.meters?.current_tariff_code || "T3")}-${String(i.voltage_level || i.meters?.voltage_level || "MT")} → ${advanced?.t4.target_tariff || "T4"}`
-                      : "Tarifaria",
-              estimatedSaving = powerSaving + reactiveSaving + tariffSaving,
+                      : assessment?.current_tariff &&
+                          assessment.current_tariff !==
+                            assessment.recommended_tariff
+                        ? `${assessment.current_tariff} → ${assessment.recommended_tariff}`
+                        : "Tarifaria",
+              deactivationSaving = assessment?.deactivation_candidate
+                ? Number(assessment.deactivation_monthly_saving || 0)
+                : 0,
+              optimizationSaving = powerSaving + reactiveSaving + tariffSaving,
+              estimatedSaving = Math.max(
+                optimizationSaving,
+                deactivationSaving,
+              ),
               measures = [
                 powerSaving > 0 ? "Potencia contratada" : "",
                 tariffSaving > 0
@@ -2558,6 +2573,7 @@ function InvoiceTable({
                     : "Tarifaria"
                   : "",
                 reactiveSaving > 0 ? "Factor de potencia" : "",
+                deactivationSaving > 0 ? "Baja del suministro" : "",
               ].filter(Boolean),
               meterControls = changeControls
                 .filter(
