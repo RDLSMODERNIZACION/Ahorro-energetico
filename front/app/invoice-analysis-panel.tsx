@@ -1069,6 +1069,8 @@ export function InvoiceAnalysisPanel({
               advancedTariffHistory?.recommended_tariff ||
               selectedAssessment?.recommended_tariff
             }
+            meterName={displayName}
+            meterReference={`${m?.tracking_code || "Sin ID"} · Medidor ${m?.meter_number || "S/D"} · Suministro ${m?.supply_number || "S/D"}`}
             displayMode="page"
             onClosePage={() => setControlPageOpen(false)}
             onSaved={() => onChangeControls?.()}
@@ -1157,6 +1159,8 @@ export function InvoiceAnalysisPanel({
               advancedTariffHistory?.recommended_tariff ||
               selectedAssessment?.recommended_tariff
             }
+            meterName={displayName}
+            meterReference={`${m?.tracking_code || "Sin ID"} · Medidor ${m?.meter_number || "S/D"}`}
             onOpenPage={() => setControlPageOpen(true)}
             onSaved={() => onChangeControls?.()}
           />
