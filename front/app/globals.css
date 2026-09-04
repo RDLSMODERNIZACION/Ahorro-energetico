@@ -4127,10 +4127,9 @@ td small {
 }
 .missing-list-head {
   display: grid;
-  grid-template-columns: 120px 180px minmax(
-      250px,
-      1.5fr
-    ) 150px 130px 120px 220px;
+  grid-template-columns:
+    120px 180px minmax(250px, 1.5fr)
+    150px 130px 120px 220px;
   gap: 10px;
   padding: 11px 14px;
   background: #f8faf9;
@@ -4147,10 +4146,9 @@ td small {
 }
 .missing-list-row {
   display: grid;
-  grid-template-columns: 120px 180px minmax(
-      250px,
-      1.5fr
-    ) 150px 130px 120px 220px;
+  grid-template-columns:
+    120px 180px minmax(250px, 1.5fr)
+    150px 130px 120px 220px;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
@@ -4345,10 +4343,9 @@ td small {
 .invoice-missing-list-head,
 .invoice-missing-list-row {
   display: grid;
-  grid-template-columns: 120px 180px minmax(
-      250px,
-      1.5fr
-    ) 150px 130px 120px 220px;
+  grid-template-columns:
+    120px 180px minmax(250px, 1.5fr)
+    150px 130px 120px 220px;
   gap: 10px;
 }
 .invoice-missing-list-head {
@@ -5932,10 +5929,9 @@ td small {
 }
 .improvement-power-table > div {
   display: grid;
-  grid-template-columns: minmax(130px, 0.7fr) minmax(210px, 1fr) minmax(
-      260px,
-      1.2fr
-    );
+  grid-template-columns:
+    minmax(105px, 0.5fr) minmax(175px, 0.85fr) minmax(185px, 0.9fr)
+    minmax(240px, 1.15fr);
   align-items: center;
   gap: 18px;
   padding: 11px 16px;
@@ -6014,6 +6010,21 @@ td small {
 .improvement-form .notes {
   max-width: none;
 }
+.improvement-attachment {
+  padding: 18px 20px;
+  border: 1px dashed #8bbba6;
+  border-radius: 11px;
+  background: #f0faf5;
+}
+.improvement-attachment input {
+  padding: 8px;
+  background: #fff;
+}
+.improvement-attachment small {
+  color: #71837a;
+  font-weight: 500;
+  line-height: 1.45;
+}
 .improvement-footer {
   display: flex;
   justify-content: flex-end;
@@ -6062,7 +6073,7 @@ td small {
     overflow: auto;
   }
   .improvement-power-table > div {
-    min-width: 690px;
+    min-width: 850px;
   }
   .improvement-specific {
     grid-template-columns: 1fr;
@@ -6201,10 +6212,9 @@ td small {
 }
 .pl-row {
   display: grid;
-  grid-template-columns: 170px minmax(
-      260px,
-      1.5fr
-    ) 130px 125px 105px 145px 85px minmax(180px, 1fr);
+  grid-template-columns:
+    170px minmax(260px, 1.5fr)
+    130px 125px 105px 145px 85px minmax(180px, 1fr);
   align-items: center;
 }
 .pl-head {
