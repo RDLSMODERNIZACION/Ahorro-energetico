@@ -269,6 +269,10 @@ export function MeterChangeControlPanel({
             : "Sin nuevas facturas: gasto esperado $0 manteniendo el suministro en el historial.";
     return { monthly, annual: monthly * 12, expectation };
   }
+  const projectedMonthlyTotal = valid.reduce(
+    (sum, row) => sum + projectionOf(row).monthly,
+    0,
+  );
   function beginEdit(row: MeterChangeControl) {
     setEditingId(row.id);
     setEditPeriod(String(row.effective_period).slice(0, 7));
@@ -956,32 +960,35 @@ export function MeterChangeControlPanel({
                     <div className="improvement-projections-head">
                       <div>
                         <span>PROYECCIÓN FUTURA</span>
-                        <h2>Resultados esperados</h2>
+                        <h2>Proyección de ahorro esperada</h2>
                         <p>
-                          Qué debería ocurrir después de aplicar cada cambio.
+                          Impacto económico acumulado desde la aplicación de las
+                          mejoras.
                         </p>
                       </div>
                       <div>
                         <span>AHORRO TOTAL PROYECTADO</span>
-                        <b>
-                          {money.format(
-                            valid.reduce(
-                              (sum, row) => sum + projectionOf(row).monthly,
-                              0,
-                            ),
-                          )}{" "}
-                          /mes
-                        </b>
+                        <b>{money.format(projectedMonthlyTotal)} /mes</b>
                         <small>
-                          {money.format(
-                            valid.reduce(
-                              (sum, row) => sum + projectionOf(row).annual,
-                              0,
-                            ),
-                          )}{" "}
-                          anual
+                          {money.format(projectedMonthlyTotal * 12)} anual
                         </small>
                       </div>
+                    </div>
+                    <div className="improvement-projection-summary">
+                      {[
+                        { label: "PRÓXIMO MES", months: 1 },
+                        { label: "EN 3 MESES", months: 3 },
+                        { label: "EN 6 MESES", months: 6 },
+                        { label: "EN 12 MESES", months: 12 },
+                      ].map((item) => (
+                        <article key={item.months}>
+                          <span>{item.label}</span>
+                          <b>
+                            {money.format(projectedMonthlyTotal * item.months)}
+                          </b>
+                          <small>Ahorro acumulado estimado</small>
+                        </article>
+                      ))}
                     </div>
                     <div className="improvement-projection-list">
                       {valid.map((row) => {
