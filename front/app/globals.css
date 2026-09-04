@@ -5904,7 +5904,8 @@ td small {
   font-size: 10px;
   font-weight: 800;
 }
-.improvement-form input {
+.improvement-form input,
+.improvement-form select {
   width: 100%;
   min-height: 39px;
   border: 1px solid #cedbd4;
@@ -5914,7 +5915,8 @@ td small {
   color: #1d3028;
   font: inherit;
 }
-.improvement-form input:focus {
+.improvement-form input:focus,
+.improvement-form select:focus {
   outline: 2px solid #55b48c55;
   border-color: #16885e;
 }
@@ -5986,14 +5988,23 @@ td small {
 .improvement-specific label {
   position: relative;
 }
-.improvement-specific label small {
+.improvement-specific label.unit-field small {
   position: absolute;
   right: 12px;
   bottom: 13px;
   color: #65776e;
 }
-.improvement-specific label:has(small) input {
+.improvement-specific label.unit-field input {
   padding-right: 48px;
+}
+.improvement-specific input[readonly] {
+  background: #edf2ef;
+  color: #334b40;
+  cursor: not-allowed;
+}
+.improvement-specific label > small {
+  color: #7c8d84;
+  font-weight: 500;
 }
 .improvement-warning {
   padding: 18px 20px;
