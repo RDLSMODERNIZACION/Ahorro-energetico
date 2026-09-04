@@ -6764,6 +6764,75 @@ td small {
 .improvement-monthly-bars .monthly-saving-values .pending {
   color: #9a6b0b;
 }
+.improvement-month-detail {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+.improvement-month-detail-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 9px;
+}
+.improvement-month-detail-head > div {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid #d7e3dd;
+  border-radius: 10px;
+  background: #fff;
+}
+.improvement-month-detail span,
+.improvement-month-measures span {
+  color: #667a70;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.improvement-month-detail-head b {
+  color: #17382b;
+  font-size: 15px;
+}
+.improvement-month-detail-head small,
+.improvement-month-measures small {
+  color: #788a81;
+  font-size: 8px;
+}
+.improvement-month-detail-head .confirmed {
+  border-color: #a8ddc4;
+  background: #e9f8f0;
+}
+.improvement-month-detail-head .confirmed b {
+  color: #087447;
+}
+.improvement-month-measures {
+  display: grid;
+  gap: 7px;
+}
+.improvement-month-measures article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) 0.7fr 0.7fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid #d7e3dd;
+  border-radius: 10px;
+  background: #fff;
+}
+.improvement-month-measures article > div {
+  display: grid;
+  gap: 3px;
+}
+.improvement-month-measures b {
+  color: #17382b;
+  font-size: 11px;
+}
+.improvement-month-measures .confirmed b {
+  color: #087447;
+}
+.improvement-month-measures .pending b {
+  color: #9a6b0b;
+}
 .improvement-projection-list {
   display: grid;
   gap: 9px;
@@ -6856,6 +6925,10 @@ td small {
   }
   .improvement-projection-switch button {
     padding: 0 10px;
+  }
+  .improvement-month-detail-head,
+  .improvement-month-measures article {
+    grid-template-columns: 1fr;
   }
   .improvement-history-row {
     grid-template-columns: 1fr;
