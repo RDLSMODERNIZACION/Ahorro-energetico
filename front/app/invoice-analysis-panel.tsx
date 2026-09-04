@@ -127,6 +127,12 @@ function powerRate(i:Invoice){
     .filter(x=>["DEM","DEP"].includes(String(x.concept_code||"").toUpperCase()))
     .map(x=>Number(x.unit_price||0)));
 }
+const epenPowerQuarters=[
+  {label:"Noviembre–Enero",months:[11,12,1]},
+  {label:"Febrero–Abril",months:[2,3,4]},
+  {label:"Mayo–Julio",months:[5,6,7]},
+  {label:"Agosto–Octubre",months:[8,9,10]}
+];
 function buildPowerCurve(history:Invoice[]){
   const valid=history
     .filter(i=>values(i).demand>0)
@@ -137,15 +143,50 @@ function buildPowerCurve(history:Invoice[]){
   const tariffCode=String(latestContract?.current_tariff_code||latestContract?.meters?.current_tariff_code||"").toUpperCase();
   const minimumKw=minimumContractedKw(tariffCode);
   const rate=Number(latestRateInvoice?powerRate(latestRateInvoice):0);
-  const rows=powerMonthNames.map((month,idx)=>{
+  const monthlyRows=powerMonthNames.map((month,idx)=>{
     const monthNumber=idx+1;
     const matches=valid.filter(i=>Number(periodOf(i).slice(5,7))===monthNumber);
     const observations=matches.map(i=>({period:periodOf(i),demand:values(i).demand}));
-    const proposalKw=observations.length?Math.max(minimumKw,...observations.map(x=>x.demand)):0;
+    const monthlyProposalKw=observations.length?Math.max(minimumKw,...observations.map(x=>x.demand)):0;
+    return{month,monthNumber,observations,monthlyProposalKw};
+  });
+  const quarterlyDecision=new Map<number,{proposalKw:number;quarterlyProposalKw:number;quarter:string;method:"trimestral"|"mensual";reason:string;spreadKw:number;extraCost:number}>();
+  for(const quarter of epenPowerQuarters){
+    const quarterRows=quarter.months.map(month=>monthlyRows.find(row=>row.monthNumber===month)!);
+    const complete=quarterRows.every(row=>row.monthlyProposalKw>0);
+    const proposals=quarterRows.map(row=>row.monthlyProposalKw).filter(value=>value>0);
+    const quarterlyProposalKw=proposals.length?Math.max(...proposals):0;
+    const spreadKw=proposals.length?quarterlyProposalKw-Math.min(...proposals):0;
+    const monthlySaving=quarterRows.reduce((sum,row)=>sum+Math.max(0,currentKw-row.monthlyProposalKw)*rate*1.30,0);
+    const extraCost=quarterRows.reduce((sum,row)=>sum+Math.max(0,quarterlyProposalKw-row.monthlyProposalKw)*rate*1.30,0);
+    const economicLimit=monthlySaving*0.10;
+    const useQuarter=complete&&spreadKw<=10&&extraCost<=economicLimit;
+    const reason=!complete
+      ?"Mes a mes: faltan datos en el trimestre"
+      :spreadKw>10
+        ?`Mes a mes: diferencia trimestral de ${nf.format(spreadKw)} kW (>10 kW)`
+        :extraCost>economicLimit
+          ?`Mes a mes: el costo extra supera el 10% del ahorro mensual`
+          :"Trimestral EPEN: diferencia ≤10 kW y costo extra ≤10% del ahorro";
+    for(const row of quarterRows){
+      quarterlyDecision.set(row.monthNumber,{
+        proposalKw:useQuarter?quarterlyProposalKw:row.monthlyProposalKw,
+        quarterlyProposalKw,
+        quarter:quarter.label,
+        method:useQuarter?"trimestral":"mensual",
+        reason,
+        spreadKw,
+        extraCost
+      });
+    }
+  }
+  const rows=monthlyRows.map(row=>{
+    const decision=quarterlyDecision.get(row.monthNumber)!;
+    const proposalKw=decision.proposalKw;
     const reducibleKw=proposalKw>0?Math.max(0,currentKw-proposalKw):0;
     const savingNet=reducibleKw*rate;
     const saving=savingNet*1.30;
-    return{month,monthNumber,observations,proposalKw,reducibleKw,savingNet,saving};
+    return{...row,...decision,proposalKw,reducibleKw,savingNet,saving};
   });
   return{
     currentKw,
@@ -433,15 +474,15 @@ export function InvoiceAnalysisPanel({
   },[selected.meter_id]);
   function downloadPowerCurveExcel(){
     if(!powerCurve.hasData)return;
-    const header=["Mes","Histórico comparado","Tarifa","Mínimo EPEN (kW)","Potencia actual (kW)","Propuesta (kW)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
+    const header=["Mes","Histórico comparado","Trimestre EPEN","Método aplicado","Criterio","Tarifa","Mínimo EPEN (kW)","Potencia actual (kW)","Propuesta mensual (kW)","Máximo trimestral (kW)","Propuesta aplicada (kW)","Diferencia trimestre (kW)","Costo extra trimestral ($)","Reducción (kW)","Tarifa potencia ($/kW)","Ahorro neto ($)","Ahorro +30% ($)"];
     const rows=powerCurve.rows.map(row=>{
       const historical=row.observations.map(x=>`${x.period.slice(0,4)}: ${nf.format(x.demand)} kW`).join(" | ")||"Sin datos";
-      return [row.month,historical,powerCurve.tariffCode||"S/D",powerCurve.minimumKw,powerCurve.currentKw,row.proposalKw||0,row.reducibleKw,powerCurve.rate,row.savingNet,row.saving];
+      return [row.month,historical,row.quarter,row.method,row.reason,powerCurve.tariffCode||"S/D",powerCurve.minimumKw,powerCurve.currentKw,row.monthlyProposalKw,row.quarterlyProposalKw,row.proposalKw||0,row.spreadKw,row.extraCost,row.reducibleKw,powerCurve.rate,row.savingNet,row.saving];
     });
     const sheetRows=[
       `<Row>${header.map(v=>xmlCell(v)).join("")}</Row>`,
-      ...rows.map(row=>`<Row>${row.map((v,index)=>xmlCell(v,index>=3?"Number":"String")).join("")}</Row>`),
-      `<Row>${xmlCell("TOTAL ANUAL")}${Array.from({length:7},()=>xmlCell("")).join("")}${xmlCell(powerCurve.annualSavingNet,"Number")}${xmlCell(powerCurve.annualSaving,"Number")}</Row>`
+      ...rows.map(row=>`<Row>${row.map((v,index)=>xmlCell(v,index>=6?"Number":"String")).join("")}</Row>`),
+      `<Row>${xmlCell("TOTAL ANUAL")}${Array.from({length:14},()=>xmlCell("")).join("")}${xmlCell(powerCurve.annualSavingNet,"Number")}${xmlCell(powerCurve.annualSaving,"Number")}</Row>`
     ].join("");
     const xml=`<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Curva potencia"><Table>${sheetRows}</Table></Worksheet></Workbook>`;
     const blob=new Blob(["\ufeff",xml],{type:"application/vnd.ms-excel;charset=utf-8"});
@@ -518,7 +559,7 @@ export function InvoiceAnalysisPanel({
         <div className={styles.powerMetric}>
           <span>Propuesta · {powerMonthNames[selectedMonthNumber-1]}</span>
           <b>{proposedPower>0?`${nf.format(proposedPower)} kW`:"S/D"}</b>
-          <small>máximo del mismo mes entre años</small>
+          <small>{selectedPowerProposal?.method==="trimestral"?`trimestre EPEN ${selectedPowerProposal.quarter}`:selectedPowerProposal?.reason||"máximo del mismo mes entre años"}</small>
         </div>
         <div className={`${styles.powerMetric} ${styles.savingMetric}`}>
           <span>Ahorro</span>
@@ -780,7 +821,6 @@ export function InvoiceAnalysisPanel({
     </div>
   </div>
 }
-
 
 
 
