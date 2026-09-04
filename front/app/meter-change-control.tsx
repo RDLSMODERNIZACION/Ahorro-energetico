@@ -14,6 +14,7 @@ export type MeterChangeControl = {
   previous_value?: string | null;
   new_value?: string | null;
   notes?: string | null;
+  details?: Record<string, unknown>;
   created_at?: string;
 };
 type Invoice = {
@@ -98,6 +99,9 @@ export function MeterChangeControlPanel({
   selectedPeriod,
   history,
   controls,
+  powerProposals,
+  currentTariff,
+  recommendedTariff,
   onSaved,
 }: {
   organizationId: string;
@@ -105,6 +109,15 @@ export function MeterChangeControlPanel({
   selectedPeriod: string;
   history: Invoice[];
   controls: MeterChangeControl[];
+  powerProposals: Array<{
+    month: string;
+    monthNumber: number;
+    proposalKw: number;
+    method: string;
+    quarter: string;
+  }>;
+  currentTariff?: string;
+  recommendedTariff?: string;
   onSaved: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false),
@@ -115,7 +128,10 @@ export function MeterChangeControlPanel({
   const [effectivePeriod, setEffectivePeriod] = useState(selectedPeriod),
     [previousValue, setPreviousValue] = useState(""),
     [newValue, setNewValue] = useState(""),
-    [notes, setNotes] = useState("");
+    [notes, setNotes] = useState(""),
+    [capacitorCount, setCapacitorCount] = useState(""),
+    [installedKvar, setInstalledKvar] = useState(""),
+    [actualPowers, setActualPowers] = useState<Record<number, string>>({});
   const valid = controls
     .filter((row) => row.status !== "cancelled")
     .sort((a, b) => a.effective_period.localeCompare(b.effective_period));
@@ -167,6 +183,35 @@ export function MeterChangeControlPanel({
       setSaving(false);
       return;
     }
+    const details =
+      type === "contracted_power"
+        ? {
+            months: powerProposals.map((row) => ({
+              ...row,
+              effective_kw: Number(
+                actualPowers[row.monthNumber] || row.proposalKw,
+              ),
+            })),
+          }
+        : type === "power_factor"
+          ? {
+              capacitor_count: Number(capacitorCount || 0),
+              installed_kvar: Number(installedKvar || 0),
+            }
+          : type === "tariff"
+            ? {
+                previous_tariff: previousValue || currentTariff || null,
+                new_tariff: newValue || recommendedTariff || null,
+              }
+            : { deactivated: true };
+    const resolvedPrevious =
+      type === "tariff" ? previousValue || currentTariff : previousValue;
+    const resolvedNew =
+      type === "tariff"
+        ? newValue || recommendedTariff
+        : type === "power_factor"
+          ? `${capacitorCount || 0} capacitores · ${installedKvar || 0} kVAr`
+          : newValue;
     const { error: insertError } = await supabase
       .from("meter_change_controls")
       .insert({
@@ -175,8 +220,9 @@ export function MeterChangeControlPanel({
         change_type: type,
         effective_period: `${effectivePeriod}-01`,
         status: "applied",
-        previous_value: previousValue || null,
-        new_value: newValue || null,
+        previous_value: resolvedPrevious || null,
+        new_value: resolvedNew || null,
+        details,
         notes: notes || null,
         created_by: data.session.user.id,
       });
@@ -209,66 +255,168 @@ export function MeterChangeControlPanel({
                 ? "ANTES DEL CAMBIO"
                 : "SIN CAMBIOS REGISTRADOS"}
           </span>
-          <button onClick={() => setOpen((value) => !value)}>
-            ＋ Registrar cambio
-          </button>
+          <button onClick={() => setOpen(true)}>＋ Registrar mejora</button>
         </div>
       </div>
       {open && (
-        <form className="change-control-form" onSubmit={save}>
-          <label>
-            Tipo
-            <select
-              value={type}
-              onChange={(e) =>
-                setType(e.target.value as MeterChangeControl["change_type"])
-              }
-            >
+        <div className="improvement-backdrop">
+          <div className="improvement-page">
+            <div className="improvement-head">
+              <div>
+                <span>CONTROL DE IMPLEMENTACIÓN</span>
+                <h2>Registrar mejora</h2>
+                <p>
+                  Indicá exactamente qué se aplicó y desde qué factura debe
+                  controlarse.
+                </p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)}>
+                ← Volver al análisis
+              </button>
+            </div>
+            <div className="improvement-tabs">
               {Object.entries(labels).map(([value, label]) => (
-                <option key={value} value={value}>
+                <button
+                  key={value}
+                  className={type === value ? "active" : ""}
+                  onClick={() =>
+                    setType(value as MeterChangeControl["change_type"])
+                  }
+                >
                   {label}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
-          <label>
-            Período efectivo
-            <input
-              type="month"
-              required
-              value={effectivePeriod}
-              onChange={(e) => setEffectivePeriod(e.target.value)}
-            />
-          </label>
-          <label>
-            Valor anterior
-            <input
-              value={previousValue}
-              onChange={(e) => setPreviousValue(e.target.value)}
-              placeholder="Ej.: 79 kW o T2"
-            />
-          </label>
-          <label>
-            Valor nuevo
-            <input
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              placeholder="Ej.: 60 kW o T1G2"
-            />
-          </label>
-          <label className="notes">
-            Observaciones
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Trabajo realizado, expediente o referencia EPEN"
-            />
-          </label>
-          <button disabled={saving}>
-            {saving ? "Guardando…" : "Guardar intervención"}
-          </button>
-          {error && <small className="danger">{error}</small>}
-        </form>
+            </div>
+            <form className="improvement-form" onSubmit={save}>
+              <label>
+                Período efectivo
+                <input
+                  type="month"
+                  required
+                  value={effectivePeriod}
+                  onChange={(e) => setEffectivePeriod(e.target.value)}
+                />
+              </label>
+              {type === "contracted_power" && (
+                <div className="improvement-power-table">
+                  <div className="improvement-power-head">
+                    <span>Mes</span>
+                    <span>Propuesta calculada</span>
+                    <span>Potencia efectivamente contratada</span>
+                  </div>
+                  {powerProposals.map((row) => (
+                    <div key={row.monthNumber}>
+                      <b>{row.month}</b>
+                      <span>
+                        {number.format(row.proposalKw)} kW
+                        <small>
+                          {row.method === "trimestral"
+                            ? `Trimestre ${row.quarter}`
+                            : "Propuesta mensual"}
+                        </small>
+                      </span>
+                      <label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={
+                            actualPowers[row.monthNumber] ??
+                            String(row.proposalKw)
+                          }
+                          onChange={(e) =>
+                            setActualPowers((values) => ({
+                              ...values,
+                              [row.monthNumber]: e.target.value,
+                            }))
+                          }
+                        />{" "}
+                        kW
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {type === "power_factor" && (
+                <div className="improvement-specific">
+                  <label>
+                    Cantidad de capacitores
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={capacitorCount}
+                      onChange={(e) => setCapacitorCount(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Compensación total instalada
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      required
+                      value={installedKvar}
+                      onChange={(e) => setInstalledKvar(e.target.value)}
+                    />
+                    <small>kVAr</small>
+                  </label>
+                </div>
+              )}
+              {type === "tariff" && (
+                <div className="improvement-specific">
+                  <label>
+                    Tarifa anterior
+                    <input
+                      required
+                      value={previousValue || currentTariff || ""}
+                      onChange={(e) => setPreviousValue(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Tarifa a la que se solicita pasar
+                    <input
+                      required
+                      value={newValue || recommendedTariff || ""}
+                      onChange={(e) => setNewValue(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {type === "supply_deactivation" && (
+                <div className="improvement-warning">
+                  <b>Baja del suministro</b>
+                  <p>
+                    Desde el período efectivo dejará de esperarse una nueva
+                    factura. La baja quedará pendiente de verificación hasta
+                    confirmar que EPEN dejó de facturar.
+                  </p>
+                </div>
+              )}
+              <label className="notes">
+                Observaciones
+                <input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Trabajo realizado, expediente, orden o referencia EPEN"
+                />
+              </label>
+              <div className="improvement-footer">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button disabled={saving}>
+                  {saving ? "Guardando…" : "Guardar mejora aplicada"}
+                </button>
+              </div>
+              {error && <small className="danger">{error}</small>}
+            </form>
+          </div>
+        </div>
       )}
       {!!valid.length && (
         <div className="change-control-timeline">
