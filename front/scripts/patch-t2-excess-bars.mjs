@@ -33,7 +33,7 @@ if (!source.includes(oldRect)) {
 }
 source = source.replace(oldRect, newRect);
 
-const oldLegend = `          {powerLine === \"current\" ? (\n            <span>\n              <i className=\"current\" />\n              Contratada actual\n            </span>\n          ) : (`;
+const oldLegend = `          {powerLine === \"current\" ? (\n            <span>\n              <i className=\"current\" />\n              Contratada actual\n            </span>\n          ) : (\n            <span>\n              <i className=\"proposal\" />\n              Contratada propuesta · mes seleccionado marcado\n            </span>\n          )}`;
 const newLegend = `          {powerLine === \"current\" ? (\n            <>\n              <span>\n                <i className=\"current\" />\n                Contratada actual\n              </span>\n              <span>\n                <i style={{ background: \"#dc2626\" }} />\n                T2 con exceso de demanda facturado (EXC)\n              </span>\n            </>\n          ) : (\n            <>\n              <span>\n                <i className=\"proposal\" />\n                Contratada propuesta óptima · mes seleccionado marcado\n              </span>\n              <span>\n                <i style={{ background: \"#dc2626\" }} />\n                T2 con EXC proyectado bajo la propuesta\n              </span>\n            </>\n          )}`;
 
 if (!source.includes(oldLegend)) {
