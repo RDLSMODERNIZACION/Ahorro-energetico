@@ -19,6 +19,7 @@ if [[ ! -x "${vinext}" ]]; then
 fi
 
 node "${script_dir}/patch-t2-excess-bars.mjs"
+node "${script_dir}/patch-t1-no-contracted-surplus.mjs"
 
 echo "Running bounded vinext build..."
 timeout \
