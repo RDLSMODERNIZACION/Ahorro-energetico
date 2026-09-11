@@ -835,6 +835,7 @@ export function MeterChangeControlPanel({
                         <span>Potencia real anterior</span>
                         <span>Potencia real actual</span>
                         <span>Propuesta</span>
+                        <span>Potencia efectivamente contratada</span>
                       </div>
                       {powerProposals.map((row) => (
                         <div key={row.monthNumber}>
@@ -857,18 +858,9 @@ export function MeterChangeControlPanel({
                                 : "Propuesta mensual"}
                             </small>
                           </span>
-
-                        </div>
-                      ))}
-                    </div>
-                    <details>
-                      <summary>Registrar potencias efectivamente contratadas</summary>
-                      <div className="improvement-specific">
-                        {powerProposals.map((row) => (
-                          <div key={row.monthNumber}>
                           <label>
-                            <b>{row.month}</b>
                             <input
+                              aria-label={`Potencia efectivamente contratada en ${row.month} (kW)`}
                               type="number"
                               min="0"
                               step="0.1"
@@ -885,10 +877,10 @@ export function MeterChangeControlPanel({
                             />{" "}
                             kW
                           </label>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
+
+                        </div>
+                      ))}
+                    </div>
                     </>
                   )}
                   {type === "contracted_power" && (
