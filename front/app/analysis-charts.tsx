@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { consumptionPeriod, measuredDemand } from "./lib/power-history";
 
 type Measurement={active_energy_kwh?:number;demand_kw?:number;registered_demand_peak_kw?:number};
 type Line={concept_code?:string;quantity?:number;unit_price?:number;net_amount?:number};
 type Meter={id:string;meter_number?:string;supply_number?:string;nis?:string;tracking_code?:string;service_name?:string;sites?:{name?:string}};
-type Invoice={id:string;meter_id:string;billing_period?:string;period_start:string;issue_date?:string;total_amount:number;contracted_kw_peak?:number;meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];raw_data?:{document_type?:string}};
+type Invoice={id:string;meter_id:string;billing_period?:string;period_start:string;period_end?:string;issue_date?:string;total_amount:number;contracted_kw_peak?:number;meters?:Meter;invoice_measurements?:Measurement[];invoice_lines?:Line[];raw_data?:{document_type?:string}};
 type TariffSaving={meter_id:string;billing_period:string;monthly_saving_with_vat:number};
 type Metric="kwh"|"amount"|"demand"|"saving";
-type Point={period:string;kwh:number;amount:number;demand:number;contracted:number;saving:number;powerSaving:number;reactiveSaving:number;tariffSaving:number;invoices:number};
+type Point={period:string;billingPeriods?:string[];kwh:number;amount:number;demand:number;contracted:number;saving:number;powerSaving:number;reactiveSaving:number;tariffSaving:number;invoices:number};
 
 const nf=new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
 const money=new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
@@ -26,18 +27,18 @@ function minimumContractedKw(tariff?:string){
   return 0;
 }
 
-function periodOf(invoice:Invoice){return String(invoice.billing_period||invoice.period_start).slice(0,7)}
+function periodOf(invoice:Invoice){return consumptionPeriod(invoice)}
 function invoiceMetrics(invoice:Invoice,tariffSavings:TariffSaving[]){
   const measurements=invoice.invoice_measurements||[];
   const kwh=measurements.reduce((sum,row)=>sum+Number(row.active_energy_kwh||0),0);
-  const demand=Math.max(0,...measurements.map(row=>Number(row.demand_kw||row.registered_demand_peak_kw||0)));
+  const demand=measuredDemand(invoice);
   const powerLines=(invoice.invoice_lines||[]).filter(row=>row.concept_code==="DEM"||row.concept_code==="DEP");
   const contracted=Number(invoice.contracted_kw_peak||Math.max(0,...powerLines.map(row=>Number(row.quantity||0))));
   const unitPrice=Math.max(0,...powerLines.map(row=>Number(row.unit_price||0)));
   const proposed=Math.max(demand,minimumContractedKw((invoice as Invoice&{current_tariff_code?:string}).current_tariff_code));
   const powerSaving=Math.max(0,contracted-proposed)*unitPrice*1.30;
   const reactiveSaving=(invoice.invoice_lines||[]).filter(row=>row.concept_code==="COS").reduce((sum,row)=>sum+Math.max(0,Number(row.net_amount||0)),0)*1.30;
-  const tariffSaving=tariffSavings.find(row=>row.meter_id===invoice.meter_id&&String(row.billing_period).slice(0,7)===periodOf(invoice));
+  const tariffSaving=tariffSavings.find(row=>row.meter_id===invoice.meter_id&&String(row.billing_period).slice(0,7)===String(invoice.billing_period||invoice.period_start).slice(0,7));
   const tariffSavingValue=Number(tariffSaving?.monthly_saving_with_vat||0);
   return{kwh,demand,contracted,amount:Number(invoice.total_amount||0),saving:powerSaving+reactiveSaving+tariffSavingValue,powerSaving,reactiveSaving,tariffSaving:tariffSavingValue};
 }
@@ -70,6 +71,7 @@ function aggregate(invoices:Invoice[],months:string[],tariffSavings:TariffSaving
     // representar el efecto económico neto; consumo y demanda usan un único
     // comprobante principal por medidor y mes.
     point.amount=rows.reduce((sum,row)=>sum+Number(row.total_amount||0),0);
+    point.billingPeriods=[...new Set(rows.map(row=>String(row.billing_period||row.period_start).slice(0,7)))].sort();
     return point;
   });
 }
@@ -81,7 +83,7 @@ function TrendChart({data,metric,showSavings=false,selectedPeriod="",onSelect}:{
   const barSlot=plotW/Math.max(1,data.length),barWidth=Math.max(8,barSlot*.58);
   return <div className="history-chart-wrap"><svg className="history-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${metricMeta[metric].label} mensual`}>
     {[0,.25,.5,.75,1].map(step=>{const y=top+plotH*(1-step);return <g key={step}><line x1={left} x2={width-right} y1={y} y2={y}/><text x={left-10} y={y+4} textAnchor="end">{nf.format(max*step)}</text></g>})}
-    {data.map((row,index)=>{const value=row[metric],x=left+index*barSlot+(barSlot-barWidth)/2,y=top+plotH-(value/max)*plotH,saving=Math.min(value,row.saving),savingHeight=metric==="amount"&&showSavings?(saving/max)*plotH:0;return <g tabIndex={onSelect?0:undefined} onClick={()=>onSelect?.(row.period)} onKeyDown={event=>{if(onSelect&&(event.key==="Enter"||event.key===" "))onSelect(row.period)}} className={`${row.invoices?"history-bar":"history-bar missing"}${selectedPeriod===row.period?" selected":""}${onSelect?" selectable":""}`} key={row.period}><rect x={x} y={y} width={barWidth} height={Math.max(1,top+plotH-y)} rx="4"><title>{labelPeriod(row.period)} · {metricMeta[metric].format(value)} · {row.invoices} medidor(es) con factura{metric==="amount"&&showSavings?` · Ahorro ${money.format(row.saving)}`:""}</title></rect>{savingHeight>0&&<rect className="saving-segment" x={x} y={top+plotH-savingHeight} width={barWidth} height={savingHeight} rx="4"><title>Ahorro estimado: {money.format(row.saving)}</title></rect>}{(index%3===0||index===data.length-1)&&<text className="month-label" x={x+barWidth/2} y={height-23} textAnchor="middle">{labelPeriod(row.period)}</text>}</g>})}
+    {data.map((row,index)=>{const value=row[metric],x=left+index*barSlot+(barSlot-barWidth)/2,y=top+plotH-(value/max)*plotH,saving=Math.min(value,row.saving),savingHeight=metric==="amount"&&showSavings?(saving/max)*plotH:0;return <g tabIndex={onSelect?0:undefined} onClick={()=>onSelect?.(row.period)} onKeyDown={event=>{if(onSelect&&(event.key==="Enter"||event.key===" "))onSelect(row.period)}} className={`${row.invoices?"history-bar":"history-bar missing"}${selectedPeriod===row.period?" selected":""}${onSelect?" selectable":""}`} key={row.period}><rect x={x} y={y} width={barWidth} height={Math.max(1,top+plotH-y)} rx="4"><title>Consumo {row.period} · Facturas: {row.billingPeriods?.join(", ") || "S/D"} · {metricMeta[metric].format(value)} · {row.invoices} medidor(es) con factura{metric==="amount"&&showSavings?` · Ahorro ${money.format(row.saving)}`:""}</title></rect>{savingHeight>0&&<rect className="saving-segment" x={x} y={top+plotH-savingHeight} width={barWidth} height={savingHeight} rx="4"><title>Ahorro estimado: {money.format(row.saving)}</title></rect>}{(index%3===0||index===data.length-1)&&<text className="month-label" x={x+barWidth/2} y={height-23} textAnchor="middle">{labelPeriod(row.period)}</text>}</g>})}
     {metric==="demand"&&data.some(row=>row.contracted>0)&&<g className="contract-line">{data.map((row,index)=>{if(!row.contracted)return null;const x1=left+index*barSlot,x2=x1+barSlot,y=top+plotH-(row.contracted/max)*plotH;return <line key={row.period} x1={x1} x2={x2} y1={y} y2={y}/>})}<text x={width-right-4} y={Math.max(top+10,top+plotH-(Number([...data].reverse().find(row=>row.contracted)?.contracted||0)/max)*plotH-7)} textAnchor="end">Potencia contratada</text></g>}
   </svg></div>
 }
@@ -131,7 +133,7 @@ export function HistoricalAnalysis({invoices,meters,tariffSavings}:{invoices:Inv
   const selectedPoint=meterData.find(row=>row.period===selectedPeriod);
   useEffect(()=>{setSelectedPeriod("");setShowSavings(false)},[meterId]);
   return <div className="historical-analysis">
-    <section className="panel history-panel"><div className="history-head"><div><h2>Evolución global mensual</h2><p>Últimos 24 meses hasta el período más reciente cargado · todos los medidores</p></div><MetricButtons value={globalMetric} onChange={setGlobalMetric}/></div>
+    <section className="panel history-panel"><div className="history-head"><div><h2>Evolución global mensual</h2><p>Últimos 24 meses de consumo · factura correspondiente indicada en cada barra</p></div><MetricButtons value={globalMetric} onChange={setGlobalMetric}/></div>
       <div className="history-kpis"><article><span>Último mes</span><b>{metricMeta[globalMetric].format(latestValue)}</b><small>{latest?labelPeriod(latest.period):"Sin datos"}</small></article><article><span>Variación mensual</span><b className={variation>0?"up":"down"}>{previousValue?`${variation>=0?"+":""}${variation.toFixed(1)}%`:"S/D"}</b><small>contra el mes anterior</small></article><article><span>Cobertura del mes</span><b>{latest?.invoices||0} / {meters.length}</b><small>medidores con factura</small></article><article><span>Período analizado</span><b>24 meses</b><small>{months[0]} a {months.at(-1)}</small></article></div>
       <TrendChart data={globalData} metric={globalMetric}/><div className="chart-note"><i/> Mes sin factura cargada <span>Pasá el cursor sobre cada barra para ver el valor exacto.</span></div>
     </section>

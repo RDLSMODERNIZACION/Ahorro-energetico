@@ -9,7 +9,7 @@ import {
 import { supabase } from "./lib/supabase";
 import type { EpenOptimizationMeter } from "./epen-optimization-panel";
 import styles from "./power-curve.module.css";
-import { latestMonthlyDemands } from "./lib/power-history";
+import { consumptionPeriod, measuredDemand, latestMonthlyDemands } from "./lib/power-history";
 
 type Measurement = {
   active_energy_kwh?: number;
@@ -190,10 +190,7 @@ function values(i: Invoice) {
     (s, m) => s + Number(m.reactive_energy_kvarh || 0),
     0,
   );
-  const demand = Math.max(
-    0,
-    ...ms.map((m) => Number(m.demand_kw || m.registered_demand_peak_kw || 0)),
-  );
+  const demand = measuredDemand(i);
   const contracted = contractedBands(i).peak;
   const pfs = ms
     .map((m) => Number(m.resolved_power_factor || m.power_factor || 0))
@@ -276,14 +273,14 @@ function latestContractedForMonth(history: Invoice[], monthNumber: number) {
   const invoice = [...history]
     .filter(
       (row) =>
-        Number(periodOf(row).slice(5, 7)) === monthNumber &&
+        Number(consumptionPeriod(row).slice(5, 7)) === monthNumber &&
         contractedBands(row).peak > 0,
     )
     .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))[0];
   return invoice
     ? {
         latestKw: contractedBands(invoice).peak,
-        latestPeriod: periodOf(invoice),
+        latestPeriod: consumptionPeriod(invoice),
       }
     : { latestKw: 0, latestPeriod: "" };
 }
@@ -293,7 +290,7 @@ const epenPowerQuarters = [
   { label: "Mayo–Julio", months: [5, 6, 7] },
   { label: "Agosto–Octubre", months: [8, 9, 10] },
 ];
-function buildPowerCurve(history: Invoice[], byConsumptionMonth = false) {
+function buildPowerCurve(history: Invoice[]) {
   const valid = history
     .filter((i) => values(i).demand > 0)
     .sort((a, b) => periodOf(a).localeCompare(periodOf(b)));
@@ -313,12 +310,7 @@ function buildPowerCurve(history: Invoice[], byConsumptionMonth = false) {
   const rate = Number(latestRateInvoice ? powerRate(latestRateInvoice) : 0);
   const monthlyRows = powerMonthNames.map((month, idx) => {
     const monthNumber = idx + 1;
-    const matches = valid.filter(
-      (i) => Number(periodOf(i).slice(5, 7)) === monthNumber,
-    );
-    const observations = byConsumptionMonth
-      ? latestMonthlyDemands(history, monthNumber)
-      : matches.map((i) => ({ period: periodOf(i), demand: values(i).demand }));
+    const observations = latestMonthlyDemands(history, monthNumber);
     const monthlyProposalKw = observations.length
       ? Math.max(minimumKw, ...observations.map((x) => x.demand))
       : 0;
@@ -419,7 +411,7 @@ export function calculateCanonicalSavings({
   };
 }) {
   const curve = buildPowerCurve(history);
-  const monthNumber = Number(periodOf(invoice).slice(5, 7));
+  const monthNumber = Number(consumptionPeriod(invoice).slice(5, 7));
   const powerMonthly = Number(
     curve.rows.find((row) => row.monthNumber === monthNumber)?.saving || 0,
   );
@@ -487,6 +479,7 @@ function TariffSavingTrend({
 }: {
   rows: {
     billing_period: string;
+    consumption_period?: string;
     monthly_saving: number;
     current_tariff?: string;
     recommended_tariff?: string;
@@ -500,6 +493,7 @@ function TariffSavingTrend({
       string,
       {
         billing_period: string;
+    consumption_period?: string;
         monthly_saving: number;
         current_tariff?: string;
         recommended_tariff?: string;
@@ -514,7 +508,8 @@ function TariffSavingTrend({
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-24)
       .map(([period, row]) => ({
-        period,
+        period: row.consumption_period || period,
+        billingPeriod: period,
         row,
         value: Math.max(0, Number(row.monthly_saving || 0)),
         available: row.available !== false,
@@ -582,15 +577,15 @@ function TariffSavingTrend({
 
           return (
             <g
-              className={`invoice-analysis-bar tariff-saving-bar${missing ? " missing" : ""}${selectedPeriod === d.period ? " selected" : ""}`}
+              className={`invoice-analysis-bar tariff-saving-bar${missing ? " missing" : ""}${selectedPeriod === d.billingPeriod ? " selected" : ""}`}
               key={d.period}
-              onClick={() => onPeriod(d.period)}
+              onClick={() => onPeriod(d.billingPeriod)}
             >
               <rect x={x} y={barY} width={bw} height={barH} rx="5">
                 <title>
                   {missing
-                    ? `${labelPeriod(d.period)} · Falta cuadro tarifario ${d.row.recommended_tariff || "propuesto"}`
-                    : `${labelPeriod(d.period)} · ${d.row.current_tariff || "Actual"} → ${d.row.recommended_tariff || "Propuesta"} · ${money.format(d.value)}`}
+                    ? `Consumo ${d.period} · Factura ${d.billingPeriod} · Falta cuadro tarifario ${d.row.recommended_tariff || "propuesto"}`
+                    : `Consumo ${d.period} · Factura ${d.billingPeriod} · ${d.row.current_tariff || "Actual"} → ${d.row.recommended_tariff || "Propuesta"} · ${money.format(d.value)}`}
                 </title>
               </rect>
               {(index % 3 === 0 || index === data.length - 1) && (
@@ -636,7 +631,7 @@ function InvoiceTrend({
   const data = useMemo(() => {
     const map = new Map<string, Invoice>();
     for (const row of rows) {
-      const p = periodOf(row);
+      const p = consumptionPeriod(row);
       const current = map.get(p);
       if (
         !current ||
@@ -651,6 +646,7 @@ function InvoiceTrend({
       .map(([period, invoice]) => ({
         period,
         invoice,
+        billingPeriod: periodOf(invoice),
         value: metricValue(invoice, metric),
         contracted: values(invoice).contracted,
         proposed:
@@ -710,9 +706,9 @@ function InvoiceTrend({
           const y = top + plotH - (graphValue / max) * plotH;
           return (
             <g
-              className={`invoice-analysis-bar${metric === "pf" && ((d.value > 0 && d.value < 0.95) || d.pfUnknownPenalized) ? " bad-pf" : ""}${metric === "pf" && d.value >= 0.95 && !d.pfUnknownPenalized ? " good-pf" : ""}${metric === "pf" && d.pfUnknownPenalized ? " pf-unknown-penalty" : ""}${selectedPeriod === d.period ? " selected" : ""}`}
+              className={`invoice-analysis-bar${metric === "pf" && ((d.value > 0 && d.value < 0.95) || d.pfUnknownPenalized) ? " bad-pf" : ""}${metric === "pf" && d.value >= 0.95 && !d.pfUnknownPenalized ? " good-pf" : ""}${metric === "pf" && d.pfUnknownPenalized ? " pf-unknown-penalty" : ""}${selectedPeriod === d.billingPeriod ? " selected" : ""}`}
               key={d.period}
-              onClick={() => onPeriod(d.period)}
+              onClick={() => onPeriod(d.billingPeriod)}
             >
               <rect
                 x={x}
@@ -723,8 +719,8 @@ function InvoiceTrend({
               >
                 <title>
                   {metric === "pf" && d.pfUnknownPenalized
-                    ? `${labelPeriod(d.period)} · Penalización de factor de potencia · cos φ no informado`
-                    : `${labelPeriod(d.period)} · ${fmt(metric, d.value)}`}
+                    ? `Consumo ${d.period} · Factura ${d.billingPeriod} · Penalización de factor de potencia · cos φ no informado`
+                    : `Consumo ${d.period} · Factura ${d.billingPeriod} · ${fmt(metric, d.value)}`}
                 </title>
               </rect>
               {(index % 3 === 0 || index === data.length - 1) && (
@@ -781,9 +777,9 @@ function InvoiceTrend({
                   y1={top + plotH - (d.proposed / max) * plotH}
                   y2={top + plotH - (d.proposed / max) * plotH}
                 >
-                  <title>{`${labelPeriod(d.period)} · Propuesta ${nf.format(d.proposed)} kW`}</title>
+                  <title>{`Consumo ${d.period} · Factura ${d.billingPeriod} · Propuesta ${nf.format(d.proposed)} kW`}</title>
                 </line>
-                {selectedPeriod === d.period && (
+                {selectedPeriod === d.billingPeriod && (
                   <>
                     <circle
                       className="invoice-proposal-marker"
@@ -957,7 +953,7 @@ export function InvoiceAnalysisPanel({
   );
   const excess = Math.max(0, v.contracted - v.demand);
   const powerCurve = useMemo(() => buildPowerCurve(history), [history]);
-  const selectedMonthNumber = Number(periodOf(selected).slice(5, 7));
+  const selectedMonthNumber = Number(consumptionPeriod(selected).slice(5, 7));
   const selectedPowerProposal = powerCurve.rows.find(
     (row) => row.monthNumber === selectedMonthNumber,
   );
@@ -1081,7 +1077,7 @@ export function InvoiceAnalysisPanel({
     const rows = powerCurve.rows.map((row) => {
       const historical =
         row.observations
-          .map((x) => `${x.period.slice(0, 4)}: ${nf.format(x.demand)} kW`)
+          .map((x) => `${x.period}: ${nf.format(x.demand)} kW (factura ${x.billingPeriod || "S/D"})`)
           .join(" | ") || "Sin datos";
       return [
         row.month,
@@ -1169,7 +1165,7 @@ export function InvoiceAnalysisPanel({
       setNameBusy(false);
     }
   }
-  const controlPowerProposals = buildPowerCurve(history, true).rows.map((row) => ({
+  const controlPowerProposals = powerCurve.rows.map((row) => ({
     ...latestContractedForMonth(history, row.monthNumber),
     observations: latestMonthlyDemands(history, row.monthNumber),
     month: row.month,
@@ -1267,8 +1263,9 @@ export function InvoiceAnalysisPanel({
             </p>
           </div>
           <div className="invoice-analysis-period">
-            <span>Factura seleccionada</span>
-            <b>{periodOf(selected)}</b>
+            <span>Mes de consumo</span>
+            <b>{consumptionPeriod(selected)}</b>
+            <small>Factura: {periodOf(selected)}</small>
             <small>{selected.invoice_number || "S/D"}</small>
           </div>
         </div>
@@ -1449,7 +1446,7 @@ export function InvoiceAnalysisPanel({
           <div className="invoice-analysis-chart-head">
             <div>
               <h3>Evolución histórica del medidor</h3>
-              <p>Hasta 24 meses. Tocá una barra para abrir esa factura.</p>
+              <p>Hasta 24 meses de consumo. Cada barra indica también su factura al pasar el cursor; tocala para abrirla.</p>
             </div>
             <div className="invoice-analysis-controls">
               <div className="invoice-analysis-metrics">
@@ -1671,7 +1668,10 @@ export function InvoiceAnalysisPanel({
               return (
                 <div className="invoice-tariff-detail-view">
                   <TariffSavingTrend
-                    rows={chartRows}
+                    rows={chartRows.map((point) => {
+                      const source = history.find((item) => periodOf(item) === String(point.billing_period).slice(0, 7));
+                      return { ...point, consumption_period: source ? consumptionPeriod(source) : String(point.billing_period).slice(0, 7) };
+                    })}
                     selectedPeriod={periodOf(selected)}
                     onPeriod={setSelectedPeriod}
                   />
@@ -1927,7 +1927,11 @@ export function InvoiceAnalysisPanel({
             <h3>Detalle completo de la factura</h3>
             <div className="invoice-analysis-details">
               <div>
-                <span>Período</span>
+                <span>Mes de consumo</span>
+                <b>{consumptionPeriod(selected)}</b>
+              </div>
+              <div>
+                <span>Período de factura</span>
                 <b>{periodOf(selected)}</b>
               </div>
               <div>

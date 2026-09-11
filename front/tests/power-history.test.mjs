@@ -26,3 +26,25 @@ test('compares latest two distinct consumption years and deduplicates the month 
   assert.equal(latestMonthlyDemands(history, 2)[0].demand, 510);
   assert.deepEqual(latestMonthlyDemands(history, 7), []);
 });
+
+test('proposal and shared savings use consumption month; tariff savings retain billing month', () => {
+  const panel = readFileSync(new URL('../app/invoice-analysis-panel.tsx', import.meta.url), 'utf8');
+  const logic = panel.slice(panel.indexOf('const powerMonthNames'), panel.indexOf('function xmlCell')).replace('export function', 'function');
+  const output = ts.transpileModule(logic, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const { buildPowerCurve, calculateCanonicalSavings } = new Function('latestMonthlyDemands', 'consumptionPeriod', 'periodOf', 'values', 'contractedBands', 'const nf = new Intl.NumberFormat("es-AR");' + output + ';return {buildPowerCurve,calculateCanonicalSavings};')(
+    latestMonthlyDemands, consumptionPeriod, i => i.billing_period, i => ({ demand: measuredDemand(i) }), i => ({peak:i.contracted_kw_peak}),
+  );
+  const amounts = [502,510,432,456,432,446,432,422,429,484,466,480];
+  const history = amounts.map((demand, index) => {
+    const month = index + 1;
+    const start = new Date(Date.UTC(2025, month - 1, 0)).toISOString().slice(0,10);
+    const end = new Date(Date.UTC(2025, month, 0)).toISOString().slice(0,10);
+    const billed = new Date(Date.UTC(2025, month, 1)).toISOString().slice(0,7);
+    return {...invoice(start,end,billed,demand), meter_id:'test',contracted_kw_peak:510,current_tariff_code:'T3',invoice_lines:[{concept_code:'DEP',unit_price:100}]};
+  });
+  assert.deepEqual(buildPowerCurve(history).rows.map(r => r.proposalKw), amounts);
+  const selected = {...history[7], ...invoice('2026-07-31','2026-08-31','2026-09',408)};
+  const result = calculateCanonicalSavings({invoice:selected,history:[...history,selected],tariffSavings:[{meter_id:'test',billing_period:'2026-09',monthly_saving_with_vat:1000},{meter_id:'test',billing_period:'2026-08',monthly_saving_with_vat:9999}]});
+  assert.equal(result.powerMonthly, (510 - 422) * 100 * 1.3);
+  assert.equal(result.tariffMonthly, 1000);
+});
