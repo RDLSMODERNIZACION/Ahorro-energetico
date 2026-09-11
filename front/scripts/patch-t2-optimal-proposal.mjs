@@ -168,8 +168,8 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
         method: "trimestral" as const,
         reason:
           projectedExcessKw > 0
-            ? `T2 óptimo trimestral ${decision.quarter}: ${nf.format(proposalKw)} kW. Este mes proyecta ${nf.format(projectedExcessKw)} kW de EXC, aceptado porque minimiza el costo total DEM + EXC del trimestre histórico.`
-            : `T2 óptimo trimestral ${decision.quarter}: ${nf.format(proposalKw)} kW. Minimiza DEM + EXC usando ${nf.format(decision.sampleCount)} factura(s) histórica(s) del mismo trimestre.`,
+            ? "T2 óptimo trimestral " + decision.quarter + ": " + nf.format(proposalKw) + " kW. Este mes proyecta " + nf.format(projectedExcessKw) + " kW de EXC, aceptado porque minimiza el costo total DEM + EXC del trimestre histórico."
+            : "T2 óptimo trimestral " + decision.quarter + ": " + nf.format(proposalKw) + " kW. Minimiza DEM + EXC usando " + nf.format(decision.sampleCount) + " factura(s) histórica(s) del mismo trimestre.",
         spreadKw: 0,
         extraCost: 0,
         reducibleKw: Math.max(0, currentKw - proposalKw),
@@ -243,9 +243,9 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
     const reason = !complete
       ? "Mes a mes: faltan datos en el trimestre"
       : spreadKw > 10
-        ? `Mes a mes: diferencia trimestral de ${nf.format(spreadKw)} kW (>10 kW)`
+        ? "Mes a mes: diferencia trimestral de " + nf.format(spreadKw) + " kW (>10 kW)"
         : extraCost > economicLimit
-          ? `Mes a mes: el costo extra supera el 10% del ahorro mensual`
+          ? "Mes a mes: el costo extra supera el 10% del ahorro mensual"
           : "Trimestral EPEN: diferencia ≤10 kW y costo extra ≤10% del ahorro";
     for (const row of quarterRows) {
       quarterlyDecision.set(row.monthNumber, {
