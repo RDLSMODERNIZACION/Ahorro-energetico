@@ -179,14 +179,19 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         # ajusta a esa demanda sin margen, pero nunca debajo del mínimo que EPEN
         # permite contratar en la categoría resultante (T2=10 kW, T3=50 kW).
         expected=_expected_tariff(max_demand,active,current)
-        # Separate the reduction allowed inside the current tariff from the
-        # capacity applicable after a possible tariff change.
         recommended=max(max_demand,_minimum_contracted_kw(current))
         tariff_recommended=max(max_demand,_minimum_contracted_kw(expected))
         correctly_framed=current==expected
         excess_units,excess_rate,excess_saving=_power_excess_saving(lines)
         power_rate=max([_num(x.get("unit_price")) for x in lines if x.get("concept_code") in ("DEM","DEP") and _num(x.get("unit_price"))>0] or [Decimal(0)])
-        reducible=max(Decimal(0),capacity-recommended)
+        # Una capacidad informada por EPEN no implica por sí sola un cargo de potencia.
+        # Solo valorizamos reducción de potencia cuando la factura efectivamente
+        # contiene DEM/DEP con precio unitario positivo. Esto evita falsos ahorros en
+        # T1G/RN (por ejemplo T1G3 con 17 kW informados pero sin $/kW-mes facturado).
+        power_billed=power_rate>0
+        technical_reducible=max(Decimal(0),capacity-recommended)
+        reducible=technical_reducible if power_billed else Decimal(0)
+        power_recommended=recommended if power_billed else capacity
         monthly_power_saving=(reducible*power_rate*VAT_FACTOR).quantize(Decimal("0.01"))
         reactive_saving=(max(Decimal(0),sum(_num(x.get("net_amount")) for x in lines if x.get("concept_code")=="COS"))*VAT_FACTOR).quantize(Decimal("0.01"))
         period=latest.get("billing_period") or latest.get("period_start")
@@ -212,6 +217,8 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
             if official_available:reasons.append(f"Segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo, corresponde {expected} y no {current}; con {recommended} kW en {current} el costo seria ${official_current_adjusted} y con {tariff_recommended} kW en {expected} seria ${official_simulated}")
             else:reasons.append(f"La capacidad de {capacity} kW corresponde a {expected}; falta el cuadro oficial vigente de una de las categorias para valorizar el cambio")
         if reducible>0:reasons.append(f"La demanda máxima observada fue {max_demand} kW frente a {capacity} kW contratados; se valorizan {reducible} kW de más a ${power_rate} por kW más 30% de IVA")
+        elif capacity>0 and not power_billed:
+            reasons.append(f"EPEN informa {capacity} kW de capacidad, pero la tarifa {current} no factura potencia en DEM/DEP; se conserva como dato técnico y no se calcula ahorro por reducción de potencia")
         if reactive_saving>0:reasons.append(f"El recargo COS evitable, incluido 30% de IVA, es ${reactive_saving}")
         elif pf is not None and pf<Decimal("0.95"):reasons.append(f"Factor de potencia bajo: {pf}")
         if deactivation_candidate:reasons.append(f"El suministro acumula {zero_periods} periodos consecutivos con consumo y demanda cero; la baja evitaria aproximadamente ${deactivation_saving} por mes. Si debe seguir activo, evaluar el cambio {current} a {expected}")
@@ -219,7 +226,7 @@ def tariff_assessments(organization_id:str,user:CurrentUser=Depends(current_user
         status="change_candidate" if not correctly_framed or deactivation_candidate else "power_review" if reducible>0 or reactive_saving>0 else "correct"
         if len(history)<3 and status!="correct":status="provisional"
         correct_reason=f"Tarifa {current} correcta segun el cuadro EPEN {schedule.get('resolution_number')} vigente para el periodo" if schedule else "El encuadramiento coincide con la capacidad declarada; falta el cuadro oficial de ese periodo para validar precios"
-        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or [correct_reason],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(capacity),"recommended_kw":float(recommended),"power_factor":float(pf) if pf is not None else None,"power_excess_kw":float(reducible),"power_unit_price":float(power_rate),"power_saving_source":"contracted_reduction" if monthly_power_saving>0 else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_current_simulated":float(official_current_adjusted) if official_current_adjusted is not None else None,"tariff_recommended_simulated":float(official_simulated) if official_simulated is not None else None,"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":official_available,"tariff_price_source":price_source,"official_schedule":schedule or current_schedule,"zero_consumption_periods":zero_periods,"deactivation_candidate":deactivation_candidate,"deactivation_monthly_saving":float(deactivation_saving if deactivation_candidate else 0),"deactivation_annual_saving":float(deactivation_saving*12 if deactivation_candidate else 0),"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0 or reactive_saving>0 or deactivation_candidate,"vat_percent":30})
+        result.append({"meter_id":meter_id,"meter":meter,"current_tariff":latest.get("current_tariff_code"),"recommended_tariff":expected,"status":status,"reasons":reasons or [correct_reason],"periods_analyzed":len(history),"billing_period":latest.get("billing_period"),"consumption_kwh":float(active),"maximum_demand_kw":float(max_demand),"contracted_kw":float(capacity),"reported_contracted_kw":float(capacity),"recommended_kw":float(power_recommended),"power_billed":power_billed,"power_billing_note":"billed_demand_charge" if power_billed else "reported_capacity_only","power_factor":float(pf) if pf is not None else None,"power_excess_kw":float(reducible),"technical_unused_capacity_kw":float(technical_reducible),"power_unit_price":float(power_rate),"power_saving_source":"contracted_reduction" if monthly_power_saving>0 else None,"power_monthly_saving":float(monthly_power_saving),"power_annual_saving":float(monthly_power_saving*12),"reactive_monthly_saving":float(reactive_saving),"reactive_annual_saving":float(reactive_saving*12),"tariff_current_simulated":float(official_current_adjusted) if official_current_adjusted is not None else None,"tariff_recommended_simulated":float(official_simulated) if official_simulated is not None else None,"tariff_monthly_saving":float(monthly_tariff_saving),"tariff_annual_saving":float(monthly_tariff_saving*12),"tariff_simulation_available":official_available,"tariff_price_source":price_source,"official_schedule":schedule or current_schedule,"zero_consumption_periods":zero_periods,"deactivation_candidate":deactivation_candidate,"deactivation_monthly_saving":float(deactivation_saving if deactivation_candidate else 0),"deactivation_annual_saving":float(deactivation_saving*12 if deactivation_candidate else 0),"estimated_monthly_saving":float(monthly_total),"estimated_annual_saving":float(monthly_total*12),"confidence":confidence,"requires_epen_review":not correctly_framed or reducible>0 or reactive_saving>0 or deactivation_candidate,"vat_percent":30})
     return sorted(result,key=lambda x:(x["status"]=="correct",-x["estimated_annual_saving"]))
 
 @router.post("/organizations/{organization_id}/analysis/run")
