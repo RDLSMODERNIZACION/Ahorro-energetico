@@ -2,10 +2,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const path = new URL("../app/invoice-analysis-panel.tsx", import.meta.url);
 let source = readFileSync(path, "utf8");
-const marker = "// T2_OPTIMAL_POWER_V2";
+const marker = "// T2_OPTIMAL_POWER_V3_QUARTERLY";
 
 if (source.includes(marker)) {
-  console.log("T2 optimal-power V2 already applied.");
+  console.log("T2 quarterly optimal-power V3 already applied.");
   process.exit(0);
 }
 
@@ -18,7 +18,7 @@ if (start < 0 || end < 0) {
 }
 
 const replacement = `function buildPowerCurve(history: Invoice[]) {
-  // T2_OPTIMAL_POWER_V2
+  // T2_OPTIMAL_POWER_V3_QUARTERLY
   const valid = history
     .filter((i) => values(i).demand > 0)
     .sort((a, b) => periodOf(a).localeCompare(periodOf(b)));
@@ -30,7 +30,9 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
     latestContract ? contractedBands(latestContract).peak : 0,
   );
   const tariffCode = String(
-    latestContract?.current_tariff_code || "",
+    latestContract?.current_tariff_code ||
+      latestContract?.meters?.current_tariff_code ||
+      "",
   ).toUpperCase();
   const minimumKw = minimumContractedKw(tariffCode);
   const rate = Number(latestRateInvoice ? powerRate(latestRateInvoice) : 0);
@@ -44,77 +46,148 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
   });
 
   if (tariffCode.startsWith("T2")) {
+    const tariffOf = (invoice: Invoice) =>
+      String(
+        invoice.current_tariff_code ||
+          invoice.meters?.current_tariff_code ||
+          "",
+      ).toUpperCase();
+    const lineRate = (invoice: Invoice, code: string) =>
+      Math.max(
+        0,
+        ...(invoice.invoice_lines || [])
+          .filter(
+            (line) =>
+              String(line.concept_code || "").toUpperCase() === code,
+          )
+          .map((line) => Number(line.unit_price || 0)),
+      );
+    const lineAmount = (invoice: Invoice, code: string) =>
+      (invoice.invoice_lines || [])
+        .filter(
+          (line) => String(line.concept_code || "").toUpperCase() === code,
+        )
+        .reduce((sum, line) => {
+          const net = Number(line.net_amount || 0);
+          if (net > 0) return sum + net;
+          return (
+            sum +
+            Math.max(0, Number(line.quantity || 0)) *
+              Math.max(0, Number(line.unit_price || 0))
+          );
+        }, 0);
+
     const t2History = valid
-      .filter((invoice) =>
-        String(invoice.current_tariff_code || "").toUpperCase().startsWith("T2"),
+      .filter(
+        (invoice) =>
+          tariffOf(invoice).startsWith("T2") && powerRate(invoice) > 0,
       )
       .slice(-24);
 
-    const simulatedCost = (candidateKw: number) =>
-      t2History.reduce((sum, invoice) => {
-        const monthRate = powerRate(invoice) || rate;
-        if (!(monthRate > 0)) return sum;
-        const demand = values(invoice).demand;
-        const excessKw = Math.max(0, Math.round(demand - candidateKw));
-        return sum + candidateKw * monthRate + excessKw * monthRate * 1.5;
-      }, 0);
+    const simulatedPowerCost = (invoice: Invoice, contractedKw: number) => {
+      const demRate = lineRate(invoice, "DEM") || powerRate(invoice) || rate;
+      const excRate = lineRate(invoice, "EXC") || demRate * 1.5;
+      if (!(demRate > 0)) return 0;
+      const demand = values(invoice).demand;
+      const excessKw = Math.max(0, Math.round(demand - contractedKw));
+      return contractedKw * demRate + excessKw * excRate;
+    };
+    const actualPowerCost = (invoice: Invoice) => {
+      const billed = lineAmount(invoice, "DEM") + lineAmount(invoice, "EXC");
+      if (billed > 0) return billed;
+      const contracted = contractedBands(invoice).peak || currentKw;
+      return simulatedPowerCost(invoice, contracted);
+    };
 
-    let optimalKw = Math.max(10, Math.min(49, Math.round(currentKw || 10)));
-    let optimalCost = Number.POSITIVE_INFINITY;
-    for (let candidate = 10; candidate <= 49; candidate += 1) {
-      const cost = simulatedCost(candidate);
-      if (cost < optimalCost) {
-        optimalCost = cost;
-        optimalKw = candidate;
+    const quarterlyOptimum = new Map<
+      number,
+      {
+        optimalKw: number;
+        quarter: string;
+        sampleCount: number;
+        historicalCost: number;
+      }
+    >();
+
+    for (const quarter of epenPowerQuarters) {
+      const quarterHistory = t2History.filter((invoice) =>
+        quarter.months.includes(Number(consumptionPeriod(invoice).slice(5, 7))),
+      );
+      let optimalKw = Math.max(
+        10,
+        Math.min(49, Math.round(currentKw || 10)),
+      );
+      let optimalCost = Number.POSITIVE_INFINITY;
+      for (let candidate = 10; candidate <= 49; candidate += 1) {
+        const cost = quarterHistory.reduce(
+          (sum, invoice) => sum + simulatedPowerCost(invoice, candidate),
+          0,
+        );
+        if (quarterHistory.length > 0 && cost < optimalCost - 0.01) {
+          optimalCost = cost;
+          optimalKw = candidate;
+        }
+      }
+      if (!quarterHistory.length) optimalCost = 0;
+      for (const monthNumber of quarter.months) {
+        quarterlyOptimum.set(monthNumber, {
+          optimalKw,
+          quarter: quarter.label,
+          sampleCount: quarterHistory.length,
+          historicalCost: optimalCost,
+        });
       }
     }
 
     const rows = monthlyRows.map((row) => {
-      const latestObservation = row.observations.length
-        ? row.observations[row.observations.length - 1]
-        : undefined;
-      const demand = Number(latestObservation?.demand || 0);
-      const actualExcessKw = Math.max(0, Math.round(demand - currentKw));
-      const proposedExcessKw = Math.max(0, Math.round(demand - optimalKw));
-      const actualCost =
-        currentKw * rate + actualExcessKw * rate * 1.5;
-      const proposedCost =
-        optimalKw * rate + proposedExcessKw * rate * 1.5;
-      const savingNet = demand > 0 ? actualCost - proposedCost : 0;
-      const saving = savingNet * 1.3;
+      const decision = quarterlyOptimum.get(row.monthNumber)!;
+      const proposalKw = decision.optimalKw;
+      const monthInvoices = t2History.filter(
+        (invoice) =>
+          Number(consumptionPeriod(invoice).slice(5, 7)) === row.monthNumber,
+      );
+      const latestMonthInvoice = [...monthInvoices].sort((a, b) =>
+        periodOf(b).localeCompare(periodOf(a)),
+      )[0];
+      const demand = latestMonthInvoice
+        ? values(latestMonthInvoice).demand
+        : row.observations.length
+          ? Number(row.observations[row.observations.length - 1]?.demand || 0)
+          : 0;
+      const projectedExcessKw = Math.max(0, Math.round(demand - proposalKw));
+      const savingNet = latestMonthInvoice
+        ? actualPowerCost(latestMonthInvoice) -
+          simulatedPowerCost(latestMonthInvoice, proposalKw)
+        : 0;
       return {
         ...row,
-        monthlyProposalKw: optimalKw,
-        proposalKw: optimalKw,
-        quarterlyProposalKw: optimalKw,
-        quarter: "T2 · óptimo económico",
-        method: "mensual" as const,
+        monthlyProposalKw: proposalKw,
+        proposalKw,
+        quarterlyProposalKw: proposalKw,
+        quarter: decision.quarter,
+        method: "trimestral" as const,
         reason:
-          proposedExcessKw > 0
-            ? `T2 óptimo: ${nf.format(optimalKw)} kW. Este mes proyecta ${nf.format(proposedExcessKw)} kW de EXC, pero el costo total histórico DEM + EXC es menor.`
-            : `T2 óptimo: ${nf.format(optimalKw)} kW. Minimiza el costo histórico DEM + EXC.`,
+          projectedExcessKw > 0
+            ? `T2 óptimo trimestral ${decision.quarter}: ${nf.format(proposalKw)} kW. Este mes proyecta ${nf.format(projectedExcessKw)} kW de EXC, aceptado porque minimiza el costo total DEM + EXC del trimestre histórico.`
+            : `T2 óptimo trimestral ${decision.quarter}: ${nf.format(proposalKw)} kW. Minimiza DEM + EXC usando ${nf.format(decision.sampleCount)} factura(s) histórica(s) del mismo trimestre.`,
         spreadKw: 0,
         extraCost: 0,
-        reducibleKw: Math.max(0, currentKw - optimalKw),
+        reducibleKw: Math.max(0, currentKw - proposalKw),
         savingNet,
-        saving,
+        saving: savingNet * 1.3,
+        projectedExcessKw,
       };
     });
 
-    const actualWindowCost = t2History.slice(-12).reduce((sum, invoice) => {
-      const monthRate = powerRate(invoice) || rate;
-      if (!(monthRate > 0)) return sum;
-      const contracted = contractedBands(invoice).peak || currentKw;
-      const demand = values(invoice).demand;
-      const excessKw = Math.max(0, Math.round(demand - contracted));
-      return sum + contracted * monthRate + excessKw * monthRate * 1.5;
-    }, 0);
-    const proposedWindowCost = t2History.slice(-12).reduce((sum, invoice) => {
-      const monthRate = powerRate(invoice) || rate;
-      if (!(monthRate > 0)) return sum;
-      const demand = values(invoice).demand;
-      const excessKw = Math.max(0, Math.round(demand - optimalKw));
-      return sum + optimalKw * monthRate + excessKw * monthRate * 1.5;
+    const annualWindow = t2History.slice(-12);
+    const actualWindowCost = annualWindow.reduce(
+      (sum, invoice) => sum + actualPowerCost(invoice),
+      0,
+    );
+    const proposedWindowCost = annualWindow.reduce((sum, invoice) => {
+      const monthNumber = Number(consumptionPeriod(invoice).slice(5, 7));
+      const proposalKw = quarterlyOptimum.get(monthNumber)?.optimalKw || currentKw;
+      return sum + simulatedPowerCost(invoice, proposalKw);
     }, 0);
     const annualSavingNet = actualWindowCost - proposedWindowCost;
 
@@ -126,6 +199,7 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
       rows,
       annualSaving: annualSavingNet * 1.3,
       annualSavingNet,
+      optimizationMethod: "t2_quarterly_dem_plus_exc",
       hasData: t2History.length > 0 && rate > 0,
     };
   }
@@ -208,4 +282,4 @@ const replacement = `function buildPowerCurve(history: Invoice[]) {
 
 source = source.slice(0, start) + replacement + source.slice(end + 2);
 writeFileSync(path, source, "utf8");
-console.log("Applied T2 optimal single-line proposal V2.");
+console.log("Applied T2 quarterly economic optimum: DEM + EXC by EPEN quarter.");
