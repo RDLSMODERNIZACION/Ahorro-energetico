@@ -9,6 +9,7 @@ import {
 import { supabase } from "./lib/supabase";
 import type { EpenOptimizationMeter } from "./epen-optimization-panel";
 import styles from "./power-curve.module.css";
+import { latestMonthlyDemands } from "./lib/power-history";
 
 type Measurement = {
   active_energy_kwh?: number;
@@ -1171,6 +1172,7 @@ export function InvoiceAnalysisPanel({
   }
   const controlPowerProposals = powerCurve.rows.map((row) => ({
     ...latestContractedForMonth(history, row.monthNumber),
+    observations: latestMonthlyDemands(history, row.monthNumber),
     month: row.month,
     monthNumber: row.monthNumber,
     proposalKw: row.proposalKw,
