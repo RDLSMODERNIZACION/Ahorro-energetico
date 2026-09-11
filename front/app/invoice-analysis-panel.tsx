@@ -293,7 +293,7 @@ const epenPowerQuarters = [
   { label: "Mayo–Julio", months: [5, 6, 7] },
   { label: "Agosto–Octubre", months: [8, 9, 10] },
 ];
-function buildPowerCurve(history: Invoice[]) {
+function buildPowerCurve(history: Invoice[], byConsumptionMonth = false) {
   const valid = history
     .filter((i) => values(i).demand > 0)
     .sort((a, b) => periodOf(a).localeCompare(periodOf(b)));
@@ -316,10 +316,9 @@ function buildPowerCurve(history: Invoice[]) {
     const matches = valid.filter(
       (i) => Number(periodOf(i).slice(5, 7)) === monthNumber,
     );
-    const observations = matches.map((i) => ({
-      period: periodOf(i),
-      demand: values(i).demand,
-    }));
+    const observations = byConsumptionMonth
+      ? latestMonthlyDemands(history, monthNumber)
+      : matches.map((i) => ({ period: periodOf(i), demand: values(i).demand }));
     const monthlyProposalKw = observations.length
       ? Math.max(minimumKw, ...observations.map((x) => x.demand))
       : 0;
@@ -1170,7 +1169,7 @@ export function InvoiceAnalysisPanel({
       setNameBusy(false);
     }
   }
-  const controlPowerProposals = powerCurve.rows.map((row) => ({
+  const controlPowerProposals = buildPowerCurve(history, true).rows.map((row) => ({
     ...latestContractedForMonth(history, row.monthNumber),
     observations: latestMonthlyDemands(history, row.monthNumber),
     month: row.month,

@@ -832,15 +832,14 @@ export function MeterChangeControlPanel({
                     <div className="improvement-power-table">
                       <div className="improvement-power-head">
                         <span>Mes</span>
-                        <span>Última demanda real</span>
-                        <span>Demanda real anterior</span>
-                        <span>Propuesta calculada</span>
-                        <span>Potencia efectivamente contratada</span>
+                        <span>Potencia real anterior</span>
+                        <span>Potencia real actual</span>
+                        <span>Propuesta</span>
                       </div>
                       {powerProposals.map((row) => (
                         <div key={row.monthNumber}>
                           <b>{row.month}</b>
-                          {[0, 1].map((index) => {
+                          {[1, 0].map((index) => {
                             const observation = row.observations[index];
                             return (
                               <span key={index}>
@@ -858,7 +857,17 @@ export function MeterChangeControlPanel({
                                 : "Propuesta mensual"}
                             </small>
                           </span>
+
+                        </div>
+                      ))}
+                    </div>
+                    <details>
+                      <summary>Registrar potencias efectivamente contratadas</summary>
+                      <div className="improvement-specific">
+                        {powerProposals.map((row) => (
+                          <div key={row.monthNumber}>
                           <label>
+                            <b>{row.month}</b>
                             <input
                               type="number"
                               min="0"
@@ -876,9 +885,10 @@ export function MeterChangeControlPanel({
                             />{" "}
                             kW
                           </label>
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                     </>
                   )}
                   {type === "contracted_power" && (
