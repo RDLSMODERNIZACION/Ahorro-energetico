@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { MeterDocuments } from "./meter-documents";
 import { MeterLocationEditor } from "./meter-location-editor";
 import {
   MeterChangeControlPanel,
@@ -2147,6 +2148,14 @@ export function InvoiceAnalysisPanel({
             base, impuestos, ajustes y deuda coincidan con el total facturado.
           </p>
         </section>
+
+        {organizationId && <MeterDocuments
+          organizationId={organizationId}
+          meterId={selected.meter_id}
+          selected={selected}
+          history={history}
+          controls={changeControls}
+        />}
 
         <section className="invoice-analysis-panel">
           <h3>Mediciones registradas</h3>
