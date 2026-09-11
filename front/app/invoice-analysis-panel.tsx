@@ -9,7 +9,7 @@ import {
 import { supabase } from "./lib/supabase";
 import type { EpenOptimizationMeter } from "./epen-optimization-panel";
 import styles from "./power-curve.module.css";
-import { consumptionPeriod, measuredDemand, latestMonthlyDemands } from "./lib/power-history";
+import { latestMonthlyDemands } from "./lib/power-history";
 
 type Measurement = {
   active_energy_kwh?: number;
@@ -190,7 +190,10 @@ function values(i: Invoice) {
     (s, m) => s + Number(m.reactive_energy_kvarh || 0),
     0,
   );
-  const demand = measuredDemand(i);
+  const demand = Math.max(
+    0,
+    ...ms.map((m) => Number(m.demand_kw || m.registered_demand_peak_kw || 0)),
+  );
   const contracted = contractedBands(i).peak;
   const pfs = ms
     .map((m) => Number(m.resolved_power_factor || m.power_factor || 0))
@@ -273,14 +276,14 @@ function latestContractedForMonth(history: Invoice[], monthNumber: number) {
   const invoice = [...history]
     .filter(
       (row) =>
-        Number(consumptionPeriod(row).slice(5, 7)) === monthNumber &&
+        Number(periodOf(row).slice(5, 7)) === monthNumber &&
         contractedBands(row).peak > 0,
     )
     .sort((a, b) => periodOf(b).localeCompare(periodOf(a)))[0];
   return invoice
     ? {
         latestKw: contractedBands(invoice).peak,
-        latestPeriod: consumptionPeriod(invoice),
+        latestPeriod: periodOf(invoice),
       }
     : { latestKw: 0, latestPeriod: "" };
 }
@@ -310,7 +313,13 @@ function buildPowerCurve(history: Invoice[]) {
   const rate = Number(latestRateInvoice ? powerRate(latestRateInvoice) : 0);
   const monthlyRows = powerMonthNames.map((month, idx) => {
     const monthNumber = idx + 1;
-    const observations = latestMonthlyDemands(valid, monthNumber);
+    const matches = valid.filter(
+      (i) => Number(periodOf(i).slice(5, 7)) === monthNumber,
+    );
+    const observations = matches.map((i) => ({
+      period: periodOf(i),
+      demand: values(i).demand,
+    }));
     const monthlyProposalKw = observations.length
       ? Math.max(minimumKw, ...observations.map((x) => x.demand))
       : 0;
@@ -411,7 +420,7 @@ export function calculateCanonicalSavings({
   };
 }) {
   const curve = buildPowerCurve(history);
-  const monthNumber = Number(consumptionPeriod(invoice).slice(5, 7));
+  const monthNumber = Number(periodOf(invoice).slice(5, 7));
   const powerMonthly = Number(
     curve.rows.find((row) => row.monthNumber === monthNumber)?.saving || 0,
   );
@@ -647,7 +656,7 @@ function InvoiceTrend({
         contracted: values(invoice).contracted,
         proposed:
           proposals.find(
-            (row) => row.monthNumber === Number(consumptionPeriod(invoice).slice(5, 7)),
+            (row) => row.monthNumber === Number(period.slice(5, 7)),
           )?.proposalKw || 0,
         pfUnknownPenalized: values(invoice).pfUnknownPenalized,
         penalized: values(invoice).penalized,
@@ -949,7 +958,7 @@ export function InvoiceAnalysisPanel({
   );
   const excess = Math.max(0, v.contracted - v.demand);
   const powerCurve = useMemo(() => buildPowerCurve(history), [history]);
-  const selectedMonthNumber = Number(consumptionPeriod(selected).slice(5, 7));
+  const selectedMonthNumber = Number(periodOf(selected).slice(5, 7));
   const selectedPowerProposal = powerCurve.rows.find(
     (row) => row.monthNumber === selectedMonthNumber,
   );
@@ -1073,7 +1082,7 @@ export function InvoiceAnalysisPanel({
     const rows = powerCurve.rows.map((row) => {
       const historical =
         row.observations
-          .map((x) => `${x.period}: ${nf.format(x.demand)} kW (factura ${x.billingPeriod || "S/D"})`)
+          .map((x) => `${x.period.slice(0, 4)}: ${nf.format(x.demand)} kW`)
           .join(" | ") || "Sin datos";
       return [
         row.month,
@@ -1163,7 +1172,7 @@ export function InvoiceAnalysisPanel({
   }
   const controlPowerProposals = powerCurve.rows.map((row) => ({
     ...latestContractedForMonth(history, row.monthNumber),
-    observations: row.observations,
+    observations: latestMonthlyDemands(history, row.monthNumber),
     month: row.month,
     monthNumber: row.monthNumber,
     proposalKw: row.proposalKw,

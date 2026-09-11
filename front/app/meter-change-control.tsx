@@ -652,7 +652,13 @@ export function MeterChangeControlPanel({
       type === "contracted_power"
         ? {
             months: powerProposals.map((row) => ({
-              ...row,
+              month: row.month,
+              monthNumber: row.monthNumber,
+              proposalKw: row.proposalKw,
+              method: row.method,
+              quarter: row.quarter,
+              latestKw: row.latestKw,
+              latestPeriod: row.latestPeriod,
               effective_kw: Number(
                 actualPowers[row.monthNumber] || row.proposalKw,
               ),
