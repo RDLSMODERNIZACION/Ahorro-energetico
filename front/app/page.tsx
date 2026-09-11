@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
+import { consumptionPeriod, measuredDemand, latestMonthlyDemands } from "./lib/power-history";
 import { HistoricalAnalysis } from "./analysis-charts";
 import {
   calculateCanonicalSavings,
@@ -250,12 +251,7 @@ async function api<T>(
 }
 
 function dashboardPowerDemand(i: Invoice) {
-  return Math.max(
-    0,
-    ...(i.invoice_measurements || []).map((m) =>
-      Number(m.demand_kw || m.registered_demand_peak_kw || 0),
-    ),
-  );
+  return measuredDemand(i);
 }
 function dashboardPowerContract(i: Invoice) {
   const line = Math.max(
@@ -308,13 +304,7 @@ function buildDashboardPowerCurve(invoices: Invoice[], period: string) {
       const rate = latestRate ? dashboardPowerRate(latestRate) : 0;
       const rows = Array.from({ length: 12 }, (_, idx) => {
         const target = idx + 1;
-        const demands = history
-          .filter(
-            (i) =>
-              Number(String(i.billing_period || i.period_start).slice(5, 7)) ===
-              target,
-          )
-          .map(dashboardPowerDemand);
+        const demands = latestMonthlyDemands(history, target).map((row) => row.demand);
         const proposalKw = demands.length ? Math.max(minimumKw, ...demands) : 0;
         const reducibleKw =
           proposalKw > 0 ? Math.max(0, currentKw - proposalKw) : 0;
@@ -324,7 +314,9 @@ function buildDashboardPowerCurve(invoices: Invoice[], period: string) {
           saving: reducibleKw * rate * 1.3,
         };
       });
-      const selected = rows.find((r) => r.monthNumber === monthNumber);
+      const selectedInvoice = history.find((i) => String(i.billing_period || i.period_start).slice(0, 7) === period);
+      const consumptionMonth = selectedInvoice ? Number(consumptionPeriod(selectedInvoice).slice(5, 7)) : monthNumber;
+      const selected = rows.find((r) => r.monthNumber === consumptionMonth);
       return {
         meterId,
         currentKw,

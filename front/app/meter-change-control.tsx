@@ -166,6 +166,7 @@ export function MeterChangeControlPanel({
     quarter: string;
     latestKw: number;
     latestPeriod: string;
+    observations: Array<{ period: string; demand: number; billingPeriod: string }>;
   }>;
   currentTariff?: string;
   recommendedTariff?: string;
@@ -820,24 +821,29 @@ export function MeterChangeControlPanel({
                     />
                   </label>
                   {type === "contracted_power" && (
+                    <>
+                    <p>Demanda máxima medida en los dos últimos registros anuales de cada mes. Se asigna al mes con más días del período de lectura; si faltan fechas válidas, se usa el período facturado.</p>
                     <div className="improvement-power-table">
                       <div className="improvement-power-head">
                         <span>Mes</span>
-                        <span>Última potencia disponible</span>
+                        <span>Última demanda real</span>
+                        <span>Demanda real anterior</span>
                         <span>Propuesta calculada</span>
                         <span>Potencia efectivamente contratada</span>
                       </div>
                       {powerProposals.map((row) => (
                         <div key={row.monthNumber}>
                           <b>{row.month}</b>
-                          <span>
-                            {row.latestKw > 0
-                              ? `${number.format(row.latestKw)} kW`
-                              : "S/D"}
-                            <small>
-                              {row.latestPeriod || "Sin factura disponible"}
-                            </small>
-                          </span>
+                          {[0, 1].map((index) => {
+                            const observation = row.observations[index];
+                            return (
+                              <span key={index}>
+                                {observation ? `${number.format(observation.demand)} kW` : "S/D"}
+                                <small>{observation ? `Consumo ${observation.period}` : "Sin medición histórica"}</small>
+                                {observation?.billingPeriod && <small>Factura {observation.billingPeriod}</small>}
+                              </span>
+                            );
+                          })}
                           <span>
                             {number.format(row.proposalKw)} kW
                             <small>
@@ -867,6 +873,7 @@ export function MeterChangeControlPanel({
                         </div>
                       ))}
                     </div>
+                    </>
                   )}
                   {type === "contracted_power" && (
                     <label className="improvement-attachment">
