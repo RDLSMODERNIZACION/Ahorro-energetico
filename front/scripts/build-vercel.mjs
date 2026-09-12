@@ -9,6 +9,7 @@ const patches = [
   "patch-t2-exc-cost-card.mjs",
   "patch-t1-no-contracted-surplus.mjs",
   "patch-performance-cache.mjs",
+  "patch-dashboard-performance-v2.mjs",
   "patch-lazy-heavy-panels.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
