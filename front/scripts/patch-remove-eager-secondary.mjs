@@ -1,0 +1,12 @@
+import { readFileSync, writeFileSync } from "node:fs";
+const path = new URL("../app/page.tsx", import.meta.url);
+let source = readFileSync(path, "utf8");
+if (source.includes("// EAGER_SECONDARY_REMOVED_V1")) process.exit(0);
+const startText = '        const [miss, frames, tariffResult] = await Promise.all([';
+const endText = '        setEpenOptimization(epen?.meters || []);';
+const start = source.indexOf(startText);
+const end = source.indexOf(endText, start);
+if (start < 0 || end < 0) throw new Error("secondary request block not found");
+source = source.slice(0, start) + '        // EAGER_SECONDARY_REMOVED_V1\n' + source.slice(end + endText.length);
+writeFileSync(path, source, "utf8");
+console.log("Removed eager secondary requests.");
