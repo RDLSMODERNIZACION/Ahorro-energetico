@@ -129,9 +129,28 @@ def _compact_invoice(invoice: dict) -> dict:
     return invoice
 
 
+def _latest_period(organization_id: str) -> str | None:
+    data = (
+        admin_db()
+        .table("invoices")
+        .select("billing_period,period_start")
+        .eq("organization_id", organization_id)
+        .order("billing_period", desc=True)
+        .order("period_start", desc=True)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not data:
+        return None
+    row = data[0]
+    return str(row.get("billing_period") or row.get("period_start") or "")[:7] or None
+
+
 def _fetch_invoice_page(
     organization_id: str,
     meter_id: str | None,
+    period: str | None,
     start: int,
     end: int,
 ):
@@ -143,6 +162,9 @@ def _fetch_invoice_page(
     )
     if meter_id:
         query = query.eq("meter_id", meter_id)
+    if period:
+        # billing_period is stored as YYYY-MM-01/ISO date in the imported EPEN rows.
+        query = query.gte("billing_period", f"{period}-01").lt("billing_period", _next_month(period))
     return (
         query.order("period_start", desc=True)
         .order("id", desc=True)
@@ -152,44 +174,82 @@ def _fetch_invoice_page(
     )
 
 
+def _next_month(period: str) -> str:
+    year, month = [int(part) for part in period[:7].split("-")]
+    if month == 12:
+        return f"{year + 1:04d}-01-01"
+    return f"{year:04d}-{month + 1:02d}-01"
+
+
 @router.get("/organizations/{organization_id}/invoices")
 def invoices(
     organization_id: str,
     meter_id: str | None = None,
+    period: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    latest: bool = Query(False),
     limit: int = Query(100, ge=1, le=5000),
     summary: bool = Query(False),
     user: CurrentUser = Depends(current_user),
 ):
     require_org(user.id, organization_id)
 
-    page_size = 1000
-    page_specs = [
-        (offset, min(offset + page_size - 1, limit - 1))
-        for offset in range(0, limit, page_size)
-    ]
+    effective_period = period
+    if latest and not effective_period:
+        effective_period = _latest_period(organization_id)
+        if not effective_period:
+            return []
 
-    workers = min(5, len(page_specs))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = [
-            pool.submit(
-                _fetch_invoice_page,
-                organization_id,
-                meter_id,
-                start,
-                end,
-            )
-            for start, end in page_specs
+    # A period-scoped request normally contains one row per active meter, so it
+    # should be a single DB request instead of scanning the complete history.
+    if effective_period:
+        query = (
+            admin_db()
+            .table("invoices")
+            .select(INVOICE_LIST_SELECT)
+            .eq("organization_id", organization_id)
+            .gte("billing_period", f"{effective_period}-01")
+            .lt("billing_period", _next_month(effective_period))
+        )
+        if meter_id:
+            query = query.eq("meter_id", meter_id)
+        rows = (
+            query.order("period_start", desc=True)
+            .order("id", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+        )
+    else:
+        page_size = 1000
+        page_specs = [
+            (offset, min(offset + page_size - 1, limit - 1))
+            for offset in range(0, limit, page_size)
         ]
-        pages = [future.result() for future in futures]
 
-    rows = []
-    for (start, end), page in zip(page_specs, pages):
-        rows.extend(page)
-        expected_size = end - start + 1
-        if len(page) < expected_size:
-            break
+        workers = min(5, len(page_specs))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [
+                pool.submit(
+                    _fetch_invoice_page,
+                    organization_id,
+                    meter_id,
+                    None,
+                    start,
+                    end,
+                )
+                for start, end in page_specs
+            ]
+            pages = [future.result() for future in futures]
 
-    resolved = _resolve_rows(rows[:limit])
+        rows = []
+        for (start, end), page in zip(page_specs, pages):
+            rows.extend(page)
+            expected_size = end - start + 1
+            if len(page) < expected_size:
+                break
+        rows = rows[:limit]
+
+    resolved = _resolve_rows(rows)
     if summary:
         return [_compact_invoice(row) for row in resolved]
     return resolved
