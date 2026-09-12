@@ -9,6 +9,8 @@ const patches = [
   "patch-t2-exc-cost-card.mjs",
   "patch-t1-no-contracted-surplus.mjs",
   "patch-performance-cache.mjs",
+  "patch-lazy-heavy-panels.mjs",
+  "patch-same-origin-api-v2.mjs",
 ];
 
 for (const patch of patches) {
