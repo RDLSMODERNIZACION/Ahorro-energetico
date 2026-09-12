@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 
 from ..auth import CurrentUser, current_user, require_org
 from ..db import admin_db
-from .invoices import INVOICE_LIST_SELECT, _compact_invoice, _resolve_rows
+from .invoices import INVOICE_LIST_SELECT, _compact_invoice, _next_month, _resolve_rows
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -24,13 +24,7 @@ def _meter_rows(organization_id: str):
     }
     rows = (
         db.table("meters")
-        .select(
-            "id,organization_id,tracking_code,meter_number,nis,supply_number,"
-            "contract_number,service_code,service_name,cadastral_number,customer_number,"
-            "customer_type,contract_type,current_tariff_code,voltage_level,"
-            "contracted_kw_peak,contracted_kw_off_peak,status,expected_monthly,"
-            "first_seen_period,last_seen_period,notes,sites(name,address)"
-        )
+        .select("*,sites(name,address)")
         .eq("organization_id", organization_id)
         .order("meter_number")
         .execute()
@@ -45,6 +39,7 @@ def _latest_period(organization_id: str):
         .table("invoices")
         .select("billing_period,period_start")
         .eq("organization_id", organization_id)
+        .order("billing_period", desc=True)
         .order("period_start", desc=True)
         .limit(1)
         .execute()
@@ -59,18 +54,15 @@ def _latest_period(organization_id: str):
 def _latest_invoices(organization_id: str, period: str | None):
     if not period:
         return []
-    query = (
+    rows = (
         admin_db()
         .table("invoices")
         .select(INVOICE_LIST_SELECT)
         .eq("organization_id", organization_id)
-    )
-    # billing_period is the canonical month in the app. Fall back to period_start
-    # is handled by the regular invoice endpoint for older records.
-    rows = (
-        query.gte("billing_period", period + "-01")
-        .lt("billing_period", period + "-32")
+        .gte("billing_period", period + "-01")
+        .lt("billing_period", _next_month(period))
         .order("period_start", desc=True)
+        .order("id", desc=True)
         .limit(500)
         .execute()
         .data
