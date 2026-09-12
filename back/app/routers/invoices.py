@@ -225,5 +225,5 @@ def delete_invoice(invoice_id: str, user: CurrentUser = Depends(current_user)):
     )
     if not data:
         raise HTTPException(404, "Factura inexistente")
-    require_org(user.id, data[0]["organization_id"])
+    require_org(user.id, data[0]["organization_id"], write=True)
     admin_db().table("invoices").delete().eq("id", invoice_id).execute()
