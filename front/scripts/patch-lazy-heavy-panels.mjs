@@ -23,51 +23,61 @@ source = source.replace(
   '  }, [selected.meter_id, metric, controlPageOpen]);',
 );
 
-const docsNeedle = `        {organizationId && <MeterDocuments
-          organizationId={organizationId}
-          meterId={selected.meter_id}
-          selected={selected}
-          history={history}
-          controls={changeControls}
-        />}`;
+const docsNeedle = [
+  '        {organizationId && <MeterDocuments',
+  '          organizationId={organizationId}',
+  '          meterId={selected.meter_id}',
+  '          selected={selected}',
+  '          history={history}',
+  '          controls={changeControls}',
+  '        />}',
+].join('\n');
 if (!source.includes(docsNeedle)) throw new Error("documents block not found");
-source = source.replace(docsNeedle, `        {organizationId && (documentsOpen ? (
-          <MeterDocuments
-            organizationId={organizationId}
-            meterId={selected.meter_id}
-            selected={selected}
-            history={history}
-            controls={changeControls}
-          />
-        ) : (
-          <section className="invoice-analysis-panel">
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-              <div><h3>Archivos del medidor</h3><small>Se cargan solo cuando los necesitás.</small></div>
-              <button type="button" onClick={() => setDocumentsOpen(true)}>Ver archivos</button>
-            </div>
-          </section>
-        ))}`);
+const docsReplacement = [
+  '        {organizationId && (documentsOpen ? (',
+  '          <MeterDocuments',
+  '            organizationId={organizationId}',
+  '            meterId={selected.meter_id}',
+  '            selected={selected}',
+  '            history={history}',
+  '            controls={changeControls}',
+  '          />',
+  '        ) : (',
+  '          <section className="invoice-analysis-panel">',
+  '            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>',
+  '              <div><h3>Archivos del medidor</h3><small>Se cargan solo cuando los necesitás.</small></div>',
+  '              <button type="button" onClick={() => setDocumentsOpen(true)}>Ver archivos</button>',
+  '            </div>',
+  '          </section>',
+  '        ))}',
+].join('\n');
+source = source.replace(docsNeedle, docsReplacement);
 
-const locationNeedle = `        {!hideLocationEditor && (
-          <MeterLocationEditor
-            meterId={selected.meter_id}
-            label={\`${m?.service_name || m?.sites?.name || "Servicio"} · Medidor ${m?.meter_number || "S/D"}\`}
-          />
-        )}`;
+const locationNeedle = [
+  '        {!hideLocationEditor && (',
+  '          <MeterLocationEditor',
+  '            meterId={selected.meter_id}',
+  '            label={`${m?.service_name || m?.sites?.name || "Servicio"} · Medidor ${m?.meter_number || "S/D"}`}',
+  '          />',
+  '        )}',
+].join('\n');
 if (!source.includes(locationNeedle)) throw new Error("location block not found");
-source = source.replace(locationNeedle, `        {!hideLocationEditor && (locationOpen ? (
-          <MeterLocationEditor
-            meterId={selected.meter_id}
-            label={\`${m?.service_name || m?.sites?.name || "Servicio"} · Medidor ${m?.meter_number || "S/D"}\`}
-          />
-        ) : (
-          <section className="invoice-analysis-panel">
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-              <div><h3>Ubicación del medidor</h3><small>Mapa y coordenadas se cargan bajo demanda.</small></div>
-              <button type="button" onClick={() => setLocationOpen(true)}>Abrir ubicación</button>
-            </div>
-          </section>
-        ))}`);
+const locationReplacement = [
+  '        {!hideLocationEditor && (locationOpen ? (',
+  '          <MeterLocationEditor',
+  '            meterId={selected.meter_id}',
+  '            label={`${m?.service_name || m?.sites?.name || "Servicio"} · Medidor ${m?.meter_number || "S/D"}`}',
+  '          />',
+  '        ) : (',
+  '          <section className="invoice-analysis-panel">',
+  '            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>',
+  '              <div><h3>Ubicación del medidor</h3><small>Mapa y coordenadas se cargan bajo demanda.</small></div>',
+  '              <button type="button" onClick={() => setLocationOpen(true)}>Abrir ubicación</button>',
+  '            </div>',
+  '          </section>',
+  '        ))}',
+].join('\n');
+source = source.replace(locationNeedle, locationReplacement);
 
 writeFileSync(path, source, "utf8");
 console.log("Applied lazy loading for tariff details, documents and location.");
