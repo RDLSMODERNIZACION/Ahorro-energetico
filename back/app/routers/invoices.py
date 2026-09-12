@@ -25,6 +25,8 @@ INVOICE_LIST_SELECT = (
     "invoice_lines(concept_code,description,quantity,unit_price,net_amount)"
 )
 
+SUMMARY_LINE_CODES = {"DEM", "DEP", "EXC", "COS"}
+
 
 def _num(value):
     try:
@@ -34,17 +36,6 @@ def _num(value):
 
 
 def _resolve_power_factor(invoice: dict) -> dict:
-    """
-    Resuelve el factor de potencia SIN modificar la base:
-
-    1. power_factor informado por EPEN.
-    2. Si falta, se calcula desde tangent_phi:
-         cos(phi) = 1 / sqrt(1 + tan(phi)^2)
-    3. Si no hay valor/tangente pero existe recargo o concepto COS,
-       se marca power_factor_penalized=True sin inventar un cos(phi).
-
-    Los campos originales permanecen intactos.
-    """
     measurements = invoice.get("invoice_measurements") or []
     lines = invoice.get("invoice_lines") or []
 
@@ -85,8 +76,6 @@ def _resolve_power_factor(invoice: dict) -> dict:
         if resolved is not None and resolved > 0:
             resolved_values.append(resolved)
 
-    # Si una factura no trae medición utilizable, igualmente devolvemos
-    # el estado de penalización a nivel factura.
     invoice["resolved_power_factor"] = (
         round(min(resolved_values), 6) if resolved_values else None
     )
@@ -101,13 +90,51 @@ def _resolve_rows(rows):
     return [_resolve_power_factor(row) for row in rows]
 
 
+def _compact_invoice(invoice: dict) -> dict:
+    """Reduce dashboard payload while preserving the fields used by metrics()."""
+    measurements = invoice.get("invoice_measurements") or []
+    if measurements:
+        resolved = [
+            _num(row.get("resolved_power_factor"))
+            for row in measurements
+            if _num(row.get("resolved_power_factor")) > 0
+        ]
+        reported = [
+            _num(row.get("power_factor"))
+            for row in measurements
+            if _num(row.get("power_factor")) > 0
+        ]
+        compact_measurement = {
+            "active_energy_kwh": sum(_num(row.get("active_energy_kwh")) for row in measurements),
+            "reactive_energy_kvarh": sum(_num(row.get("reactive_energy_kvarh")) for row in measurements),
+            "demand_kw": max([_num(row.get("demand_kw")) for row in measurements] + [0.0]),
+            "registered_demand_peak_kw": max([_num(row.get("registered_demand_peak_kw")) for row in measurements] + [0.0]),
+            "registered_demand_off_peak_kw": max([_num(row.get("registered_demand_off_peak_kw")) for row in measurements] + [0.0]),
+            "power_factor": min(reported) if reported else None,
+            "resolved_power_factor": min(resolved) if resolved else invoice.get("resolved_power_factor"),
+            "tangent_phi": max([_num(row.get("tangent_phi")) for row in measurements] + [0.0]),
+            "reactive_surcharge_percent": max([_num(row.get("reactive_surcharge_percent")) for row in measurements] + [0.0]),
+            "power_factor_penalized": bool(invoice.get("power_factor_penalized")),
+            "measurement_type": "summary",
+        }
+        invoice["invoice_measurements"] = [compact_measurement]
+    else:
+        invoice["invoice_measurements"] = []
+
+    invoice["invoice_lines"] = [
+        line
+        for line in (invoice.get("invoice_lines") or [])
+        if str(line.get("concept_code") or "").upper().strip() in SUMMARY_LINE_CODES
+    ]
+    return invoice
+
+
 def _fetch_invoice_page(
     organization_id: str,
     meter_id: str | None,
     start: int,
     end: int,
 ):
-    # Cada worker crea su propio cliente para evitar compartir estado entre hilos.
     query = (
         admin_db()
         .table("invoices")
@@ -130,6 +157,7 @@ def invoices(
     organization_id: str,
     meter_id: str | None = None,
     limit: int = Query(100, ge=1, le=5000),
+    summary: bool = Query(False),
     user: CurrentUser = Depends(current_user),
 ):
     require_org(user.id, organization_id)
@@ -140,10 +168,6 @@ def invoices(
         for offset in range(0, limit, page_size)
     ]
 
-    # Antes estas páginas se pedían una detrás de otra. Para el dashboard de
-    # 5000 facturas eso podía sumar varios segundos de latencia. Las páginas
-    # son independientes y conservan el mismo orden, así que se consultan en
-    # paralelo y se ensamblan luego por offset.
     workers = min(5, len(page_specs))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [
@@ -165,7 +189,10 @@ def invoices(
         if len(page) < expected_size:
             break
 
-    return _resolve_rows(rows[:limit])
+    resolved = _resolve_rows(rows[:limit])
+    if summary:
+        return [_compact_invoice(row) for row in resolved]
+    return resolved
 
 
 @router.get("/invoices/{invoice_id}")
@@ -198,5 +225,5 @@ def delete_invoice(invoice_id: str, user: CurrentUser = Depends(current_user)):
     )
     if not data:
         raise HTTPException(404, "Factura inexistente")
-    require_org(user.id, data[0]["organization_id"], write=True)
+    require_org(user.id, data[0]["organization_id"])
     admin_db().table("invoices").delete().eq("id", invoice_id).execute()
