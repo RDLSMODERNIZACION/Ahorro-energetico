@@ -17,7 +17,7 @@ const patches = [
   "patch-lazy-epen-tab-v2.mjs",
   "patch-defer-summary.mjs",
   "patch-lazy-heavy-panels.mjs",
-  "patch-documents-launcher-card.mjs",
+  "patch-documents-launcher-safe.mjs",
   "patch-improvement-button-period.mjs",
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
