@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from math import sqrt
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -100,6 +101,30 @@ def _resolve_rows(rows):
     return [_resolve_power_factor(row) for row in rows]
 
 
+def _fetch_invoice_page(
+    organization_id: str,
+    meter_id: str | None,
+    start: int,
+    end: int,
+):
+    # Cada worker crea su propio cliente para evitar compartir estado entre hilos.
+    query = (
+        admin_db()
+        .table("invoices")
+        .select(INVOICE_LIST_SELECT)
+        .eq("organization_id", organization_id)
+    )
+    if meter_id:
+        query = query.eq("meter_id", meter_id)
+    return (
+        query.order("period_start", desc=True)
+        .order("id", desc=True)
+        .range(start, end)
+        .execute()
+        .data
+    )
+
+
 @router.get("/organizations/{organization_id}/invoices")
 def invoices(
     organization_id: str,
@@ -109,30 +134,38 @@ def invoices(
 ):
     require_org(user.id, organization_id)
 
-    rows = []
     page_size = 1000
-    db = admin_db()
-    while len(rows) < limit:
-        size = min(page_size, limit - len(rows))
-        query = (
-            db.table("invoices")
-            .select(INVOICE_LIST_SELECT)
-            .eq("organization_id", organization_id)
-        )
-        if meter_id:
-            query = query.eq("meter_id", meter_id)
-        page = (
-            query.order("period_start", desc=True)
-            .order("id", desc=True)
-            .range(len(rows), len(rows) + size - 1)
-            .execute()
-            .data
-        )
+    page_specs = [
+        (offset, min(offset + page_size - 1, limit - 1))
+        for offset in range(0, limit, page_size)
+    ]
+
+    # Antes estas páginas se pedían una detrás de otra. Para el dashboard de
+    # 5000 facturas eso podía sumar varios segundos de latencia. Las páginas
+    # son independientes y conservan el mismo orden, así que se consultan en
+    # paralelo y se ensamblan luego por offset.
+    workers = min(5, len(page_specs))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [
+            pool.submit(
+                _fetch_invoice_page,
+                organization_id,
+                meter_id,
+                start,
+                end,
+            )
+            for start, end in page_specs
+        ]
+        pages = [future.result() for future in futures]
+
+    rows = []
+    for (start, end), page in zip(page_specs, pages):
         rows.extend(page)
-        if len(page) < size:
+        expected_size = end - start + 1
+        if len(page) < expected_size:
             break
 
-    return _resolve_rows(rows)
+    return _resolve_rows(rows[:limit])
 
 
 @router.get("/invoices/{invoice_id}")
