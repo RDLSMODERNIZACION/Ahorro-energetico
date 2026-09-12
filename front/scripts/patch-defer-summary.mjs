@@ -1,0 +1,10 @@
+import { readFileSync, writeFileSync } from "node:fs";
+const path = new URL("../app/page.tsx", import.meta.url);
+let source = readFileSync(path, "utf8");
+if (source.includes("// DEFER_SUMMARY_V1")) process.exit(0);
+const needle = '      if (!session || !orgId || !dashboardPeriod) return;';
+if (!source.includes(needle)) throw new Error("summary guard not found");
+source = source.replace(needle, '      // DEFER_SUMMARY_V1\n      if (!session || !orgId || !dashboardPeriod || tab !== "dashboard") return;\n      await new Promise((resolve) => window.setTimeout(resolve, 1200));\n      if (cancelled) return;');
+source = source.replace('  }, [session, orgId, dashboardPeriod]);', '  }, [session, orgId, dashboardPeriod, tab]);');
+writeFileSync(path, source, "utf8");
+console.log("Deferred dashboard tariff summary.");
