@@ -18,6 +18,7 @@ const patches = [
   "patch-defer-summary.mjs",
   "patch-lazy-heavy-panels.mjs",
   "patch-improvement-button-period.mjs",
+  "patch-hide-power-summary.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
 
