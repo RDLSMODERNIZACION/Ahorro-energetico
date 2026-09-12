@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+node scripts/patch-t2-excess-bars.mjs
+node scripts/patch-t2-optimal-proposal.mjs
+node scripts/patch-t2-optimal-v4.mjs
+node scripts/patch-t2-proposal-savings.mjs
+node scripts/patch-t2-exc-cost-card.mjs
+node scripts/patch-t1-no-contracted-surplus.mjs
+node scripts/patch-performance-cache.mjs
+rm -rf .next
+npx next build
