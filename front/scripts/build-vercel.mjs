@@ -17,6 +17,7 @@ const patches = [
   "patch-lazy-epen-tab-v2.mjs",
   "patch-defer-summary.mjs",
   "patch-lazy-heavy-panels.mjs",
+  "patch-improvement-button-period.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
 
