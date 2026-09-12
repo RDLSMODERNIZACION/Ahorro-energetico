@@ -11,6 +11,7 @@ const patches = [
   "patch-performance-cache.mjs",
   "patch-dashboard-performance-v2.mjs",
   "patch-remove-eager-secondary.mjs",
+  "patch-invoice-summary-lazy-detail.mjs",
   "patch-lazy-tariff-data.mjs",
   "patch-defer-epen.mjs",
   "patch-defer-summary.mjs",
