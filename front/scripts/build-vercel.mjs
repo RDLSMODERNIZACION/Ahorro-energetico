@@ -19,7 +19,7 @@ const patches = [
   "patch-lazy-heavy-panels.mjs",
   "patch-improvement-button-period.mjs",
   "patch-hide-power-summary.mjs",
-  "patch-tax-db-only-v1.mjs",
+  "patch-tax-db-only-v2.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
 
