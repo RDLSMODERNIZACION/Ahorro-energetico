@@ -10,6 +10,10 @@ const patches = [
   "patch-t1-no-contracted-surplus.mjs",
   "patch-performance-cache.mjs",
   "patch-dashboard-performance-v2.mjs",
+  "patch-remove-eager-secondary.mjs",
+  "patch-lazy-tariff-data.mjs",
+  "patch-defer-epen.mjs",
+  "patch-defer-summary.mjs",
   "patch-lazy-heavy-panels.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
