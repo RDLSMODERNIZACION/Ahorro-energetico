@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND = process.env.BACKEND_API_URL || "https://ahorro-energetico.onrender.com";
 
-async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  const { path } = await context.params;
-  const target = new URL(`${BACKEND}/${path.join("/")}`);
+async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname.replace(/^\/api\/backend\/?/, "");
+  const target = new URL(`${BACKEND}/${path}`);
   request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
 
   const headers = new Headers();
@@ -15,13 +15,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   const method = request.method.toUpperCase();
   const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
-
-  const response = await fetch(target, {
-    method,
-    headers,
-    body,
-    cache: "no-store",
-  });
+  const response = await fetch(target, { method, headers, body, cache: "no-store" });
 
   const responseHeaders = new Headers();
   const responseType = response.headers.get("content-type");
