@@ -14,6 +14,7 @@ const patches = [
   "patch-remove-eager-secondary.mjs",
   "patch-invoice-summary-lazy-detail.mjs",
   "patch-dashboard-bootstrap-v1.mjs",
+  "patch-restore-change-controls-load.mjs",
   "patch-lazy-tariff-data.mjs",
   "patch-lazy-epen-tab-v2.mjs",
   "patch-defer-summary.mjs",
