@@ -33,6 +33,7 @@ const patches = [
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
   "patch-month-peer-selection-v2.mjs",
+  "patch-multi-organization-v1.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
 
