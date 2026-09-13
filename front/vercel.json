@@ -1,3 +1,3 @@
 {
-  "buildCommand": "node scripts/patch-edit-power-like-register.mjs && node scripts/build-vercel.mjs"
+  "buildCommand": "node scripts/patch-edit-power-like-register.mjs && node scripts/patch-improvement-attachments-edit.mjs && node scripts/build-vercel.mjs"
 }
