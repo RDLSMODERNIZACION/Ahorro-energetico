@@ -4,11 +4,11 @@ import { execFileSync } from "node:child_process";
 const patches = [
   "patch-t2-excess-bars.mjs",
   "patch-proposal-compare-current.mjs",
-  "patch-month-peer-selection.mjs",
   "patch-t2-optimal-proposal.mjs",
   "patch-t2-optimal-v4.mjs",
   "patch-t2-proposal-savings.mjs",
   "patch-t2-exc-cost-card.mjs",
+  "patch-month-peer-selection-v2.mjs",
   "patch-t1-no-contracted-surplus.mjs",
   "patch-performance-cache.mjs",
   "patch-dashboard-performance-v2.mjs",
