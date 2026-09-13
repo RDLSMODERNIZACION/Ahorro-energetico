@@ -23,6 +23,7 @@ const patches = [
   "patch-meter-documents-close.mjs",
   "patch-improvement-button-period.mjs",
   "patch-improvement-audit-table.mjs",
+  "patch-improvement-audit-tab.mjs",
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
   "patch-month-peer-selection-v2.mjs",
