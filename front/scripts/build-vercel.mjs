@@ -8,7 +8,6 @@ const patches = [
   "patch-t2-optimal-v4.mjs",
   "patch-t2-proposal-savings.mjs",
   "patch-t2-exc-cost-card.mjs",
-  "patch-month-peer-selection-v2.mjs",
   "patch-t1-no-contracted-surplus.mjs",
   "patch-performance-cache.mjs",
   "patch-dashboard-performance-v2.mjs",
@@ -24,6 +23,7 @@ const patches = [
   "patch-improvement-button-period.mjs",
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
+  "patch-month-peer-selection-v2.mjs",
   "patch-same-origin-api-v2.mjs",
 ];
 
