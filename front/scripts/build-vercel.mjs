@@ -27,6 +27,7 @@ const patches = [
   "patch-edit-power-like-register.mjs",
   "patch-power-year-register.mjs",
   "patch-power-year-edit-audit.mjs",
+  "patch-power-table-layout-v2.mjs",
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
   "patch-month-peer-selection-v2.mjs",
