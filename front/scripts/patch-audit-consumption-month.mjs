@@ -1,0 +1,8 @@
+import { readFileSync, writeFileSync } from "node:fs";
+const p=new URL("../app/meter-change-control.tsx",import.meta.url);let s=readFileSync(p,"utf8");if(s.includes("AUDIT_CONSUMPTION_MONTH_V1"))process.exit(0);
+s=s.replace('import { supabase } from "./lib/supabase";','import { supabase } from "./lib/supabase";\nimport { consumptionPeriod } from "./lib/power-history";');
+s=s.replace('    const invoice = history.find((item) => periodOf(item) === period);','    // AUDIT_CONSUMPTION_MONTH_V1\n    const invoice = history.find((item) => consumptionPeriod(item) === period);\n    const billingPeriod = invoice ? periodOf(invoice) : "";');
+s=s.replace('return { period, row, invoice, expected, received, result, detail };','return { period, billingPeriod, row, invoice, expected, received, result, detail };');
+s=s.replace('["Período", "Mejora controlada", "Esperado", "Recibido", "Resultado"]','["Consumo", "Facturación", "Mejora controlada", "Esperado", "Recibido", "Resultado"]');
+s=s.replace('<td style={{ padding: "13px 14px", fontWeight: 800, whiteSpace: "nowrap" }}>{item.period}</td>\n                                <td style={{ padding: "13px 14px" }}>','<td style={{ padding: "13px 14px", fontWeight: 800, whiteSpace: "nowrap" }}>{item.period}</td>\n                                <td style={{ padding: "13px 14px", fontWeight: 800, whiteSpace: "nowrap" }}>{item.billingPeriod || "Pendiente"}</td>\n                                <td style={{ padding: "13px 14px" }}>');
+writeFileSync(p,s,"utf8");console.log("Audit aligned to consumption month.");
