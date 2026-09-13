@@ -22,6 +22,7 @@ const patches = [
   "patch-documents-launcher-safe.mjs",
   "patch-meter-documents-close.mjs",
   "patch-improvement-button-period.mjs",
+  "patch-improvement-audit-table.mjs",
   "patch-hide-power-summary.mjs",
   "patch-tax-db-only-v2.mjs",
   "patch-month-peer-selection-v2.mjs",
