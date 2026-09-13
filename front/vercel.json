@@ -1,3 +1,3 @@
 {
-  "buildCommand": "node scripts/patch-improvement-audit-table.mjs && node scripts/patch-improvement-audit-tab.mjs && node scripts/patch-edit-power-like-register.mjs && node scripts/patch-power-year-register.mjs && node scripts/patch-power-year-edit-audit.mjs && node scripts/patch-audit-consumption-month.mjs && node scripts/patch-audit-consumption-v4.mjs && node scripts/build-vercel.mjs"
+  "buildCommand": "node scripts/patch-edit-power-like-register.mjs && node scripts/build-vercel.mjs"
 }
