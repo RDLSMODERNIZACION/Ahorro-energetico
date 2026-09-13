@@ -6,6 +6,7 @@ from .db import admin_db
 class CurrentUser:
     id: str
     email: str | None
+    is_superadmin: bool = False
 
 def current_user(authorization: str | None = Header(default=None)) -> CurrentUser:
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -16,7 +17,8 @@ def current_user(authorization: str | None = Header(default=None)) -> CurrentUse
         user = response.user
         if not user:
             raise ValueError("Usuario inexistente")
-        return CurrentUser(id=str(user.id), email=user.email)
+        metadata = getattr(user, "app_metadata", None) or {}
+        return CurrentUser(id=str(user.id), email=user.email, is_superadmin=bool(metadata.get("is_superadmin")))
     except Exception as exc:
         raise HTTPException(401, "Token inválido o vencido") from exc
 
@@ -29,6 +31,16 @@ def require_org(user_id: str, organization_id: str, write: bool = False) -> dict
     if write and membership["role"] not in ("admin", "analyst"):
         raise HTTPException(403, "El usuario no tiene permiso para modificar datos")
     return membership
+
+def require_org_admin(user_id: str, organization_id: str) -> dict:
+    membership = require_org(user_id, organization_id)
+    if membership["role"] != "admin":
+        raise HTTPException(403, "Se requiere rol administrador de la organización")
+    return membership
+
+def require_superadmin(user: CurrentUser) -> None:
+    if not user.is_superadmin:
+        raise HTTPException(403, "Se requiere permiso de superadministrador")
 
 def require_tariff_editor(user_id: str) -> None:
     result = (admin_db().table("organization_members").select("role")
