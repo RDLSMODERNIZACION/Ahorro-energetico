@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useId, type ReactNode } from "react";
 import { supabase } from "./lib/supabase";
 import styles from "./meter-observations.module.css";
 
@@ -76,6 +76,8 @@ function Editor({ meterId }: { meterId: string }) {
   const context = useContext(Context)!;
   const saved = context.rows[meterId]?.observation || "";
   const [draft, setDraft] = useState(saved);
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
   const [editable, setEditable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -101,12 +103,17 @@ function Editor({ meterId }: { meterId: string }) {
     catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "No se pudo guardar."); }
     finally { setBusy(false); }
   }
-  return <section className={styles.editor} aria-label="Observaciones del medidor">
+  return <section className={styles.disclosure} aria-label="Observaciones del medidor">
+    <button type="button" className={`${styles.toggle} ${saved ? styles.observed : ""}`}
+      aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpanded(value => !value)}>
+      {saved ? "Observado" : "Observaciones"}<span aria-hidden="true">{expanded ? "▴" : "▾"}</span>
+    </button>
+    <div id={panelId} className={styles.editor} hidden={!expanded}>
     <div className={styles.heading}><h3>Observaciones</h3><ObservationBadge meterId={meterId} /></div>
     <p>Nota general del medidor, visible en todos los períodos. Por ejemplo: Sin factura de septiembre.</p>
     {context.loading ? <p>Cargando observaciones…</p> : context.error ? <p role="alert">{context.error}</p> : editable ? <>
-      <label htmlFor={`observation-${meterId}`}>Observación</label>
-      <textarea id={`observation-${meterId}`} value={draft} maxLength={2000} rows={3} disabled={busy}
+      <label htmlFor={`${panelId}-input`}>Observación</label>
+      <textarea id={`${panelId}-input`} value={draft} maxLength={2000} rows={3} disabled={busy}
         placeholder="Ej.: Sin factura de septiembre" onChange={event => { setDraft(event.target.value); setMessage(""); }} />
       <div className={styles.actions}>
         <button type="button" disabled={busy || draft.trim() === saved} onClick={() => void submit(draft)}>{busy ? "Guardando…" : "Guardar observación"}</button>
@@ -115,5 +122,6 @@ function Editor({ meterId }: { meterId: string }) {
       </div>
     </> : <p>{saved || "Sin observaciones."}</p>}
     {message && <p role={failed ? "alert" : "status"}>{message}</p>}
+    </div>
   </section>;
 }
