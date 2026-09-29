@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { DiracBrand } from "./dirac-brand";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { HistoricalAnalysis } from "./analysis-charts";
@@ -1265,18 +1266,12 @@ export default function Home() {
     );
   });
 
-  if (!authReady) return <main className="loading-page">Cargando…</main>;
+  if (!authReady) return <main className="loading-page"><DiracBrand /><p role="status">Cargando Ahorro Energético…</p></main>;
   if (!session)
     return (
       <main className="login-page">
         <section className="login-card">
-          <div className="login-brand">
-            <span>M</span>
-            <div>
-              <b>GESTIÓN</b>
-              <small>ENERGÉTICA MUNICIPAL</small>
-            </div>
-          </div>
+          <DiracBrand className="login-brand" />
           <h1>Ingresar al sistema</h1>
           <p>Facturación EPEN y oportunidades de ahorro</p>
           <form onSubmit={login}>
@@ -1304,7 +1299,7 @@ export default function Home() {
             </button>
           </form>
           <small>
-            El usuario debe estar creado en Supabase Authentication.
+            DIRAC Energía · Gestión y eficiencia energética.
           </small>
         </section>
       </main>
@@ -1313,14 +1308,8 @@ export default function Home() {
   return (
     <main className="shell">
       <aside className="side">
-        <div className="brand">
-          <span>M</span>
-          <div>
-            <b>GESTIÓN</b>
-            <small>ENERGÉTICA MUNICIPAL</small>
-          </div>
-        </div>
-        <nav>
+        <DiracBrand className="brand" />
+        <nav aria-label="Navegación principal">
           <button
             className={tab === "dashboard" ? "active" : ""}
             onClick={() => setTab("dashboard")}
@@ -1356,7 +1345,7 @@ export default function Home() {
       <section className="work">
         <header>
           <div>
-            <p>MUNICIPALIDAD DE RINCÓN DE LOS SAUCES</p>
+            <p>{organization?.organizations.name || "DIRAC Energía"}</p>
             <h1>
               {tab === "dashboard"
                 ? "Inteligencia energética"
@@ -1366,7 +1355,9 @@ export default function Home() {
                     ? "Encuadramiento tarifario"
                     : tab === "tariffs"
                       ? "Oportunidades de ahorro"
-                      : "Mapa de medidores"}
+                      : tab === "ai"
+                        ? "Asistente energético"
+                        : "Mapa de medidores"}
             </h1>
           </div>
           <div className="head-actions">

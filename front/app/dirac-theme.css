@@ -1,0 +1,49 @@
+/* Shared Dirac identity: original logo, slate surfaces and sky-blue controls. */
+:root { --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --nav: #fff; --dirac: #0369a1; }
+body { background: #f8fafc; }
+.dirac-brand { display: flex; align-items: center; gap: 12px; }
+.dirac-brand img { width: 48px; height: 48px; flex-shrink: 0; object-fit: contain; background: white; border-radius: 12px; }
+.dirac-brand b { color: #0f172a; font-size: 22px; font-weight: 800; letter-spacing: .1em; }
+.dirac-brand small { display: block; color: #64748b; font-size: 12px; letter-spacing: 0; margin-top: 3px; }
+.side { border-right: 1px solid var(--line); color: var(--ink); }
+.side .brand { padding: 0 0 26px; }
+.side nav button { color: #475569; font-size: 13px; transition: background .15s, color .15s; }
+.side nav button:hover { background: #f1f5f9; color: #0369a1; }
+.side nav button.active { background: #e0f2fe; color: #075985; box-shadow: inset 3px 0 #0ea5e9; }
+.user-box { border-color: var(--line); }
+.user-box b { color: #334155; font-size: 11px; overflow-wrap: anywhere; }
+.user-box small { color: #64748b; font-size: 11px; }
+.user-box button { color: #0369a1; font-size: 12px; padding: 8px 0; }
+.organization-switcher span { color: #64748b; }
+.organization-switcher select { background: #fff; color: #0f172a; border-color: #cbd5e1; }
+.organization-role { background: #e0f2fe; color: #075985; }
+.work > header { gap: 20px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.work > header p { color: #64748b; }
+.head-actions button, .login-card form button { background: #0369a1; border-radius: 10px; box-shadow: none; }
+.head-actions button:hover, .login-card form button:hover { background: #075985; }
+.head-actions .secondary { color: #0369a1; border-color: #bae6fd; background: white; }
+.head-actions .secondary:hover { background: #f0f9ff; }
+.panel { border-color: #e2e8f0; border-radius: 16px; box-shadow: 0 1px 3px #0f172a06; }
+.login-page, .loading-page { background: #f8fafc; color: #0f172a; }
+.loading-page { align-content: center; gap: 20px; }
+.loading-page > p { font-size: 14px; color: #64748b; }
+.login-card { border: 1px solid #e2e8f0; box-shadow: 0 12px 40px #0f172a08; padding: 36px; }
+.login-card .login-brand { padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; }
+.login-card h1 { font-size: 24px; }
+.login-card > p { color: #64748b; font-size: 14px; line-height: 1.6; }
+.login-card label { color: #475569; font-size: 13px; }
+.login-card input { border-color: #cbd5e1; border-radius: 8px; font-size: 15px; min-height: 44px; }
+.login-card > small { color: #64748b; font-size: 11px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #0284c7; outline-offset: 3px; }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; padding: 16px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .side .brand { padding-bottom: 16px; }
+  .side nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  .side nav button { padding: 10px 12px; }
+  .side nav button > span { display: inline; margin-left: 6px; }
+  .side .user-box { display: block; margin-top: 14px; padding: 12px 0 0; }
+  .work { padding: 20px 16px 32px; }
+  .work > header { align-items: flex-start; flex-direction: column; }
+  .head-actions { flex-wrap: wrap; }
+}
