@@ -26,7 +26,7 @@
 }
 
 .invoice-unified-scroll .missing-table {
-  border-top: 8px solid #f1f3f2;
+  border-top: 8px solid #f1f2f3;
 }
 
 .invoice-unified-scroll .missing-table-title {
@@ -40,8 +40,8 @@
   position: sticky;
   top: 0;
   z-index: 8;
-  background: #f8faf9;
-  box-shadow: 0 1px 0 #e5ebe7;
+  background: #f8f9fa;
+  box-shadow: 0 1px 0 #e5e9eb;
 }
 
 /* columnas fijas compartidas */
@@ -69,17 +69,17 @@
 .invoice-unified-scroll .invoice-admin thead th:nth-child(1),
 .invoice-unified-scroll .invoice-admin thead th:nth-child(2) {
   z-index: 12;
-  background: #f8faf9;
+  background: #f8f9fa;
 }
 
 .invoice-unified-scroll .missing-invoice-row td:nth-child(1),
 .invoice-unified-scroll .missing-invoice-row td:nth-child(2) {
-  background: #eef0ef !important;
+  background: #eeeff0 !important;
 }
 
 .invoice-unified-scroll .invoice-admin tr:hover td:nth-child(1),
 .invoice-unified-scroll .invoice-admin tr:hover td:nth-child(2) {
-  background: #f2faf6;
+  background: #f2f7fa;
 }
 
 /* una sola barra horizontal abajo de ambas partes */
@@ -89,17 +89,17 @@
 }
 
 .invoice-unified-scroll::-webkit-scrollbar-track {
-  background: #eef3f0;
+  background: #eef1f3;
 }
 
 .invoice-unified-scroll::-webkit-scrollbar-thumb {
-  background: #8ca79a;
-  border: 3px solid #eef3f0;
+  background: #8c9da7;
+  border: 3px solid #eef1f3;
   border-radius: 999px;
 }
 
 .invoice-unified-scroll::-webkit-scrollbar-thumb:hover {
-  background: #607c6f;
+  background: #60727c;
 }
 
 @media (max-width: 900px) {

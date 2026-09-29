@@ -8,7 +8,7 @@ if (!s.includes("SAME_MONTH_PEER_VISUAL_V2")) {
   );
   s = s.replace(
     "                style={t2Excess ? { fill: \"#dc2626\" } : undefined}",
-    "                style={t2Excess ? { fill: \"#dc2626\", opacity: sameMonthPeer ? 0.7 : 1, stroke: sameMonthPeer ? \"#146b49\" : undefined, strokeWidth: sameMonthPeer ? 3 : undefined } : sameMonthPeer ? { opacity: 0.7, stroke: \"#146b49\", strokeWidth: 3 } : undefined}"
+    "                style={t2Excess ? { fill: \"#dc2626\", opacity: sameMonthPeer ? 0.7 : 1, stroke: sameMonthPeer ? \"#144b6b\" : undefined, strokeWidth: sameMonthPeer ? 3 : undefined } : sameMonthPeer ? { opacity: 0.7, stroke: \"#144b6b\", strokeWidth: 3 } : undefined}"
   );
   writeFileSync(p, s, "utf8");
 }

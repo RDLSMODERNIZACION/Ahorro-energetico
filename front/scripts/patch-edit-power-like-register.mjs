@@ -23,7 +23,7 @@ const fieldsOld = '                            <label>\n                        
 
 const fieldsNew = `                            {row.change_type === "contracted_power" ? (
                               <div className="wide">
-                                <p style={{ margin: "0 0 10px", color: "#66766e" }}>Editá la potencia contratada mes por mes, igual que al registrar la mejora.</p>
+                                <p style={{ margin: "0 0 10px", color: "#667076" }}>Editá la potencia contratada mes por mes, igual que al registrar la mejora.</p>
                                 <div className="improvement-power-table">
                                   <div className="improvement-power-head">
                                     <span>Mes</span><span>Potencia real anterior</span><span>Potencia real actual</span><span>Propuesta</span><span>Potencia efectivamente contratada</span>

@@ -29,7 +29,7 @@ writeFileSync(pagePath, s, "utf8");
 
 let css = readFileSync(cssPath, "utf8");
 if (!css.includes("MULTI_ORGANIZATION_V1")) {
-  css += `\n/* MULTI_ORGANIZATION_V1 */\n.organization-switcher { display:block; margin-top:8px; }\n.organization-switcher span { display:block; font-size:7px; color:#7f978c; margin-bottom:4px; text-transform:uppercase; letter-spacing:.06em; }\n.organization-switcher select { width:100%; border:1px solid #355347; background:#1b3028; color:#e7f4ed; border-radius:7px; padding:7px 8px; font-size:9px; }\n.organization-role { display:inline-flex; margin-top:7px; padding:4px 6px; border-radius:999px; background:#254136; color:#9fddc1; font-size:7px; font-weight:700; }\n`;
+  css += `\n/* MULTI_ORGANIZATION_V1 */\n.organization-switcher { display:block; margin-top:8px; }\n.organization-switcher span { display:block; font-size:7px; color:#7f8e97; margin-bottom:4px; text-transform:uppercase; letter-spacing:.06em; }\n.organization-switcher select { width:100%; border:1px solid #354853; background:#1b2830; color:#e7eff4; border-radius:7px; padding:7px 8px; font-size:9px; }\n.organization-role { display:inline-flex; margin-top:7px; padding:4px 6px; border-radius:999px; background:#253741; color:#9fc6dd; font-size:7px; font-weight:700; }\n`;
   writeFileSync(cssPath, css, "utf8");
 }
 

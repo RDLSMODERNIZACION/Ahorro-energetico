@@ -335,10 +335,10 @@ export function MeterDocuments({
     return (
       <article
         style={{
-          border: active ? "2px solid #0b8f68" : "1px solid #dce5e0",
+          border: active ? "2px solid #0b5f8f" : "1px solid #dce2e5",
           borderRadius: 14,
           padding: 18,
-          background: active ? "#f4fbf7" : "#fff",
+          background: active ? "#f4f8fb" : "#fff",
           minHeight: 190,
           display: "flex",
           flexDirection: "column",
@@ -351,7 +351,7 @@ export function MeterDocuments({
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
           <div>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", color: "#6a7771" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", color: "#6a7277" }}>
               {target === "consumption" ? "FACTURA" : "CUADRO TARIFARIO"}
             </span>
             <h4 style={{ margin: "5px 0 0", fontSize: 18 }}>{title}</h4>
@@ -362,8 +362,8 @@ export function MeterDocuments({
               padding: "5px 9px",
               fontSize: 11,
               fontWeight: 800,
-              background: available ? "#e9f7f1" : "#f1f3f2",
-              color: available ? "#08795a" : "#69766f",
+              background: available ? "#e9f2f7" : "#f1f2f3",
+              color: available ? "#085079" : "#697176",
             }}
           >
             {available ? "Disponible" : "No disponible"}
@@ -371,19 +371,19 @@ export function MeterDocuments({
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div style={{ padding: 10, borderRadius: 10, background: "#f7f9f8" }}>
-            <small style={{ display: "block", color: "#738079" }}>Período de consumo</small>
+          <div style={{ padding: 10, borderRadius: 10, background: "#f7f8f9" }}>
+            <small style={{ display: "block", color: "#737b80" }}>Período de consumo</small>
             <b>{consumption}</b>
           </div>
-          <div style={{ padding: 10, borderRadius: 10, background: "#f7f9f8" }}>
-            <small style={{ display: "block", color: "#738079" }}>Período de facturación</small>
+          <div style={{ padding: 10, borderRadius: 10, background: "#f7f8f9" }}>
+            <small style={{ display: "block", color: "#737b80" }}>Período de facturación</small>
             <b>{selectedBilling}</b>
           </div>
         </div>
 
-        <p style={{ margin: 0, color: "#66736d", fontSize: 13 }}>{subtitle}</p>
+        <p style={{ margin: 0, color: "#666e73", fontSize: 13 }}>{subtitle}</p>
         {shared && (
-          <small style={{ color: "#0b8f68", fontWeight: 700 }}>
+          <small style={{ color: "#0b5f8f", fontWeight: 700 }}>
             Se comparte con todas las facturas de la organización para este período.
           </small>
         )}
@@ -431,7 +431,7 @@ export function MeterDocuments({
         </button>
         <div style={{ textAlign: "center" }}>
           <h3 style={{ margin: 0 }}>Archivos del medidor</h3>
-          <div style={{ marginTop: 5, color: "#66736d", fontSize: 13 }}>
+          <div style={{ marginTop: 5, color: "#666e73", fontSize: 13 }}>
             Consumo <b>{prettyMonth(consumption)}</b> · Facturación <b>{prettyMonth(selectedBilling)}</b>
           </div>
         </div>
@@ -472,9 +472,9 @@ export function MeterDocuments({
           style={{
             marginTop: 18,
             padding: 18,
-            border: "1px solid #cfe0d7",
+            border: "1px solid #cfdae0",
             borderRadius: 14,
-            background: "#f8fbf9",
+            background: "#f8fafb",
             display: "grid",
             gap: 12,
           }}
@@ -482,7 +482,7 @@ export function MeterDocuments({
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
             <div>
               <b>{uploadTarget === "consumption" ? "Adjuntar PDF de factura" : "Adjuntar cuadro tarifario compartido"}</b>
-              <small style={{ display: "block", marginTop: 4, color: "#66736d" }}>
+              <small style={{ display: "block", marginTop: 4, color: "#666e73" }}>
                 Consumo {consumption} · Facturación {selectedBilling}
               </small>
             </div>
