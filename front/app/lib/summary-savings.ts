@@ -38,11 +38,13 @@ export function confirmedSavings(controls: MeterChangeControl[], period: string)
   const removed = new Set(rows.filter(row => row.change_type === "supply_deactivation").map(row => row.meter_id));
   const applicable = rows.filter(row => !removed.has(row.meter_id) || row.change_type === "supply_deactivation");
   const totals: Record<string, number> = Object.fromEntries(savingKinds.map(kind => [kind, 0]));
+  const meterIds: Record<string, string[]> = Object.fromEntries(savingKinds.map(kind => [kind, []]));
   let unvalued = 0;
   for (const row of applicable) {
     const stored = row.change_type === "supply_deactivation" ? row.details?.baseline_monthly_cost : row.details?.projected_monthly_saving;
     if (stored === null || stored === undefined || !Number.isFinite(Number(stored)) || Number(stored) < 0) { unvalued++; continue; }
     totals[row.change_type] += Number(stored);
+    if (Number(stored) > 0) meterIds[row.change_type].push(row.meter_id);
   }
-  return { totals, monthly: Object.values(totals).reduce((sum, value) => sum + value, 0), count: applicable.length, unvalued };
+  return { totals, meterIds, monthly: Object.values(totals).reduce((sum, value) => sum + value, 0), count: applicable.length, unvalued };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardSummary } from "./dashboard-summary";
+import { DashboardSummary, type SummarySelection } from "./dashboard-summary";
 import {
   FormEvent,
   useCallback,
@@ -488,6 +488,7 @@ export default function Home() {
     [opportunities, setOpportunities] = useState<Opportunity[]>([]),
     [assessments, setAssessments] = useState<TariffAssessment[]>([]),
     [tariffSavings, setTariffSavings] = useState<TariffSaving[]>([]);
+  const [summaryFilter, setSummaryFilter] = useState<(SummarySelection & { organizationId: string }) | null>(null);
   const [changeControls, setChangeControls] = useState<MeterChangeControl[]>(
     [],
   );
@@ -569,6 +570,7 @@ export default function Home() {
     return () => data.subscription.unsubscribe();
   }, []);
   const orgId = organization?.organization_id;
+  useEffect(() => { setSummaryFilter(null); }, [orgId, session?.user.id]);
   const loadChangeControls = useCallback(async (target?: string) => {
     if (!target) {
       setChangeControls([]);
@@ -808,11 +810,14 @@ export default function Home() {
     (x.billing_period || x.period_start).slice(0, 7);
   const periods = [...new Set(invoices.map(invoiceMonth))].sort().reverse();
   const years = [...new Set(periods.map((x) => x.slice(0, 4)))];
-  const filteredInvoices = invoices.filter((i) => {
+  const activeSummaryFilter = summaryFilter && summaryFilter.organizationId === orgId && summaryFilter.period === `${yearFilter}-${monthFilter}` ? summaryFilter : null;
+  const summaryMeterIds = new Set(activeSummaryFilter?.meterIds || []);
+  const filteredInvoices = (activeSummaryFilter ? activeSummaryFilter.invoices as unknown as Invoice[] : invoices).filter((i) => {
     const p = invoiceMonth(i),
       m = i.meters,
       q = search.trim().toLowerCase();
     return (
+      (!activeSummaryFilter || summaryMeterIds.has(i.meter_id)) &&
       (yearFilter === "all" || p.startsWith(yearFilter)) &&
       (monthFilter === "all" || p.slice(5, 7) === monthFilter) &&
       (!q ||
@@ -1384,7 +1389,15 @@ export default function Home() {
               </div>
             </section>
 
-            <DashboardSummary organizationId={orgId || ""} session={session} />
+            <DashboardSummary organizationId={orgId || ""} session={session} onOpenInvoices={(selection) => {
+              setSummaryFilter({ ...selection, organizationId: orgId || "" });
+              setYearFilter(selection.period.slice(0, 4));
+              setMonthFilter(selection.period.slice(5, 7));
+              setSearch("");
+              setSelectedInvoice(null);
+              setInvoiceSubTab("received");
+              setTab("invoices");
+            }} />
           </>
         )}
         {tab === "invoices" && (
@@ -1415,6 +1428,12 @@ export default function Home() {
 
             {invoiceSubTab === "received" && (
               <>
+                {activeSummaryFilter && <section className="panel" role="status">
+                  <strong>{activeSummaryFilter.label} · {activeSummaryFilter.period}</strong>
+                  <p>{filteredInvoices.length} facturas correspondientes a los suministros de este ahorro. Podés abrir cada una para ver su análisis individual.</p>
+                  {activeSummaryFilter.meterIds.some(id => !activeSummaryFilter.invoices.some(row => row.meter_id === id && (row.billing_period || row.period_start).slice(0, 7) === activeSummaryFilter.period)) && <p>Hay suministros incluidos en el ahorro confirmado que no tienen factura en este período.</p>}
+                  <button type="button" onClick={() => setSummaryFilter(null)}>Quitar filtro de ahorro</button>
+                </section>}
                 <section className="month-control">
                   <div>
                     <span>Período controlado</span>
@@ -1443,7 +1462,7 @@ export default function Home() {
                     <strong>{missingPeriodMeters.length}</strong>
                   </div>
                 </section>
-                {missingPeriodMeters.length > 0 && (
+                {!activeSummaryFilter && missingPeriodMeters.length > 0 && (
                   <section className="panel missing-invoice-panel">
                     <Title
                       title={`Faltan ${missingPeriodMeters.length} facturas de ${controlPeriod}`}
@@ -1480,7 +1499,7 @@ export default function Home() {
                       Año
                       <select
                         value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
+                        onChange={(e) => { setSummaryFilter(null); setYearFilter(e.target.value); }}
                       >
                         {years.map((y) => (
                           <option key={y}>{y}</option>
@@ -1491,7 +1510,7 @@ export default function Home() {
                       Mes
                       <select
                         value={monthFilter}
-                        onChange={(e) => setMonthFilter(e.target.value)}
+                        onChange={(e) => { setSummaryFilter(null); setMonthFilter(e.target.value); }}
                       >
                         {Array.from({ length: 12 }, (_, i) =>
                           String(i + 1).padStart(2, "0"),
@@ -1520,13 +1539,13 @@ export default function Home() {
                   <div className="invoice-unified-scroll">
                     <InvoiceTable
                       invoices={filteredInvoices}
-                      allInvoices={invoices}
+                      allInvoices={activeSummaryFilter ? activeSummaryFilter.invoices as unknown as Invoice[] : invoices}
                       assessments={assessments}
                       tariffSavings={tariffSavings}
                       epenOptimization={epenOptimization}
                       advancedTariffSummary={advancedTariffSummary}
                       changeControls={changeControls}
-                      pendingMeters={visibleMissingPeriodMeters}
+                      pendingMeters={activeSummaryFilter ? [] : visibleMissingPeriodMeters}
                       period={controlPeriod}
                       onSelect={openMeter}
                       onSelectMeter={openMeterById}

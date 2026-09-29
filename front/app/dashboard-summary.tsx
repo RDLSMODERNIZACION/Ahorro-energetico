@@ -20,12 +20,14 @@ type Snapshot = {
 };
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 const labels: Record<string, string> = { contracted_power: "Potencia contratada", power_factor: "Factor de potencia", tariff: "Cambio tarifario", supply_deactivation: "Baja del suministro" };
-const invoiceSelect = "id,meter_id,billing_period,period_start,period_end,issue_date,total_amount,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,document_type:raw_data->>document_type,meters(*,sites(name,address)),invoice_measurements(*),invoice_lines(concept_code,quantity,unit_price,net_amount)";
+const invoiceSelect = "id,meter_id,invoice_number,billing_period,period_start,period_end,issue_date,total_amount,current_tariff_code,voltage_level,contracted_kw_peak,contracted_kw_off_peak,document_type:raw_data->>document_type,meters(*,sites(name,address)),invoice_measurements(*),invoice_lines(concept_code,quantity,unit_price,net_amount)";
 
-export function DashboardSummary({ organizationId, session }: { organizationId: string; session: Session }) {
-  return <Summary key={`${session.user.id}:${organizationId}`} organizationId={organizationId} />;
+export type SummarySelection = { label: string; period: string; meterIds: string[]; invoices: Invoice[] };
+type SummaryProps = { organizationId: string; session: Session; onOpenInvoices: (selection: SummarySelection) => void };
+export function DashboardSummary({ organizationId, session, onOpenInvoices }: SummaryProps) {
+  return <Summary key={`${session.user.id}:${organizationId}`} organizationId={organizationId} onOpenInvoices={onOpenInvoices} />;
 }
-function Summary({ organizationId }: { organizationId: string }) {
+function Summary({ organizationId, onOpenInvoices }: Omit<SummaryProps, "session">) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -85,6 +87,7 @@ function Summary({ organizationId }: { organizationId: string }) {
   const activeIds = new Set(active.map(meter => meter.id));
   const current = invoices.filter(invoice => billingMonth(invoice) === period && activeIds.has(invoice.meter_id));
   const proposed: Record<string, { monthly: number; annual: number }> = Object.fromEntries(savingKinds.map(kind => [kind, { monthly: 0, annual: 0 }]));
+  const proposedIds: Record<string, string[]> = Object.fromEntries(savingKinds.map(kind => [kind, []]));
   const opportunities = new Set<string>();
   const histories = new Map<string, Invoice[]>();
   for (const invoice of invoices) {
@@ -97,6 +100,7 @@ function Summary({ organizationId }: { organizationId: string }) {
     if (saving.totalMonthly > 0) opportunities.add(invoice.meter_id);
     // Deactivation is an alternative to operating improvements, not an extra saving.
     if (saving.deactivationMonthly > saving.operationalMonthly) {
+      proposedIds.supply_deactivation.push(invoice.meter_id);
       proposed.supply_deactivation.monthly += saving.deactivationMonthly;
       proposed.supply_deactivation.annual += saving.deactivationAnnual;
     } else {
@@ -104,25 +108,28 @@ function Summary({ organizationId }: { organizationId: string }) {
         ["contracted_power", saving.powerMonthly, saving.powerAnnual],
         ["power_factor", saving.reactiveMonthly, saving.reactiveAnnual],
         ["tariff", saving.tariffMonthly, saving.tariffAnnual],
-      ] as [string, number, number][]) { proposed[kind].monthly += monthly; proposed[kind].annual += annual; }
+      ] as [string, number, number][]) { if (monthly > 0) proposedIds[kind].push(invoice.meter_id); proposed[kind].monthly += monthly; proposed[kind].annual += annual; }
     }
   }
   const confirmed = confirmedSavings(controls, period);
   const proposedMonthly = Object.values(proposed).reduce((sum, row) => sum + row.monthly, 0);
   const proposedAnnual = Object.values(proposed).reduce((sum, row) => sum + row.annual, 0);
   const received = new Set(current.map(row => row.meter_id)).size;
+  const open = (label: string, meterIds: string[]) => onOpenInvoices({ label, period, meterIds: [...new Set(meterIds)], invoices });
+  const amountLink = (value: number, label: string, ids: string[]) => <button type="button" className={styles.amountLink} aria-label={`Ver facturas: ${label}`} onClick={() => open(label, ids)}>{money.format(value)}</button>;
   return <section className={styles.summary} aria-label="Resumen de ahorro">
     <div className={styles.heading}><div><h2>Resumen de {periodLabel}</h2><p>Período de facturación · historial completo · un cálculo por suministro</p></div>{action}</div>
     <div className={styles.kpis}>
-      <article><span>Facturas recibidas</span><strong>{received} / {active.length}</strong><small>{active.length - received} faltantes de {periodLabel}</small></article>
-      <article><span>Suministros con oportunidad</span><strong>{opportunities.size}</strong><small>Calculados sobre los suministros con factura del período</small></article>
-      <article className={styles.proposed}><span>Ahorro propuesto</span><strong>{money.format(proposedMonthly)}</strong><small>Mensual · {money.format(proposedAnnual)} de proyección anual</small></article>
-      <article className={styles.confirmed}><span>Ahorro confirmado en mejoras</span><strong>{money.format(confirmed.monthly)}</strong><small>Importe mensual registrado · {confirmed.count} mejoras aplicadas o verificadas vigentes</small></article>
+      <button type="button" className={styles.card} onClick={() => open("Facturas recibidas", current.map(row => row.meter_id))}><span>Facturas recibidas</span><strong>{received} / {active.length}</strong><small>{active.length - received} faltantes de {periodLabel}</small></button>
+      <button type="button" className={styles.card} onClick={() => open("Suministros con oportunidad", [...opportunities])}><span>Suministros con oportunidad</span><strong>{opportunities.size}</strong><small>Ver facturas con ahorro propuesto →</small></button>
+      <button type="button" className={`${styles.card} ${styles.proposed}`} onClick={() => open("Ahorro propuesto", [...opportunities])}><span>Ahorro propuesto</span><strong>{money.format(proposedMonthly)}</strong><small>Mensual · {money.format(proposedAnnual)} de proyección anual<br />Ver facturas →</small></button>
+      <button type="button" className={`${styles.card} ${styles.confirmed}`} onClick={() => open("Ahorro confirmado", Object.values(confirmed.meterIds).flat())}><span>Ahorro confirmado en mejoras</span><strong>{money.format(confirmed.monthly)}</strong><small>Importe mensual registrado · {confirmed.count} mejoras aplicadas o verificadas vigentes<br />Ver facturas →</small></button>
     </div>
     <div className={styles.breakdown}><h3>Propuesto y confirmado por tipo de mejora</h3>
       <div className={styles.tableWrap}><table><thead><tr><th>Tipo de mejora</th><th>Propuesto mensual</th><th>Proyección anual propuesta</th><th>Confirmado mensual registrado</th></tr></thead>
-      <tbody>{savingKinds.map(kind => <tr key={kind}><th>{labels[kind]}</th><td>{money.format(proposed[kind].monthly)}</td><td>{money.format(proposed[kind].annual)}</td><td>{money.format(confirmed.totals[kind])}</td></tr>)}</tbody>
+      <tbody>{savingKinds.map(kind => <tr key={kind}><th>{labels[kind]}</th><td>{amountLink(proposed[kind].monthly, `Ahorro propuesto · ${labels[kind]}`, proposedIds[kind])}</td><td>{money.format(proposed[kind].annual)}</td><td>{amountLink(confirmed.totals[kind], `Ahorro confirmado · ${labels[kind]}`, confirmed.meterIds[kind])}</td></tr>)}</tbody>
       <tfoot><tr><th>Total</th><td>{money.format(proposedMonthly)}</td><td>{money.format(proposedAnnual)}</td><td>{money.format(confirmed.monthly)}</td></tr></tfoot></table></div>
+      <p>Tocá un importe mensual para ver sus facturas en la pestaña Facturas.</p>
       <p>Confirmado: importe registrado al aplicar o verificar una mejora. Excluye planificadas, canceladas y futuras; toma la última vigente de cada tipo por medidor. No equivale a ahorro comprobado en factura ni se suma al propuesto.</p>
       {confirmed.unvalued > 0 && <p role="status">{confirmed.unvalued} mejoras confirmadas todavía no tienen un importe registrado y no se incluyen en el monto.</p>}
       <p>La potencia propuesta usa la curva histórica de 12 meses; factor de potencia y tarifa se anualizan desde el mes. Valores con el tratamiento de IVA del análisis individual.</p>
