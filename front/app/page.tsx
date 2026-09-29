@@ -1,4 +1,6 @@
 "use client";
+
+import { DashboardSummary } from "./dashboard-summary";
 import {
   FormEvent,
   useCallback,
@@ -1382,108 +1384,7 @@ export default function Home() {
               </div>
             </section>
 
-            <div className="dashboard-month-kpis">
-              <article className="received">
-                <span>Facturas recibidas</span>
-                <strong>
-                  {dashboardReceived} <i>/ {activeMeters.length}</i>
-                </strong>
-                <small>{dashboardPeriodLabel}</small>
-              </article>
-              <article className={dashboardMissing.length ? "missing" : "ok"}>
-                <span>Faltantes de agosto</span>
-                <strong>{dashboardMissing.length}</strong>
-                <small>
-                  {dashboardMissing.length
-                    ? "requieren seguimiento"
-                    : "período completo"}
-                </small>
-              </article>
-              <article className="opportunities">
-                <span>Suministros con oportunidad</span>
-                <strong>{dashboardOpportunityIds.size}</strong>
-                <small>
-                  {dashboardLowPf} cos φ bajo · {dashboardPowerExcess} con
-                  potencia sobrante
-                </small>
-              </article>
-              <article className="saving">
-                <span>Ahorro mensual potencial</span>
-                <strong>{money.format(dashboardTotalMonthly)}</strong>
-                <small>
-                  {money.format(dashboardTotalAnnual)} anual · potencia según
-                  curva mensual
-                </small>
-              </article>
-            </div>
-
-            <div className="dashboard-period-strip">
-              <b>Situación de {dashboardPeriodLabel}</b>
-              <span>{dashboardMissing.length} facturas faltantes</span>
-              <span>
-                {dashboardOpportunityIds.size} suministros con oportunidad
-              </span>
-              <span>{dashboardLowPf} con cos φ bajo</span>
-              <span>{dashboardPowerExcess} con potencia sobrante</span>
-            </div>
-
-            <section className="panel executive-savings">
-              <Title
-                title={`Desglose del ahorro potencial · ${dashboardPeriodLabel}`}
-                sub={`Potencia: curva mensual histórica por suministro. Factor de potencia y tarifa: proyección mensual × 12. Valores con 30% de IVA donde corresponde.`}
-              />
-              <div className="dashboard-savings-grid">
-                <article className="power">
-                  <span>Potencia contratada</span>
-                  <strong>{money.format(dashboardPowerAnnual)}</strong>
-                  <small>
-                    {money.format(dashboardPowerMonthly)} mensual ·{" "}
-                    {dashboardPeriodLabel}
-                  </small>
-                  <p>
-                    Curva anual: para cada mes toma la mayor demanda del mismo
-                    mes entre los años disponibles, contra la última potencia
-                    contratada.
-                  </p>
-                </article>
-                <article className="reactive">
-                  <span>Factor de potencia</span>
-                  <strong>{money.format(dashboardReactiveMonthly * 12)}</strong>
-                  <small>
-                    {money.format(dashboardReactiveMonthly)} mensual ·{" "}
-                    {dashboardPeriodLabel}
-                  </small>
-                  <p>
-                    Recargos de energía reactiva evitables detectados en el mes.
-                  </p>
-                </article>
-                <article className="rate">
-                  <span>Cambio tarifario</span>
-                  <strong>{money.format(dashboardRateMonthly * 12)}</strong>
-                  <small>
-                    {money.format(dashboardRateMonthly)} mensual ·{" "}
-                    {dashboardPeriodLabel}
-                  </small>
-                  <p>
-                    {advancedTariffSummary?.billing_period === dashboardPeriod
-                      ? `Cambio tarifario valorizado · ${dashboardTariffValuedCount} suministro(s) · incluye T3/T3A→T4 y BT→MT.`
-                      : "Diferencia contra la categoría recomendada para ese período."}
-                  </p>
-                </article>
-                <article className="saving-total">
-                  <span>Ahorro total propuesto</span>
-                  <strong>{money.format(dashboardTotalAnnual)}</strong>
-                  <small>
-                    {money.format(dashboardTotalMonthly)} mensual ·{" "}
-                    {dashboardPeriodLabel}
-                  </small>
-                  <p>
-                    Potencia anual según curva de 12 meses; los demás ahorros se
-                    anualizan desde el período actual.
-                  </p>
-                </article>
-              </div>
-            </section>
+            <DashboardSummary organizationId={orgId || ""} session={session} />
           </>
         )}
         {tab === "invoices" && (
