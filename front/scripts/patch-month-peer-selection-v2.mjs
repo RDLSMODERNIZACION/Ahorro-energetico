@@ -15,11 +15,11 @@ if (!source.includes("SAME_MONTH_PEER_SELECTION_V5")) {
   if (!source.includes(styleNeedle)) throw new Error("InvoiceTrend bar style block not found");
   source = source.replace(
     styleNeedle,
-    `                style={\n                  sameMonthPeer\n                    ? {\n                        fill: \"#73b99a\",\n                        opacity: 0.78,\n                        stroke: \"#146b49\",\n                        strokeWidth: 3,\n                      }\n                    : t2Excess\n                      ? { fill: \"#dc2626\" }\n                      : undefined\n                }`,
+    `                style={\n                  sameMonthPeer\n                    ? {\n                        fill: \"#739fb9\",\n                        opacity: 0.78,\n                        stroke: \"#144b6b\",\n                        strokeWidth: 3,\n                      }\n                    : t2Excess\n                      ? { fill: \"#dc2626\" }\n                      : undefined\n                }`,
   );
 
   const oldTitle = `<h3>Evolución histórica del medidor</h3>`;
-  const newTitle = `<h3 style={{display:\"flex\",alignItems:\"baseline\",gap:8,flexWrap:\"wrap\"}}>\n                <span>Evolución histórica del medidor</span>\n                <small style={{fontSize:11,fontWeight:700,color:\"#78857f\"}}>\n                  / {powerMonthNames[Number(consumptionPeriod(selected).slice(5,7)) - 1]?.toLowerCase() || \"mes\"} / {consumptionPeriod(selected).slice(5,7)} / {consumptionPeriod(selected).slice(0,4)}\n                </small>\n              </h3>`;
+  const newTitle = `<h3 style={{display:\"flex\",alignItems:\"baseline\",gap:8,flexWrap:\"wrap\"}}>\n                <span>Evolución histórica del medidor</span>\n                <small style={{fontSize:11,fontWeight:700,color:\"#788085\"}}>\n                  / {powerMonthNames[Number(consumptionPeriod(selected).slice(5,7)) - 1]?.toLowerCase() || \"mes\"} / {consumptionPeriod(selected).slice(5,7)} / {consumptionPeriod(selected).slice(0,4)}\n                </small>\n              </h3>`;
   if (!source.includes(oldTitle)) throw new Error("Historical chart title not found");
   source = source.replace(oldTitle, newTitle);
 

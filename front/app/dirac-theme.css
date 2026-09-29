@@ -47,3 +47,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .work > header { align-items: flex-start; flex-direction: column; }
   .head-actions { flex-wrap: wrap; }
 }
+
+/* Positive values keep their semantic green; large surfaces use Dirac blue. */
+.row-saving, .saving-chip.positive { color: #15803d; }
+.saving-measures.active { background: #f0fdf4; color: #166534; }
+.dashboard-ai-ask { background: linear-gradient(115deg, #0c3048, #075985); }
+.dashboard-ai-query button { background: #e0f2fe; color: #075985; }
+.dashboard-ai-query button:hover { background: #bae6fd; }
+.kpis .green, .savings-summary .total { background: #0369a1; color: #fff; }

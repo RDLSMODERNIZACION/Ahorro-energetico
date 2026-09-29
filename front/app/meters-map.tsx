@@ -133,7 +133,7 @@ export function MetersMap({session,organizationId,meters,invoices,onOpenMeter}:P
         const lat=Number(row.location.latitude),lng=Number(row.location.longitude);
         if(!Number.isFinite(lat)||!Number.isFinite(lng))continue;
 
-        const color=row.state==="critical"?"#c94b40":row.state==="opportunity"?"#d89520":"#168d60";
+        const color=row.state==="critical"?"#c94b40":row.state==="opportunity"?"#d89520":"#16618d";
         const icon=L.divIcon({
           className:"meter-map-marker-shell",
           html:`<div class="meter-map-marker ${row.state}" style="--marker:${color}"><span>⚡</span></div>`,

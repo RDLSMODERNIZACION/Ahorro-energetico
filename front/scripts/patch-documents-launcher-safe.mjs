@@ -6,11 +6,11 @@ const marker = "DOCUMENTS_LAUNCHER_SAFE_V1";
 if (source.includes(marker)) process.exit(0);
 
 source = source.replace(
-  '<span style={{display:"block",fontSize:11,fontWeight:800,letterSpacing:".08em",color:"#0b8f68",marginBottom:3}}>DOCUMENTACIÓN</span>',
+  '<span style={{display:"block",fontSize:11,fontWeight:800,letterSpacing:".08em",color:"#0b5f8f",marginBottom:3}}>DOCUMENTACIÓN</span>',
   ''
 );
 source = source.replace(
-  '<small style={{display:"block",marginTop:4,color:"#68766f"}}>Facturas, cuadros tarifarios y documentos asociados al suministro.</small>',
+  '<small style={{display:"block",marginTop:4,color:"#687176"}}>Facturas, cuadros tarifarios y documentos asociados al suministro.</small>',
   ''
 );
 source = source.replace(

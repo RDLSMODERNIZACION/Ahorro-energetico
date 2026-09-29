@@ -22,8 +22,8 @@
   position:sticky;
   top:0;
   z-index:10;
-  background:#f8faf9;
-  box-shadow:0 1px 0 #e5ebe7;
+  background:#f8f9fa;
+  box-shadow:0 1px 0 #e5e9eb;
 }
 
 .invoice-admin-scroll .invoice-admin th:nth-child(1),
@@ -50,20 +50,20 @@
 .invoice-admin-scroll .invoice-admin thead th:nth-child(1),
 .invoice-admin-scroll .invoice-admin thead th:nth-child(2){
   z-index:14;
-  background:#f8faf9;
+  background:#f8f9fa;
 }
 
 .invoice-admin-scroll .invoice-admin tr:hover td:nth-child(1),
 .invoice-admin-scroll .invoice-admin tr:hover td:nth-child(2){
-  background:#f2faf6;
+  background:#f2f7fa;
 }
 
 /* Separador interno: ya no existe una segunda tabla */
 .pending-section-row td{
   position:static !important;
   padding:0 !important;
-  background:#e8ebea !important;
-  border-top:8px solid #f1f3f2 !important;
+  background:#e8eaeb !important;
+  border-top:8px solid #f1f2f3 !important;
   border-bottom:0 !important;
 }
 
@@ -73,30 +73,30 @@
   align-items:center;
   justify-content:space-between;
   padding:13px 18px;
-  color:#5f6d66;
+  color:#5f686d;
   font-size:9px;
   font-weight:700;
 }
 
 .invoice-admin-scroll .pending-invoice-row{
-  background:#eef0ef !important;
-  color:#7f8984;
+  background:#eeeff0 !important;
+  color:#7f8589;
 }
 
 .invoice-admin-scroll .pending-invoice-row td{
-  background:#eef0ef !important;
-  border-bottom-color:#dfe3e1 !important;
+  background:#eeeff0 !important;
+  border-bottom-color:#dfe2e3 !important;
 }
 
 .invoice-admin-scroll .pending-invoice-row td:nth-child(1),
 .invoice-admin-scroll .pending-invoice-row td:nth-child(2){
-  background:#eef0ef !important;
+  background:#eeeff0 !important;
 }
 
-.pending-invoice-row b{color:#6d7772}
+.pending-invoice-row b{color:#6d7377}
 .pending-placeholder{
   text-align:center;
-  color:#87918c;
+  color:#878d91;
   font-size:9px;
   font-style:italic;
 }
@@ -104,8 +104,8 @@
   display:inline-block;
   padding:6px 9px;
   border-radius:6px;
-  background:#d9dddb;
-  color:#65716b;
+  background:#d9dcdd;
+  color:#656d71;
   font-size:8px;
   font-weight:850;
 }
@@ -115,13 +115,13 @@
   width:12px;
   height:15px;
 }
-.invoice-admin-scroll::-webkit-scrollbar-track{background:#eef3f0}
+.invoice-admin-scroll::-webkit-scrollbar-track{background:#eef1f3}
 .invoice-admin-scroll::-webkit-scrollbar-thumb{
-  background:#789487;
-  border:3px solid #eef3f0;
+  background:#788a94;
+  border:3px solid #eef1f3;
   border-radius:999px;
 }
-.invoice-admin-scroll::-webkit-scrollbar-thumb:hover{background:#526f62}
+.invoice-admin-scroll::-webkit-scrollbar-thumb:hover{background:#52646f}
 
 @media(max-width:900px){
   .invoice-admin-scroll{max-height:calc(100vh - 215px)}

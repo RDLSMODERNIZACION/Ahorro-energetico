@@ -1,69 +1,69 @@
 ﻿
 /* AP Individual V3 - análisis individual como página independiente */
-.pl-analysis-backdrop{position:fixed;inset:0;z-index:90;background:#f5f8f6;display:block;overflow:auto}
-.pl-analysis-drawer{width:100%;min-height:100vh;height:auto;overflow:visible;background:#f5f8f6;box-shadow:none}
-.pl-analysis-head{position:relative;margin:0;padding:68px 34px 28px;background:#173a2c;color:white;display:flex;justify-content:space-between;align-items:flex-start;border-radius:0 0 14px 14px}
-.pl-analysis-head small{font-size:8px;letter-spacing:.14em;color:#9bd1b8}.pl-analysis-head h2{font-size:24px;margin:7px 0}.pl-analysis-head p{margin:0;color:#b9d6c9;font-size:10px}
+.pl-analysis-backdrop{position:fixed;inset:0;z-index:90;background:#f5f7f8;display:block;overflow:auto}
+.pl-analysis-drawer{width:100%;min-height:100vh;height:auto;overflow:visible;background:#f5f7f8;box-shadow:none}
+.pl-analysis-head{position:relative;margin:0;padding:68px 34px 28px;background:#172d3a;color:white;display:flex;justify-content:space-between;align-items:flex-start;border-radius:0 0 14px 14px}
+.pl-analysis-head small{font-size:8px;letter-spacing:.14em;color:#9bbdd1}.pl-analysis-head h2{font-size:24px;margin:7px 0}.pl-analysis-head p{margin:0;color:#b9cbd6;font-size:10px}
 .pl-analysis-head button{position:absolute;left:34px;top:18px;border:1px solid #ffffff24;background:#ffffff12;color:#fff;width:auto;height:34px;border-radius:8px;padding:0 14px;font-size:0;font-weight:800;cursor:pointer}
 .pl-analysis-head button::before{content:"← Volver a Alumbrado Público";font-size:10px}
-.pl-analysis-tabs{display:flex;gap:7px;padding:14px 34px;background:#fff;border-bottom:1px solid #e5ebe7;position:sticky;top:0;z-index:2}
-.pl-analysis-tabs button{border:1px solid #d9e5de;background:#fff;color:#617168;border-radius:20px;padding:9px 16px;font-size:9px;font-weight:800;cursor:pointer}
-.pl-analysis-tabs button.active{background:#1b925e;border-color:#1b925e;color:#fff}
+.pl-analysis-tabs{display:flex;gap:7px;padding:14px 34px;background:#fff;border-bottom:1px solid #e5e9eb;position:sticky;top:0;z-index:2}
+.pl-analysis-tabs button{border:1px solid #d9e1e5;background:#fff;color:#616b71;border-radius:20px;padding:9px 16px;font-size:9px;font-weight:800;cursor:pointer}
+.pl-analysis-tabs button.active{background:#1b6692;border-color:#1b6692;color:#fff}
 .pl-detail-kpis-v3{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px 34px}
-.pl-detail-kpis-v3 article{background:#fff;border:1px solid #e5ebe7;border-radius:10px;padding:15px}.pl-detail-kpis-v3 article.alert{background:#fff4f1;border-color:#f0c3b9}
-.pl-detail-kpis-v3 span{display:block;font-size:8px;color:#78877f;margin-bottom:7px}.pl-detail-kpis-v3 b{font-size:14px}
-.pl-analysis-card{margin:0 34px 18px;background:#fff;border:1px solid #e5ebe7;border-radius:11px;overflow:hidden}
-.pl-analysis-card-title{padding:16px 18px;border-bottom:1px solid #edf1ee;display:flex;justify-content:space-between;align-items:center}
-.pl-analysis-card-title h3{margin:0;font-size:13px}.pl-analysis-card-title p{margin:4px 0 0;color:#7a8981;font-size:9px}.pl-analysis-card-title>b{color:#173d2f;font-size:17px}
+.pl-detail-kpis-v3 article{background:#fff;border:1px solid #e5e9eb;border-radius:10px;padding:15px}.pl-detail-kpis-v3 article.alert{background:#fff4f1;border-color:#f0c3b9}
+.pl-detail-kpis-v3 span{display:block;font-size:8px;color:#788287;margin-bottom:7px}.pl-detail-kpis-v3 b{font-size:14px}
+.pl-analysis-card{margin:0 34px 18px;background:#fff;border:1px solid #e5e9eb;border-radius:11px;overflow:hidden}
+.pl-analysis-card-title{padding:16px 18px;border-bottom:1px solid #edf0f1;display:flex;justify-content:space-between;align-items:center}
+.pl-analysis-card-title h3{margin:0;font-size:13px}.pl-analysis-card-title p{margin:4px 0 0;color:#7a8489;font-size:9px}.pl-analysis-card-title>b{color:#172f3d;font-size:17px}
 .pl-diagnosis{padding:13px 17px}.pl-diagnosis>div{display:flex;gap:9px;align-items:center;padding:11px;border-radius:8px;background:#fff4ef;color:#9b4d3f;font-size:10px;margin-bottom:7px}
-.pl-diagnosis>div.good{background:#edf8f2;color:#166e4a}.pl-diagnosis i{font-style:normal;font-weight:900}
-.pl-summary-dl{display:grid;grid-template-columns:repeat(2,1fr);margin:0}.pl-summary-dl>div{padding:14px 17px;border-bottom:1px solid #edf1ee}.pl-summary-dl>div:nth-child(odd){border-right:1px solid #edf1ee}
-.pl-summary-dl dt{font-size:8px;color:#829087;text-transform:uppercase}.pl-summary-dl dd{margin:5px 0 0;font-size:10px;font-weight:800}
+.pl-diagnosis>div.good{background:#edf4f8;color:#164e6e}.pl-diagnosis i{font-style:normal;font-weight:900}
+.pl-summary-dl{display:grid;grid-template-columns:repeat(2,1fr);margin:0}.pl-summary-dl>div{padding:14px 17px;border-bottom:1px solid #edf0f1}.pl-summary-dl>div:nth-child(odd){border-right:1px solid #edf0f1}
+.pl-summary-dl dt{font-size:8px;color:#828b90;text-transform:uppercase}.pl-summary-dl dd{margin:5px 0 0;font-size:10px;font-weight:800}
 .pl-chart-v3{height:340px;display:flex;align-items:flex-end;gap:8px;padding:28px 20px 14px;overflow-x:auto}
 .pl-chart-v3 button{border:0;background:transparent;min-width:36px;height:275px;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;cursor:pointer}
-.pl-chart-v3 .bar-wrap{height:235px;width:21px;display:flex;align-items:flex-end}.pl-chart-v3 .bar-wrap i{display:block;width:100%;background:#58ad83;border-radius:5px 5px 2px 2px;min-height:3px}
-.pl-chart-v3.amount .bar-wrap i{background:#7f9f90}.pl-chart-v3 button.active .bar-wrap i{background:#187c55}.pl-chart-v3 small{font-size:7px;color:#7d8c84;white-space:nowrap}
-.pl-selected-period{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #edf1ee}.pl-selected-period>div{padding:13px 15px;border-right:1px solid #edf1ee}.pl-selected-period>div:last-child{border-right:0}
-.pl-selected-period span{display:block;color:#7b8982;font-size:8px;margin-bottom:5px}.pl-selected-period b{font-size:10px}
-.pl-tariff-list button{width:100%;border:0;border-bottom:1px solid #edf1ee;background:#fff;display:grid;grid-template-columns:95px 85px 1fr 130px;gap:10px;align-items:center;padding:12px 17px;text-align:left;cursor:pointer}
-.pl-tariff-list button.active{background:#edf8f2}.pl-tariff-list span{font-weight:900;color:#177c54;font-size:9px}.pl-tariff-list small{color:#798980;font-size:8px}.pl-tariff-list em{text-align:right;font-style:normal;font-weight:800;font-size:9px}
+.pl-chart-v3 .bar-wrap{height:235px;width:21px;display:flex;align-items:flex-end}.pl-chart-v3 .bar-wrap i{display:block;width:100%;background:#588ead;border-radius:5px 5px 2px 2px;min-height:3px}
+.pl-chart-v3.amount .bar-wrap i{background:#7f939f}.pl-chart-v3 button.active .bar-wrap i{background:#18577c}.pl-chart-v3 small{font-size:7px;color:#7d868c;white-space:nowrap}
+.pl-selected-period{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #edf0f1}.pl-selected-period>div{padding:13px 15px;border-right:1px solid #edf0f1}.pl-selected-period>div:last-child{border-right:0}
+.pl-selected-period span{display:block;color:#7b8489;font-size:8px;margin-bottom:5px}.pl-selected-period b{font-size:10px}
+.pl-tariff-list button{width:100%;border:0;border-bottom:1px solid #edf0f1;background:#fff;display:grid;grid-template-columns:95px 85px 1fr 130px;gap:10px;align-items:center;padding:12px 17px;text-align:left;cursor:pointer}
+.pl-tariff-list button.active{background:#edf4f8}.pl-tariff-list span{font-weight:900;color:#17577c;font-size:9px}.pl-tariff-list small{color:#798389;font-size:8px}.pl-tariff-list em{text-align:right;font-style:normal;font-weight:800;font-size:9px}
 .pl-tariff-warning{margin:16px;padding:12px;border:1px solid #edc8a2;background:#fff8ed;color:#95601e;border-radius:8px;font-size:9px;line-height:1.5}
-.pl-data{cursor:pointer}.pl-data:hover{box-shadow:inset 3px 0 #1b925e;background:#f6fbf8}
+.pl-data{cursor:pointer}.pl-data:hover{box-shadow:inset 3px 0 #1b6692;background:#f6f9fb}
 @media(max-width:900px){.pl-analysis-head{padding:62px 18px 22px}.pl-analysis-head button{left:18px}.pl-analysis-tabs{padding:12px 18px;overflow-x:auto}.pl-detail-kpis-v3{padding:14px 18px;grid-template-columns:repeat(2,1fr)}.pl-analysis-card{margin:0 18px 14px}.pl-selected-period{grid-template-columns:repeat(2,1fr)}.pl-summary-dl{grid-template-columns:1fr}.pl-summary-dl>div:nth-child(odd){border-right:0}.pl-tariff-list button{grid-template-columns:80px 70px 1fr}.pl-tariff-list em{display:none}}
 
 /* AP sort headers */
 .pl-head .pl-sort-head{border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;letter-spacing:inherit;text-align:left;padding:0;cursor:pointer}
-.pl-head .pl-sort-head:hover{color:#18845a}
-.pl-head .pl-sort-head.active{color:#18845a}
+.pl-head .pl-sort-head:hover{color:#185c84}
+.pl-head .pl-sort-head.active{color:#185c84}
 
 /* AP missing rows V11 */
-.pl-row.pl-data.missing{background:#eef1ef !important;color:#5f6d66}
-.pl-row.pl-data.missing:hover{background:#e7ebe8 !important;box-shadow:inset 4px 0 #8d9a93}
-.pl-row.pl-data.missing b{color:#56635d}
-.pl-row.pl-data.missing small{color:#8a9690}
-.pl-row.pl-data.missing .pl-status.missing{background:#dde3df;color:#66736d;font-weight:850}
+.pl-row.pl-data.missing{background:#eef0f1 !important;color:#5f686d}
+.pl-row.pl-data.missing:hover{background:#e7eaeb !important;box-shadow:inset 4px 0 #8d959a}
+.pl-row.pl-data.missing b{color:#565e63}
+.pl-row.pl-data.missing small{color:#8a9296}
+.pl-row.pl-data.missing .pl-status.missing{background:#dde1e3;color:#666e73;font-weight:850}
 
 /* AP medición real vs estimada */
 .pl-measurement-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.pl-measurement-kpis article{background:#fff;border:1px solid #e3eae6;border-radius:11px;padding:14px 17px}
-.pl-measurement-kpis span{display:block;font-size:8px;font-weight:850;letter-spacing:.045em;color:#77867e}
+.pl-measurement-kpis article{background:#fff;border:1px solid #e3e7ea;border-radius:11px;padding:14px 17px}
+.pl-measurement-kpis span{display:block;font-size:8px;font-weight:850;letter-spacing:.045em;color:#778086}
 .pl-measurement-kpis strong{display:block;margin-top:6px;font-size:20px}
-.pl-measurement-kpis small{display:block;margin-top:4px;font-size:8px;color:#87958d}
-.pl-measurement-kpis article.measured{border-left:4px solid #238459}
+.pl-measurement-kpis small{display:block;margin-top:4px;font-size:8px;color:#879095}
+.pl-measurement-kpis article.measured{border-left:4px solid #236084}
 .pl-measurement-kpis article.review{border-left:4px solid #d89a32;background:#fffdf7}
 .pl-measurement-kpis article.estimated{border-left:4px solid #c94f3e;background:#fff8f6}
 .pl-measurement-kpis article.estimated strong{color:#b74435}
-.pl-measurement-kpis article.unknown{border-left:4px solid #8b9791}
+.pl-measurement-kpis article.unknown{border-left:4px solid #8b9397}
 
 /* AP: 7 columnas, sin demanda ni factor de potencia */
 .pl-table{min-width:1180px!important}
 .pl-row{grid-template-columns:170px minmax(270px,1.55fr) 135px 155px 90px 205px minmax(190px,1fr)!important}
 
 .pl-measurement{display:inline-flex;padding:5px 8px;border-radius:7px;font-size:8px;font-style:normal;font-weight:850;white-space:nowrap}
-.pl-measurement.medido_confirmado{background:#eaf7f0;color:#238459}
+.pl-measurement.medido_confirmado{background:#eaf2f7;color:#236084}
 .pl-measurement.medido_con_anomalias{background:#fff4df;color:#a96e19}
 .pl-measurement.estimado_probable{background:#fff0ed;color:#c64d3b}
-.pl-measurement.sin_evidencia{background:#eff2f0;color:#76847d}
+.pl-measurement.sin_evidencia{background:#eff1f2;color:#767f84}
 .pl-data.measurement-estimado_probable{box-shadow:inset 4px 0 #c94f3e}
 .pl-data.measurement-medido_con_anomalias{box-shadow:inset 4px 0 #d89a32}
 
@@ -94,9 +94,9 @@
   min-width:auto!important;
   min-height:50px;
   padding:0 18px!important;
-  border:1px solid #dbe5df!important;
+  border:1px solid #dbe1e5!important;
   border-radius:11px!important;
-  background:#f7faf8;
+  background:#f7f9fa;
 }
 .invoice-subtabs>button:first-child>span:first-child{font-size:0}
 .invoice-subtabs>button:first-child>span:first-child::before{content:"Dependencias";font-size:9px}
@@ -104,9 +104,9 @@
 
 /* Dependencias queda activa también cuando se está viendo su subvista */
 .invoice-subtabs>button:first-child.active,
-.invoice-subtabs>button:first-child:has(+ button.active){background:#188b5b!important;color:#fff!important;border-color:#188b5b!important;box-shadow:0 4px 12px rgba(24,139,91,.16)}
+.invoice-subtabs>button:first-child:has(+ button.active){background:#18618b!important;color:#fff!important;border-color:#18618b!important;box-shadow:0 4px 12px rgba(24,139,91,.16)}
 .invoice-subtabs>button:first-child:has(+ button.active)>b{background:#ffffff25;color:#fff}
-.invoice-subtabs>button:nth-child(3).active{background:#188b5b!important;color:#fff!important;border-color:#188b5b!important;box-shadow:0 4px 12px rgba(24,139,91,.16)}
+.invoice-subtabs>button:nth-child(3).active{background:#18618b!important;color:#fff!important;border-color:#18618b!important;box-shadow:0 4px 12px rgba(24,139,91,.16)}
 
 /* Sin facturación reciente: extremo derecho, separado de las categorías principales */
 .invoice-subtabs>button:nth-child(2){
@@ -119,17 +119,17 @@
   min-height:40px;
   height:40px;
   padding:0 14px;
-  border:1px solid #dbe5df;
+  border:1px solid #dbe1e5;
   border-radius:10px;
   background:#fff;
-  color:#5c6f65;
+  color:#5c686f;
   box-shadow:0 2px 6px rgba(20,50,38,.05);
 }
 .invoice-subtabs>button:nth-child(2)>span{font-size:8px}
 .invoice-subtabs>button:nth-child(2)>b{min-width:24px;height:24px;font-size:7px}
 .invoice-subtabs:has(>button:first-child.active)>button:nth-child(2),
 .invoice-subtabs:has(>button:nth-child(2).active)>button:nth-child(2){display:flex}
-.invoice-subtabs>button:nth-child(2).active{background:#188b5b;color:#fff;border-color:#188b5b}
+.invoice-subtabs>button:nth-child(2).active{background:#18618b;color:#fff;border-color:#18618b}
 .invoice-subtabs>button:nth-child(2).active>b{background:#ffffff25;color:#fff}
 
 /* En AP desaparece completamente el subfiltro de Dependencias */
@@ -153,10 +153,10 @@
   min-height:40px;
   height:40px;
   padding:0 14px;
-  border:1px solid #dbe5df;
+  border:1px solid #dbe1e5;
   border-radius:10px;
   background:#fff;
-  color:#5c6f65;
+  color:#5c686f;
   font-size:9px;
   font-weight:800;
   cursor:pointer;
@@ -169,14 +169,14 @@
   height:24px;
   padding:0 6px;
   border-radius:20px;
-  background:#e7eeea;
-  color:#52665b;
+  background:#e7ebee;
+  color:#525f66;
   font-size:8px;
 }
 .pl-missing-shortcut button.active{
-  background:#188b5b;
+  background:#18618b;
   color:#fff;
-  border-color:#188b5b;
+  border-color:#18618b;
   box-shadow:0 4px 12px rgba(24,139,91,.16);
 }
 .pl-missing-shortcut button.active b{background:#ffffff25;color:#fff}
