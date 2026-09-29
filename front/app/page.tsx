@@ -1431,7 +1431,7 @@ export default function Home() {
                 {activeSummaryFilter && <section className="panel" role="status">
                   <strong>{activeSummaryFilter.label} · {activeSummaryFilter.period}</strong>
                   <p>{filteredInvoices.length} facturas correspondientes a los suministros de este ahorro. Podés abrir cada una para ver su análisis individual.</p>
-                  {activeSummaryFilter.meterIds.some(id => !activeSummaryFilter.invoices.some(row => row.meter_id === id && (row.billing_period || row.period_start).slice(0, 7) === activeSummaryFilter.period)) && <p>Hay suministros incluidos en el ahorro confirmado que no tienen factura en este período.</p>}
+                  {activeSummaryFilter.meterIds.some(id => !activeSummaryFilter.invoices.some(row => row.meter_id === id && (row.billing_period || row.period_start).slice(0, 7) === activeSummaryFilter.period)) && <p>Hay suministros con mejoras aplicadas que no tienen factura en este período.</p>}
                   <button type="button" onClick={() => setSummaryFilter(null)}>Quitar filtro de ahorro</button>
                 </section>}
                 <section className="month-control">

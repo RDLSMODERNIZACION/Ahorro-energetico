@@ -3,3 +3,5 @@
 .amountLink{font:inherit;color:inherit;border:0;background:transparent;padding:2px 0;cursor:pointer;text-align:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}.amountLink:hover{opacity:.8}.amountLink:focus-visible{outline:2px solid currentColor;outline-offset:5px;border-radius:3px}
 
 .card:hover{box-shadow:0 3px 12px #16374d22}.card:focus-visible{outline:3px solid #3088b9;outline-offset:3px}
+
+.counts{grid-template-columns:repeat(2,minmax(0,1fr))}.savings{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}.kpis .unverified{cursor:default;background:#f3f6fa;color:#536779;border-style:dashed}.unverified:hover{box-shadow:none}@media(max-width:800px){.savings{grid-template-columns:1fr}}@media(max-width:600px){.counts{grid-template-columns:1fr}}

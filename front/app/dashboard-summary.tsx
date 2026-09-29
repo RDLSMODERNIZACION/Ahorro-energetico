@@ -63,7 +63,7 @@ function Summary({ organizationId, onOpenInvoices }: Omit<SummaryProps, "session
           get<{ candidates: Snapshot["tariffs"] }>("tariff-savings?v=1"),
           supabase.from("meter_change_controls").select("*").eq("organization_id", organizationId).abortSignal(controller.signal),
         ]);
-        if (controlsResult.error) throw new Error("No se pudieron cargar las mejoras confirmadas.");
+        if (controlsResult.error) throw new Error("No se pudieron cargar las mejoras aplicadas.");
         const period = [...new Set(invoices.map(billingMonth))].filter(Boolean).sort().at(-1) || "";
         const advanced = period ? await get<Advanced>(`tariff-saving-summary?period=${period}`) : { billing_period: "", meters: [] };
         if (period && advanced.billing_period !== period) throw new Error("La tarifa recibida no corresponde al período del resumen.");
@@ -78,7 +78,7 @@ function Summary({ organizationId, onOpenInvoices }: Omit<SummaryProps, "session
   }, [organizationId, revision]);
 
   const action = <button type="button" className={styles.refresh} disabled={busy} onClick={() => setRevision(value => value + 1)}>{busy ? "Cargando…" : "Actualizar resumen"}</button>;
-  if (busy) return <section className={styles.notice} role="status">Calculando el resumen completo: historial de facturas, tarifas y mejoras confirmadas…</section>;
+  if (busy) return <section className={styles.notice} role="status">Calculando el resumen completo: historial de facturas, tarifas y mejoras aplicadas…</section>;
   if (error) return <section className={styles.notice} role="alert"><p>{error}</p>{action}</section>;
   if (!snapshot?.period) return <section className={styles.notice}>Todavía no hay facturas para este resumen. {action}</section>;
   const { period, invoices, meters, controls, assessments, tariffs, advanced } = snapshot;
@@ -119,19 +119,23 @@ function Summary({ organizationId, onOpenInvoices }: Omit<SummaryProps, "session
   const amountLink = (value: number, label: string, ids: string[]) => <button type="button" className={styles.amountLink} aria-label={`Ver facturas: ${label}`} onClick={() => open(label, ids)}>{money.format(value)}</button>;
   return <section className={styles.summary} aria-label="Resumen de ahorro">
     <div className={styles.heading}><div><h2>Resumen de {periodLabel}</h2><p>Período de facturación · historial completo · un cálculo por suministro</p></div>{action}</div>
-    <div className={styles.kpis}>
+    <div className={`${styles.kpis} ${styles.counts}`}>
       <button type="button" className={styles.card} onClick={() => open("Facturas recibidas", current.map(row => row.meter_id))}><span>Facturas recibidas</span><strong>{received} / {active.length}</strong><small>{active.length - received} faltantes de {periodLabel}</small></button>
       <button type="button" className={styles.card} onClick={() => open("Suministros con oportunidad", [...opportunities])}><span>Suministros con oportunidad</span><strong>{opportunities.size}</strong><small>Ver facturas con ahorro propuesto →</small></button>
-      <button type="button" className={`${styles.card} ${styles.proposed}`} onClick={() => open("Ahorro propuesto", [...opportunities])}><span>Ahorro propuesto</span><strong>{money.format(proposedMonthly)}</strong><small>Mensual · {money.format(proposedAnnual)} de proyección anual<br />Ver facturas →</small></button>
-      <button type="button" className={`${styles.card} ${styles.confirmed}`} onClick={() => open("Ahorro confirmado", Object.values(confirmed.meterIds).flat())}><span>Ahorro confirmado en mejoras</span><strong>{money.format(confirmed.monthly)}</strong><small>Importe mensual registrado · {confirmed.count} mejoras aplicadas o verificadas vigentes<br />Ver facturas →</small></button>
     </div>
-    <div className={styles.breakdown}><h3>Propuesto y confirmado por tipo de mejora</h3>
-      <div className={styles.tableWrap}><table><thead><tr><th>Tipo de mejora</th><th>Propuesto mensual</th><th>Proyección anual propuesta</th><th>Confirmado mensual registrado</th></tr></thead>
-      <tbody>{savingKinds.map(kind => <tr key={kind}><th>{labels[kind]}</th><td>{amountLink(proposed[kind].monthly, `Ahorro propuesto · ${labels[kind]}`, proposedIds[kind])}</td><td>{money.format(proposed[kind].annual)}</td><td>{amountLink(confirmed.totals[kind], `Ahorro confirmado · ${labels[kind]}`, confirmed.meterIds[kind])}</td></tr>)}</tbody>
-      <tfoot><tr><th>Total</th><td>{money.format(proposedMonthly)}</td><td>{money.format(proposedAnnual)}</td><td>{money.format(confirmed.monthly)}</td></tr></tfoot></table></div>
+    <div className={`${styles.kpis} ${styles.savings}`}>
+      <button type="button" className={`${styles.card} ${styles.proposed}`} onClick={() => open("Ahorro propuesto", [...opportunities])}><span>Ahorro propuesto</span><strong>{money.format(proposedMonthly)}</strong><small>Mensual · {money.format(proposedAnnual)} de proyección anual<br />Ver facturas →</small></button>
+      <button type="button" className={`${styles.card} ${styles.confirmed}`} onClick={() => open("Ahorro de mejoras aplicadas", Object.values(confirmed.meterIds).flat())}><span>Ahorro de mejoras aplicadas</span><strong>{money.format(confirmed.monthly)}</strong><small>Estimación mensual registrada · {confirmed.count} mejoras vigentes<br />Ver facturas →</small></button>
+      <article className={`${styles.card} ${styles.unverified}`} aria-label="Ahorro comprobado en factura: sin verificar"><span>Ahorro comprobado en factura</span><strong>Sin verificar</strong><small>Pendiente de cotejar las facturas posteriores con las condiciones anteriores. No hay un importe comprobado calculado en este resumen.</small></article>
+    </div>
+    <div className={styles.breakdown}><h3>Seguimiento del ahorro por tipo de mejora</h3>
+      <div className={styles.tableWrap}><table><thead><tr><th>Tipo de mejora</th><th>Propuesto mensual</th><th>Proyección anual propuesta</th><th>Aplicado mensual estimado</th><th>Comprobado en factura</th></tr></thead>
+      <tbody>{savingKinds.map(kind => <tr key={kind}><th>{labels[kind]}</th><td>{amountLink(proposed[kind].monthly, `Ahorro propuesto · ${labels[kind]}`, proposedIds[kind])}</td><td>{money.format(proposed[kind].annual)}</td><td>{amountLink(confirmed.totals[kind], `Ahorro de mejoras aplicadas · ${labels[kind]}`, confirmed.meterIds[kind])}</td><td>Sin verificar</td></tr>)}</tbody>
+      <tfoot><tr><th>Total</th><td>{money.format(proposedMonthly)}</td><td>{money.format(proposedAnnual)}</td><td>{money.format(confirmed.monthly)}</td><td>Sin verificar</td></tr></tfoot></table></div>
       <p>Tocá un importe mensual para ver sus facturas en la pestaña Facturas.</p>
-      <p>Confirmado: importe registrado al aplicar o verificar una mejora. Excluye planificadas, canceladas y futuras; toma la última vigente de cada tipo por medidor. No equivale a ahorro comprobado en factura ni se suma al propuesto.</p>
-      {confirmed.unvalued > 0 && <p role="status">{confirmed.unvalued} mejoras confirmadas todavía no tienen un importe registrado y no se incluyen en el monto.</p>}
+      <p>Mejoras aplicadas: ahorro estimado registrado en medidas con estado Aplicada o Verificada. Excluye planificadas, canceladas y futuras; toma la última vigente de cada tipo por medidor. No se suma al propuesto.</p>
+      <p>Comprobado en factura: requiere cotejar el cambio facturado por EPEN y calcular su efecto respecto de las condiciones anteriores. Marcar una mejora como Verificada no acredita por sí solo un importe ahorrado. “Sin verificar” no significa ahorro cero.</p>
+      {confirmed.unvalued > 0 && <p role="status">{confirmed.unvalued} mejoras aplicadas todavía no tienen un importe registrado y no se incluyen en el monto.</p>}
       <p>La potencia propuesta usa la curva histórica de 12 meses; factor de potencia y tarifa se anualizan desde el mes. Valores con el tratamiento de IVA del análisis individual.</p>
     </div>
   </section>;
