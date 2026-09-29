@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { API_BASE, APP_HOME } from "../lib/paths";
 import { supabase } from "../lib/supabase";
 
 type Organization = {
@@ -19,7 +20,7 @@ type Member = {
 };
 
 async function request<T>(path: string, session: Session, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/backend/api${path}`, {
+  const response = await fetch(`${API_BASE}/api${path}`, {
     ...init,
     cache: "no-store",
     headers: {
@@ -62,7 +63,7 @@ export default function AdminPage() {
     supabase.auth.getSession().then(async ({ data }) => {
       const active = data.session;
       if (!active) {
-        window.location.href = "/";
+        window.location.href = APP_HOME;
         return;
       }
       setSession(active);
@@ -135,7 +136,7 @@ export default function AdminPage() {
   if (authorized === null) return <main style={{padding:40}}>Cargando administración…</main>;
   if (!authorized) return (
     <main style={{padding:40,fontFamily:"Inter,system-ui"}}>
-      <a href="/">← Volver</a><h1>Administración global</h1>
+      <a href={APP_HOME}>← Volver</a><h1>Administración global</h1>
       <p>No tenés permiso de superadministrador para administrar empresas.</p>
       {message && <p>{message}</p>}
     </main>
@@ -146,7 +147,7 @@ export default function AdminPage() {
     <main style={{minHeight:"100vh",background:"#f4f7f5",padding:"28px 34px",fontFamily:"Inter,system-ui",color:"#17211d"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div><small style={{color:"#718078",fontWeight:800}}>DIRAC · ADMINISTRACIÓN GLOBAL</small><h1 style={{margin:"6px 0"}}>Empresas, usuarios y permisos</h1><p style={{margin:0,color:"#718078"}}>Separación de clientes por organización. Cada empresa conserva sus propios medidores, facturas, mejoras y documentos.</p></div>
-        <a href="/" style={{color:"#168758",fontWeight:800}}>← Volver a energía</a>
+        <a href={APP_HOME} style={{color:"#168758",fontWeight:800}}>← Volver a energía</a>
       </div>
 
       {message && <div style={{background:"#fff",border:"1px solid #dce5df",borderRadius:10,padding:12,marginBottom:16}}>{message}</div>}
