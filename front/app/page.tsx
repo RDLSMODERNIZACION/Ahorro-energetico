@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { InvoiceImporter } from "./invoice-importer";
 import { DiracBrand } from "./dirac-brand";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
@@ -507,7 +508,6 @@ export default function Home() {
   const [invoiceSubTab, setInvoiceSubTab] = useState<
     "received" | "missing" | "publicLighting"
   >("received");
-  const fileRef = useRef<HTMLInputElement>(null);
   const invoiceFiltersInitialized = useRef(false);
   const loadedDataKey = useRef("");
   useEffect(() => {
@@ -672,31 +672,6 @@ export default function Home() {
     });
     if (error) setLoginError(error.message);
     setLoginBusy(false);
-  }
-  async function upload(file?: File) {
-    if (!file || !session || !orgId) return;
-    setBusy(true);
-    try {
-      const form = new FormData();
-      form.append("organization_id", orgId);
-      form.append("file", file);
-      const result = await api<{
-        imported: number;
-        missing_count: number;
-        duplicate: boolean;
-      }>("/api/imports/invoices", session, { method: "POST", body: form });
-      setToast(
-        result.duplicate
-          ? "Este archivo ya había sido cargado"
-          : `${result.imported} facturas importadas · ${result.missing_count} faltantes`,
-      );
-      await load(session, orgId);
-    } catch (e) {
-      setToast(e instanceof Error ? e.message : "No se pudo importar");
-    } finally {
-      setBusy(false);
-      setTimeout(() => setToast(""), 5000);
-    }
   }
   async function analyze() {
     if (!session || !orgId) return;
@@ -1364,16 +1339,7 @@ export default function Home() {
             <button className="secondary" onClick={analyze} disabled={busy}>
               Analizar ahora
             </button>
-            <button onClick={() => fileRef.current?.click()} disabled={busy}>
-              {busy ? "Procesando…" : "＋ Cargar ZIP / CSV"}
-            </button>
-            <input
-              hidden
-              ref={fileRef}
-              type="file"
-              accept=".zip,.csv"
-              onChange={(e) => upload(e.target.files?.[0])}
-            />
+            <InvoiceImporter orgId={orgId || ""} userId={session.user.id} token={session.access_token} apiBase={API} disabled={busy || !orgId} />
           </div>
         </header>
 

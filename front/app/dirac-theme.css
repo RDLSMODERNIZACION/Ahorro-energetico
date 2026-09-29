@@ -55,3 +55,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-ai-query button { background: #e0f2fe; color: #075985; }
 .dashboard-ai-query button:hover { background: #bae6fd; }
 .kpis .green, .savings-summary .total { background: #0369a1; color: #fff; }
+
+.invoice-import-overlay { position: fixed; inset: 0; z-index: 3000; background: #0f172a80; display: grid; place-items: center; padding: 20px; }
+.invoice-import-dialog { width: min(900px, 100%); max-height: 90vh; overflow: auto; background: white; color: #0f172a; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px #0003; }
+.invoice-import-dialog header { display: flex; justify-content: space-between; gap: 16px; }
+.invoice-import-dialog h2 { font-size: 22px; margin: 0; }
+.invoice-import-dialog p { font-size: 14px; line-height: 1.6; white-space: normal; }
+.invoice-import-dialog [role=alert] { color: #b91c1c; background: #fef2f2; padding: 12px; border-radius: 8px; }
+.invoice-import-totals { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 0; font-size: 14px; }
+.invoice-import-table { overflow: auto; }
+.invoice-import-table table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.invoice-import-table td, .invoice-import-table th { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.invoice-import-table small { display: block; color: #64748b; margin-top: 5px; }
+.invoice-import-dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
