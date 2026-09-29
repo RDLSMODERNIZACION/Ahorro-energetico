@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MeterObservationEditor, ObservationBadge } from "./meter-observations";
 import { consumptionPeriod, measuredDemand } from "./lib/power-history";
 
 type Measurement={active_energy_kwh?:number;demand_kw?:number;registered_demand_peak_kw?:number};
@@ -114,7 +115,7 @@ function MeterSearch({meters,value,onChange}:{meters:Meter[];value:string;onChan
       <input value={query} onFocus={event=>{event.currentTarget.select();setOpen(true)}} onChange={event=>{setQuery(event.target.value);setOpen(true)}} onKeyDown={event=>{if(event.key==="Enter"&&matches[0]){event.preventDefault();selectMeter(matches[0])}if(event.key==="Escape")setOpen(false)}} onBlur={()=>setTimeout(()=>setOpen(false),150)} placeholder="Escribí medidor, suministro o servicio" role="combobox" aria-expanded={open} aria-autocomplete="list"/>
       {query&&<button type="button" aria-label="Limpiar búsqueda" onMouseDown={event=>event.preventDefault()} onClick={()=>{setQuery("");setOpen(true)}}>×</button>}
       {open&&<div className="meter-search-results" role="listbox">
-        {matches.map(row=><button type="button" role="option" aria-selected={row.id===value} className={row.id===value?"active":""} key={row.id} onMouseDown={event=>event.preventDefault()} onClick={()=>selectMeter(row)}><b>{row.meter_number||"Sin medidor"}</b><span>{row.service_name||row.sites?.name||"Servicio sin nombre"}</span><small>Suministro {row.supply_number||row.nis||"S/D"} · {row.tracking_code||"Sin ID"}</small></button>)}
+        {matches.map(row=><button type="button" role="option" aria-selected={row.id===value} className={row.id===value?"active":""} key={row.id} onMouseDown={event=>event.preventDefault()} onClick={()=>selectMeter(row)}><b>{row.meter_number||"Sin medidor"}</b><ObservationBadge meterId={row.id} /><span>{row.service_name||row.sites?.name||"Servicio sin nombre"}</span><small>Suministro {row.supply_number||row.nis||"S/D"} · {row.tracking_code||"Sin ID"}</small></button>)}
         {!matches.length&&<p>No encontramos coincidencias.</p>}
       </div>}
     </div>
@@ -138,6 +139,7 @@ export function HistoricalAnalysis({invoices,meters,tariffSavings}:{invoices:Inv
       <TrendChart data={globalData} metric={globalMetric}/><div className="chart-note"><i/> Mes sin factura cargada <span>Pasá el cursor sobre cada barra para ver el valor exacto.</span></div>
     </section>
     <section className="panel history-panel meter-history"><div className="history-head"><div><h2>Análisis por medidor</h2><p>Buscá por medidor, suministro o nombre del servicio</p></div><MeterSearch meters={meters} value={meterId} onChange={setSelectedMeter}/></div>
+      {meter && <MeterObservationEditor meterId={meter.id} />}
       <div className="meter-analysis-title"><div><b>{meter?.service_name||meter?.sites?.name||"Servicio sin nombre"}</b><small>{meter?.tracking_code} · Medidor {meter?.meter_number}</small></div><div className="meter-chart-controls"><MetricButtons value={meterMetric} onChange={metric=>{setMeterMetric(metric);if(metric!=="amount")setSelectedPeriod("")}}/>{meterMetric==="amount"&&<label className="saving-toggle"><input type="checkbox" checked={showSavings} onChange={event=>{setShowSavings(event.target.checked);if(event.target.checked&&!selectedPeriod)setSelectedPeriod([...meterData].reverse().find(row=>row.invoices)?.period||"")}}/><span/>Mostrar ahorro estimado</label>}</div></div>
       <div className="history-kpis compact"><article><span>Total del período</span><b>{metricMeta[meterMetric].format(meterTotal)}</b></article><article><span>Máximo mensual</span><b>{metricMeta[meterMetric].format(meterPeak)}</b></article><article><span>Meses con factura</span><b>{new Set(meterRows.map(periodOf)).size} / 24</b></article><article><span>Último dato</span><b>{[...meterRows.map(periodOf)].sort().at(-1)||"Sin factura"}</b></article></div>
       <TrendChart data={meterData} metric={meterMetric} showSavings={meterMetric==="amount"&&showSavings} selectedPeriod={selectedPeriod} onSelect={meterMetric==="amount"&&showSavings?setSelectedPeriod:undefined}/>

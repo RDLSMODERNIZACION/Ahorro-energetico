@@ -21,6 +21,7 @@ import {
   type EpenOptimizationMeter,
   type EpenOptimizationResponse,
 } from "./epen-optimization-panel";
+import { ObservationBadge } from "./meter-observations";
 import { MetersMap } from "./meters-map";
 import { PublicLightingPanel } from "./public-lighting-panel";
 import type { MeterChangeControl } from "./meter-change-control";
@@ -1705,6 +1706,7 @@ export default function Home() {
                           <div>
                             <b>Medidor {m.meter_number || "S/D"}</b>
                             <small>{m.tracking_code || "Sin ID"}</small>
+                  <ObservationBadge meterId={m.id} />
                           </div>
                           <div>
                             <b>
@@ -2504,6 +2506,7 @@ function InvoiceTable({
                 <td>
                   <b>Medidor {i.meters?.meter_number || "S/D"}</b>
                   <small>{i.meters?.tracking_code || "Sin ID"}</small>
+                  <ObservationBadge meterId={i.meter_id} />
                 </td>
                 <td>
                   <b>
@@ -2661,6 +2664,7 @@ function InvoiceTable({
                     <td>
                       <b>Medidor {m.meter_number || "S/D"}</b>
                       <small>{m.tracking_code || "Sin ID"}</small>
+                  <ObservationBadge meterId={m.id} />
                     </td>
                     <td>
                       <b>
@@ -3077,6 +3081,7 @@ function MissingInvoiceTable({
                 <td>
                   <b>Medidor {m.meter_number || "S/D"}</b>
                   <small>{m.tracking_code || "Sin ID"}</small>
+                  <ObservationBadge meterId={m.id} />
                 </td>
                 <td>
                   <b>

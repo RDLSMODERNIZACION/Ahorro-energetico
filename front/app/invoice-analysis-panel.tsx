@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { MeterObservationEditor } from "./meter-observations";
 import { MeterDocuments } from "./meter-documents";
 import { MeterLocationEditor } from "./meter-location-editor";
 import {
@@ -1270,6 +1271,8 @@ export function InvoiceAnalysisPanel({
             <small>{selected.invoice_number || "S/D"}</small>
           </div>
         </div>
+
+        <MeterObservationEditor meterId={selected.meter_id} />
 
         {organizationId && (
           <MeterChangeControlPanel
