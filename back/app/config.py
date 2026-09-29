@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     def origins(self) -> list[str]:
         configured={x.strip() for x in self.frontend_origins.split(",") if x.strip()}
         configured.add("https://ahorro-energetico-municipal.modernizacion-mrdls.chatgpt.site")
+        configured.update({
+            "https://www.diracserviciosenergia.com",
+            "https://diracserviciosenergia.com",
+            "https://ahorro-energetico.vercel.app",
+        })
         return sorted(configured)
 
 @lru_cache

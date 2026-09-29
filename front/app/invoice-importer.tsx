@@ -51,12 +51,15 @@ export function InvoiceImporter({ orgId, userId, token, apiBase, disabled }: { o
   async function upload(file?: File) {
     if (!file) return;
     setOpen(true); setError(""); setReport(null); setJob(null);
-    // Stay below the hosting proxy's 4.5 MB request limit, including multipart overhead.
-    if (file.size > 4 * 1024 * 1024) { setError("Máximo 4 MB por carga. Dividí el ZIP/RAR en lotes más pequeños."); return; }
+    // Files above 4 MB go directly to the authenticated import API, avoiding the web proxy body limit.
+    if (file.size > 5 * 1024 * 1024) { setError("Máximo 5 MB por carga. Dividí el ZIP/RAR en lotes más pequeños."); return; }
     setBusy(true);
     try {
       const form = new FormData(); form.append("organization_id", orgId); form.append("file", file);
-      const response = await fetch(`${apiBase}/api/imports/invoices`, { method: "POST", headers: { Authorization: `Bearer ${tokenRef.current}` }, body: form });
+      const uploadBase = file.size > 4 * 1024 * 1024
+        ? (process.env.NEXT_PUBLIC_BACKEND_API_URL || "https://ahorro-energetico.onrender.com")
+        : apiBase;
+      const response = await fetch(`${uploadBase}/api/imports/invoices`, { method: "POST", headers: { Authorization: `Bearer ${tokenRef.current}` }, body: form });
       const data = await response.json();
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "No se pudo importar el archivo");
       if (data.background && data.batch_id) { localStorage.setItem(key, data.batch_id); setJob(data.batch_id); }
@@ -74,7 +77,7 @@ export function InvoiceImporter({ orgId, userId, token, apiBase, disabled }: { o
     <input ref={input} type="file" accept=".pdf,.zip,.rar,.csv" hidden onChange={e => void upload(e.target.files?.[0])} />
     {open && <div className="invoice-import-overlay"><section className="invoice-import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-heading">
       <header><h2 id="import-heading">Carga de facturas</h2><button aria-label="Cerrar resumen" onClick={() => setOpen(false)}>Cerrar</button></header>
-      <p>PDF originales de EPEN, ZIP/RAR con PDF o CSV. Máximo 4 MB por carga. Los PDF escaneados y los suministros sin registrar se informan para revisión.</p>
+      <p>PDF originales de EPEN, ZIP/RAR con PDF o CSV. Máximo 5 MB por carga. Los PDF escaneados y los suministros sin registrar se informan para revisión.</p>
       {busy && <p role="status">Procesando {report?.processed || 0}{report?.total ? ` de ${report.total}` : ""} documentos… Podés cerrar este resumen; la carga continúa.</p>}
       {(error || report?.error) && <p role="alert">{error || report?.error}</p>}
       {report && <><div className="invoice-import-totals"><strong>{report.imported} incorporadas</strong><span>{report.duplicates || 0} ya existentes</span><span>{report.rejected || 0} para revisar</span></div>
