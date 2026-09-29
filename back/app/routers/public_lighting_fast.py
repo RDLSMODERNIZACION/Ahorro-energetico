@@ -37,6 +37,24 @@ def _invoice_kwh(invoice: dict) -> float | None:
     return sum(values) if values else None
 
 
+def _combined_history(general: list[dict], lighting: list[dict]) -> list[dict]:
+    """One invoice per period; dedicated lighting records are authoritative."""
+    by_period = {}
+    for row in general:
+        period = _month_key(row.get("billing_period") or row.get("period_start"))
+        if period:
+            by_period[period] = {**row, "source": "general"}
+    for row in lighting:
+        period = _month_key(row.get("billing_period"))
+        if period:
+            by_period[period] = {
+                **row, "source": "public_lighting", "period_start": row.get("reading_start") or row["billing_period"],
+                "current_tariff_code": row.get("tariff_code"),
+                "invoice_measurements": [{"active_energy_kwh": row.get("active_energy_kwh")}],
+            }
+    return [by_period[key] for key in sorted(by_period)]
+
+
 def _reading_is_coherent(invoice: dict) -> bool | None:
     previous = _num(invoice.get("reading_previous"))
     current = _num(invoice.get("reading_current"))
@@ -182,18 +200,20 @@ def public_lighting_analysis_fast(
     if ap_ids:
         ap_invoices = _paged(lambda offset, size: (
             db.table("public_lighting_invoices")
-            .select("public_lighting_meter_id,billing_period,active_energy_kwh,reading_previous,reading_current,multiplier")
+            .select("id,public_lighting_meter_id,invoice_number,billing_period,reading_start,reading_end,active_energy_kwh,total_amount,tariff_code,reading_previous,reading_current,multiplier")
             .eq("organization_id", organization_id)
             .in_("public_lighting_meter_id", ap_ids)
             .order("billing_period")
+            .order("id")
             .range(offset, offset + size - 1)
         ))
 
     periods = sorted(
-        {_month_key(x.get("billing_period") or x.get("period_start")) for x in invoices if x.get("billing_period") or x.get("period_start")},
+        {_month_key(x.get("billing_period") or x.get("period_start")) for x in invoices + ap_invoices if x.get("billing_period") or x.get("period_start")},
         reverse=True,
     )
     selected = billing_period or (periods[0] if periods else date.today().strftime("%Y-%m"))
+    periods = sorted(set(periods + [selected]), reverse=True)
     selected_index = _month_index(selected)
 
     invoices_by_meter = defaultdict(list)
@@ -216,7 +236,8 @@ def public_lighting_analysis_fast(
     for ap in ap_meters:
         meter_id = ap.get("linked_meter_id")
         meter = general_by_id.get(meter_id) if meter_id else None
-        history = invoices_by_meter.get(meter_id, [])
+        ap_history = ap_invoices_by_meter.get(ap["id"], [])
+        history = _combined_history(invoices_by_meter.get(meter_id, []), ap_history)
         by_period = {_month_key(x.get("billing_period") or x.get("period_start")): x for x in history}
         current = by_period.get(selected)
 
@@ -236,7 +257,7 @@ def public_lighting_analysis_fast(
         ap_history = ap_invoices_by_meter.get(ap["id"], [])
         ap_by_period = {_month_key(x.get("billing_period")): x for x in ap_history}
         current_ap = ap_by_period.get(selected)
-        measurement = _measurement_profile(ap_history)
+        measurement = _measurement_profile([x for x in ap_history if _month_key(x.get("billing_period")) <= selected])
         measurement_counts[measurement["code"]] += 1
 
         tariff_code = (current or {}).get("current_tariff_code") or (meter or {}).get("current_tariff_code") or ap.get("tariff_code")
@@ -256,7 +277,7 @@ def public_lighting_analysis_fast(
             )
         else:
             level = "missing"
-            reasons = ["Sin factura general vinculada para el período seleccionado" if meter_id else "Suministro de Alumbrado Público sin linked_meter_id"]
+            reasons = ["Sin factura para el período seleccionado"]
             change_pct = None
             constant = False
 
@@ -292,6 +313,7 @@ def public_lighting_analysis_fast(
             "address": ap.get("address") or (meter or {}).get("service_name"),
             "billing_period": selected,
             "invoice_id": (current or {}).get("id"),
+            "invoice_source": (current or {}).get("source"),
             "invoice_number": (current or {}).get("invoice_number"),
             "active_energy_kwh": current_kwh,
             "average_12m_kwh": round(avg12, 2) if avg12 is not None else None,
@@ -314,7 +336,12 @@ def public_lighting_analysis_fast(
             "reading_multiplier": reading_multiplier,
             "reading_billed_kwh": reading_kwh,
             "reading_coherent": reading_coherent,
-            "history": [],
+            "history": [{
+                "invoice_id": x.get("id"), "invoice_number": x.get("invoice_number"),
+                "billing_period": _month_key(x.get("billing_period") or x.get("period_start")),
+                "active_energy_kwh": _invoice_kwh(x), "total_amount": _num(x.get("total_amount")),
+                "tariff_code": x.get("current_tariff_code"),
+            } for x in history if _month_key(x.get("billing_period") or x.get("period_start")) <= selected],
         })
 
     needle = (search or "").strip().lower()

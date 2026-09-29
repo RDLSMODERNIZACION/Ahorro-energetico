@@ -24,6 +24,7 @@ type PLRow = {
   public_lighting_meter_id:string;
   meter_id?:string|null;
   linked:boolean;
+  invoice_source?:"general"|"public_lighting";
   supply_number?:string;
   supply_contract?:string;
   meter_number?:string;
@@ -138,25 +139,14 @@ export function PublicLightingPanel({
   const [sortKey,setSortKey]=useState<"consumption"|"amount"|null>(null);
   const [sortDir,setSortDir]=useState<"desc"|"asc">("desc");
 
-  const latestGeneralPeriod=useMemo(()=>{
-    const periods=invoices
-      .map(i=>String(i.billing_period||i.period_start||"").slice(0,7))
-      .filter(Boolean)
-      .sort((a,b)=>b.localeCompare(a));
-    return periods[0]||"";
-  },[invoices]);
-
   useEffect(()=>{
-    if(!period&&latestGeneralPeriod)setPeriod(latestGeneralPeriod);
-  },[period,latestGeneralPeriod]);
-
-  useEffect(()=>{
-    if(!organizationId||!period)return;
+    if(!organizationId)return;
     let cancelled=false;
     setLoading(true);
     setError("");
+    setSelected(null);
 
-    getAnalysis(session,organizationId,period)
+    getAnalysis(session,organizationId,period||undefined)
       .then(result=>{if(!cancelled)setData(result)})
       .catch(e=>!cancelled&&setError(e instanceof Error?e.message:"No se pudo cargar Alumbrado Público"))
       .finally(()=>!cancelled&&setLoading(false));
@@ -202,8 +192,7 @@ export function PublicLightingPanel({
     ):undefined)
   ):null;
 
-  const rawSelectedInvoice=currentPeriodInvoice
-    ||(selectedHistoryRaw.length?selectedHistoryRaw[selectedHistoryRaw.length-1]:null);
+  const rawSelectedInvoice=currentPeriodInvoice;
 
   const selectedInvoice=rawSelectedInvoice?asPublicLightingInvoice(rawSelectedInvoice):null;
   const selectedHistory=selectedHistoryRaw.map(asPublicLightingInvoice);
@@ -259,7 +248,7 @@ export function PublicLightingPanel({
       <div className="panel-title pl-title"><div><h2>{status==="missing"?"Alumbrado Público sin facturación":"Análisis mensual de Alumbrado Público"}</h2><p>{status==="missing"?`${data.summary.missing} suministros sin factura en ${data.billing_period}`:"Consumo · lectura · tipo de medición · tarifa · importe"}</p></div></div>
 
       <div className="pl-filters">
-        <label>Período<select value={period} onChange={e=>setPeriod(e.target.value)}>{data.periods.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
+        <label>Período<select value={period||data.billing_period} onChange={e=>setPeriod(e.target.value)}>{data.periods.map(p=><option key={p} value={p}>{p}</option>)}</select></label>
         <label>Estado<select value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Todos</option><option value="critical">Críticos</option><option value="warning">Revisar</option><option value="missing">Sin factura</option><option value="normal">Normales</option></select></label>
         <label>Medición<select value={measurement} onChange={e=>setMeasurement(e.target.value)}><option value="all">Todas</option><option value="MEDIDO_CONFIRMADO">Medidos</option><option value="MEDIDO_CON_ANOMALIAS">Medidos con anomalías</option><option value="ESTIMADO_PROBABLE">Estimados probables</option><option value="SIN_EVIDENCIA">Sin evidencia</option></select></label>
         <label className="pl-search">Buscar<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Medidor, suministro o dirección"/></label>
@@ -291,7 +280,7 @@ export function PublicLightingPanel({
       </div></div>
     </section>
 
-    {selected&&selectedInvoice&&<div className="pl-individual-public-lighting"><InvoiceAnalysisPanel
+    {selected&&selected.invoice_source!=="public_lighting"&&selectedInvoice&&<div className="pl-individual-public-lighting"><InvoiceAnalysisPanel
       invoice={selectedInvoice}
       history={selectedHistory}
       tariffSavings={tariffSavings}
@@ -303,8 +292,19 @@ export function PublicLightingPanel({
       hideLocationEditor={true}
     /></div>}
 
-    {selected&&!selectedInvoice&&<section className="panel pl-error">
-      Este suministro no tiene ninguna factura histórica disponible para abrir el análisis individual.
+    {selected&&selected.invoice_source==="public_lighting"&&<section className="panel">
+      <button onClick={()=>setSelected(null)}>← Volver a Alumbrado Público</button>
+      <h2>{selected.address||`Medidor ${selected.meter_number}`}</h2>
+      <p>Factura {selected.invoice_number} · Período {selected.billing_period} · Tarifa {selected.tariff_code}</p>
+      <p><strong>{number.format(selected.active_energy_kwh||0)} kWh</strong> · <strong>{money.format(selected.total_amount||0)}</strong></p>
+      <p>{readingSummary(selected)}</p>
+      <h3>Historial de facturación</h3>
+      <div style={{overflowX:"auto"}}><table><thead><tr><th>Período</th><th>Factura</th><th>Consumo</th><th>Importe</th></tr></thead><tbody>
+        {[...selected.history].reverse().map(row=><tr key={row.billing_period}><td>{row.billing_period}</td><td>{row.invoice_number||"—"}</td><td>{row.active_energy_kwh==null?"—":`${number.format(row.active_energy_kwh)} kWh`}</td><td>{row.total_amount==null?"—":money.format(row.total_amount)}</td></tr>)}
+      </tbody></table></div>
+    </section>}
+    {selected&&selected.invoice_source!=="public_lighting"&&!selectedInvoice&&<section className="panel pl-error">
+      No hay una factura disponible del período seleccionado para abrir el análisis individual.
       <div><button onClick={()=>setSelected(null)}>Volver</button></div>
     </section>}
   </div>;
