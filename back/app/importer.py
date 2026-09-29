@@ -82,14 +82,16 @@ def parse_csv(payload: bytes) -> list[dict]:
 def import_invoices(organization_id: str, user_id: str, filename: str, payload: bytes) -> dict:
     db = admin_db(); digest = hashlib.sha256(payload).hexdigest()
     existing = db.table("import_batches").select("id,status").eq("organization_id", organization_id).eq("file_hash", digest).execute()
-    if existing.data:
+    if existing.data and existing.data[0]["status"] in ("pending", "processing", "completed"):
         return {"duplicate": True, "batch": existing.data[0]}
-    batch = db.table("import_batches").insert({"organization_id": organization_id, "uploaded_by": user_id,
-      "file_name": filename, "file_type": filename.rsplit(".",1)[-1].lower(), "file_hash": digest, "status": "processing"}).execute().data[0]
+    batch = ({"id": existing.data[0]["id"]} if existing.data else db.table("import_batches").insert({"organization_id": organization_id, "uploaded_by": user_id,
+      "file_name": filename, "file_type": filename.rsplit(".",1)[-1].lower(), "file_hash": digest, "status": "processing"}).execute().data[0])
     imported = rejected = 0; errors = []
     try:
         rows = []
         for _, content in csv_files(payload, filename): rows.extend(parse_csv(content))
+        if not rows:
+            raise HTTPException(400, "El archivo no contiene filas de facturas válidas")
         periods = sorted({row["period_start"] for row in rows})
         if len(periods) > 1:
             raise HTTPException(400, "Cada carga debe contener un único período mensual")
@@ -104,7 +106,7 @@ def import_invoices(organization_id: str, user_id: str, filename: str, payload: 
                 db.table("meters").update({"site_id":site_id,"last_seen_period":row["period_start"],"current_tariff_code":row["tariff"],"status":"active","expected_monthly":True,"removed_at":None,"notes":"Reactivado automáticamente al ingresar una factura"}).eq("id",meter_id).execute()
                 imported_meter_ids.add(meter_id)
                 invoice = db.table("invoices").upsert({"organization_id":organization_id,"meter_id":meter_id,"import_batch_id":batch["id"],"period_start":row["period_start"],"period_end":row["period_end"],"current_tariff_code":row["tariff"],"voltage_level":row["voltage"],"contracted_kw_peak":str(row["contracted"]),"subtotal":str(row["amount"]),"total_amount":str(row["amount"]),"raw_data":row["raw"]},on_conflict="organization_id,provider,meter_id,period_start,period_end").execute().data[0]
-                db.table("invoice_measurements").upsert({"invoice_id":invoice["id"],"time_band":"all","active_energy_kwh":str(row["kwh"]),"reactive_energy_kvarh":str(row["reactive"]),"demand_kw":str(row["kw"])},on_conflict="invoice_id,time_band").execute()
+                db.table("invoice_measurements").upsert({"invoice_id":invoice["id"],"time_band":"all","register_sequence":1,"measurement_type":"summary","active_energy_kwh":str(row["kwh"]),"reactive_energy_kvarh":str(row["reactive"]),"demand_kw":str(row["kw"])},on_conflict="invoice_id,register_sequence").execute()
                 imported += 1
             except Exception as exc:
                 rejected += 1; errors.append({"row":index,"error":str(exc)[:300]})
