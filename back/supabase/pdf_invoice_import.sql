@@ -10,6 +10,14 @@ declare
   new_id uuid;
   item jsonb;
   matches integer := 0;
+  target_id uuid;
+  target_meter uuid;
+  target_kind text;
+  field_name text;
+  field_present boolean;
+  patch jsonb := '{}'::jsonb;
+  before_row jsonb;
+  changed boolean := false;
 begin
   if not exists(select 1 from public.import_batches where id=p_batch and organization_id=p_org) then
     raise exception 'Lote ajeno a la organización';
@@ -21,16 +29,107 @@ begin
   -- Serializes imports of the same number across both invoice tables.
   perform pg_advisory_xact_lock(hashtextextended('EPEN:' || v.invoice_number, 0));
   for old_record in
-    select invoice_number,billing_period,total_amount from public.invoices where organization_id=p_org and provider='EPEN' and invoice_number=v.invoice_number
+    select id,meter_id as supply_id,'dependencias' as kind,invoice_number,billing_period,total_amount from public.invoices where organization_id=p_org and provider='EPEN' and invoice_number=v.invoice_number
     union all
-    select invoice_number,billing_period,total_amount from public.public_lighting_invoices where organization_id=p_org and invoice_number=v.invoice_number
+    select id,public_lighting_meter_id as supply_id,'alumbrado' as kind,invoice_number,billing_period,total_amount from public.public_lighting_invoices where organization_id=p_org and invoice_number=v.invoice_number
   loop
     matches := matches + 1;
+    target_id := old_record.id;
+    target_meter := old_record.supply_id;
+    target_kind := old_record.kind;
     if old_record.billing_period is distinct from v.billing_period or old_record.total_amount is distinct from v.total_amount then
       return jsonb_build_object('status','conflict','message','La factura ya existe con otro período o importe. No se reemplazó.');
     end if;
   end loop;
-  if matches > 0 then return jsonb_build_object('status','duplicate','message','Factura ya registrada'); end if;
+  if matches > 1 then
+    return jsonb_build_object('status','conflict','message','Existen varios registros con ese número. Requiere revisión.');
+  end if;
+  if matches = 1 then
+    if (target_kind='dependencias' and (p_lighting is not null or target_meter is distinct from p_meter))
+       or (target_kind='alumbrado' and target_meter is distinct from p_lighting) then
+      return jsonb_build_object('status','conflict','message','El número ya existe en otro suministro. Requiere revisión.');
+    end if;
+    -- A parsed PDF carries one summary. Never add its totals over existing register values.
+    if jsonb_array_length(p_data->'measurements') is distinct from 1 then
+      raise exception 'Se requiere un resumen de mediciones por PDF';
+    end if;
+    item := p_data->'measurements'->0;
+    if target_kind='dependencias' then
+      perform 1 from public.invoices where id=target_id for update;
+      perform 1 from public.invoice_measurements where invoice_id=target_id for update;
+      foreach field_name in array array['active_energy_kwh','reactive_energy_kvarh','demand_kw',
+        'registered_demand_peak_kw','registered_demand_off_peak_kw','tangent_phi','power_factor',
+        'reactive_surcharge_percent','prior_year_energy_kwh'] loop
+        select exists(select 1 from public.invoice_measurements x where x.invoice_id=target_id
+          and to_jsonb(x)->>field_name is not null) into field_present;
+        if not field_present and item->>field_name is not null then
+          patch := patch || jsonb_build_object(field_name,item->field_name);
+        end if;
+      end loop;
+      if patch <> '{}'::jsonb then
+        -- Supplement only missing dimensions. Existing values, including real zeroes, are preserved.
+        m := jsonb_populate_record(null::public.invoice_measurements, patch || jsonb_build_object(
+          'time_band','all','measurement_type','summary','meter_number',item->'meter_number',
+          'reading_start',item->'reading_start','reading_end',item->'reading_end'));
+        insert into public.invoice_measurements(invoice_id,time_band,register_sequence,measurement_type,
+          meter_number,active_energy_kwh,reactive_energy_kvarh,demand_kw,registered_demand_peak_kw,
+          registered_demand_off_peak_kw,tangent_phi,power_factor,reactive_surcharge_percent,
+          prior_year_energy_kwh,reading_start,reading_end)
+        select target_id,'all',coalesce(max(register_sequence),0)+1,'summary',m.meter_number,
+          m.active_energy_kwh,m.reactive_energy_kvarh,m.demand_kw,m.registered_demand_peak_kw,
+          m.registered_demand_off_peak_kw,m.tangent_phi,m.power_factor,m.reactive_surcharge_percent,
+          m.prior_year_energy_kwh,m.reading_start,m.reading_end
+        from public.invoice_measurements where invoice_id=target_id;
+        changed := true;
+      end if;
+      select to_jsonb(x) into before_row from public.invoices x where id=target_id;
+      foreach field_name in array array['contracted_kw_peak','contracted_kw_off_peak','current_tariff_code',
+        'period_start','period_end','issue_date','due_date','raw_text','net_taxable','vat_amount',
+        'vat_perception_amount','municipal_tax_amount'] loop
+        if before_row->>field_name is null and p_data->'invoice'->>field_name is not null then
+          execute format('update public.invoices set %1$I=(jsonb_populate_record(null::public.invoices,$1)).%1$I where id=$2',field_name)
+            using p_data->'invoice',target_id;
+          changed := true;
+        end if;
+      end loop;
+      if v.document_path is not null and (before_row->>'document_path' is null
+          or before_row->>'document_path' like 'pending-storage/%%') then
+        update public.invoices set document_path=v.document_path,document_hash=v.document_hash where id=target_id;
+        changed := true;
+      end if;
+      if not exists(select 1 from public.invoice_lines where invoice_id=target_id) then
+        for item in select value from jsonb_array_elements(p_data->'lines') loop
+          l := jsonb_populate_record(null::public.invoice_lines,item);
+          insert into public.invoice_lines(invoice_id,concept_code,description,quantity,unit_price,net_amount,line_number,is_penalty)
+          values(target_id,l.concept_code,l.description,l.quantity,l.unit_price,l.net_amount,l.line_number,l.is_penalty);
+          changed := true;
+        end loop;
+      end if;
+      if changed then update public.invoices set updated_at=now() where id=target_id; end if;
+    else
+      select to_jsonb(x) into before_row from public.public_lighting_invoices x where id=target_id for update;
+      patch := item || jsonb_build_object('reading_start',v.period_start,'reading_end',v.period_end,
+        'issue_date',v.issue_date,'tariff_code',v.current_tariff_code,'voltage_level',v.voltage_level);
+      foreach field_name in array array['active_energy_kwh','reactive_energy_kvarh','tangent_phi',
+        'reactive_surcharge_percent','meter_number','reading_start','reading_end','issue_date',
+        'tariff_code','voltage_level'] loop
+        if before_row->>field_name is null and patch->>field_name is not null then
+          execute format('update public.public_lighting_invoices set %1$I=(jsonb_populate_record(null::public.public_lighting_invoices,$1)).%1$I where id=$2',field_name)
+            using patch,target_id;
+          changed := true;
+        end if;
+      end loop;
+      if v.document_path is not null and (before_row->>'source_file' is null
+          or before_row->>'source_file' like 'pending-storage/%%') then
+        update public.public_lighting_invoices set source_file=v.document_path where id=target_id;
+        changed := true;
+      end if;
+      if changed then update public.public_lighting_invoices set updated_at=now() where id=target_id; end if;
+    end if;
+    return jsonb_build_object('status',case when changed then 'updated' else 'duplicate' end,
+      'invoice_id',target_id,'message',case when changed then 'Se completaron los datos faltantes sin duplicar la factura.'
+      else 'Factura revisada; no se encontraron datos faltantes.' end);
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(p_org::text || ':' || coalesce(p_lighting,p_meter)::text || ':' || v.billing_period::text, 0));
   if p_lighting is not null then
     if not exists(select 1 from public.public_lighting_meters where id=p_lighting and organization_id=p_org) then raise exception 'Suministro de alumbrado inválido'; end if;

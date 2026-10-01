@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 
 type Detail = { file: string; invoice_number?: string; period?: string; status: string; message?: string };
-type Report = { imported: number; duplicates?: number; rejected?: number; total?: number; processed?: number; details?: Detail[]; error?: string };
+type Report = { imported: number; updated?: number; duplicates?: number; rejected?: number; total?: number; processed?: number; details?: Detail[]; error?: string };
 type Response = { background?: boolean; batch_id?: string; status?: string; result?: Report; imported?: number; rejected?: number; duplicate?: boolean; errors?: { error: string; row?: number }[] };
 
 export function InvoiceImporter({ orgId, userId, token, apiBase, disabled }: { orgId: string; userId: string; token: string; apiBase: string; disabled?: boolean }) {
@@ -71,16 +71,16 @@ export function InvoiceImporter({ orgId, userId, token, apiBase, disabled }: { o
     finally { if (input.current) input.current.value = ""; }
   }
 
-  const labels: Record<string, string> = { imported: "Incorporada", duplicate: "Ya existente", conflict: "Revisar diferencia", rejected: "No incorporada" };
+  const labels: Record<string, string> = { imported: "Incorporada", updated: "Datos completados", duplicate: "Revisada, sin faltantes", conflict: "Revisar diferencia", rejected: "No incorporada" };
   return <>
     <button onClick={() => { if (busy) setOpen(true); else input.current?.click(); }} disabled={disabled}> {busy ? "Ver progreso de carga" : "＋ Cargar facturas"}</button>
     <input ref={input} type="file" accept=".pdf,.zip,.rar,.csv" hidden onChange={e => void upload(e.target.files?.[0])} />
     {open && <div className="invoice-import-overlay"><section className="invoice-import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-heading">
       <header><h2 id="import-heading">Carga de facturas</h2><button aria-label="Cerrar resumen" onClick={() => setOpen(false)}>Cerrar</button></header>
-      <p>PDF originales de EPEN, ZIP/RAR con PDF o CSV. Máximo 5 MB por carga. Los PDF escaneados y los suministros sin registrar se informan para revisión.</p>
+      <p>PDF originales de EPEN, ZIP/RAR con PDF o CSV. Máximo 5 MB por carga. Las facturas existentes se revisan y se completan sus datos faltantes sin duplicarlas. Los PDF escaneados y los suministros sin registrar se informan para revisión.</p>
       {busy && <p role="status">Procesando {report?.processed || 0}{report?.total ? ` de ${report.total}` : ""} documentos… Podés cerrar este resumen; la carga continúa.</p>}
       {(error || report?.error) && <p role="alert">{error || report?.error}</p>}
-      {report && <><div className="invoice-import-totals"><strong>{report.imported} incorporadas</strong><span>{report.duplicates || 0} ya existentes</span><span>{report.rejected || 0} para revisar</span></div>
+      {report && <><div className="invoice-import-totals"><strong>{report.imported} incorporadas</strong><span>{report.updated || 0} completadas</span><span>{report.duplicates || 0} revisadas sin cambios</span><span>{report.rejected || 0} para revisar</span></div>
         <div className="invoice-import-table"><table><thead><tr><th>Archivo / factura</th><th>Período</th><th>Resultado</th></tr></thead><tbody>{report.details?.map((d, i) => <tr key={i}><td>{d.file}<small>{d.invoice_number}</small></td><td>{d.period?.slice(0, 7) || "—"}</td><td>{labels[d.status] || d.status}<small>{d.message}</small></td></tr>)}</tbody></table></div></>}
       {!busy && <footer><button onClick={() => input.current?.click()}>Cargar otro archivo</button><button onClick={() => window.location.reload()}>Actualizar panel</button></footer>}
     </section></div>}

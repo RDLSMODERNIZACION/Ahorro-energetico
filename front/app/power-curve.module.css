@@ -21,3 +21,12 @@
 .excelButton span{font-size:13px;}
 @media(max-width:900px){.powerCurveSummary{grid-template-columns:1fr 1fr}.excelButton{min-height:58px}}
 @media(max-width:600px){.powerCurveSummary{grid-template-columns:1fr}.powerMetric{min-height:72px}.excelButton{min-height:54px}}
+
+.t2Comparison { background: #fff; border: 1px solid #d8e3ea; border-radius: 16px; padding: 20px; margin: 18px 0; color: #163342; }
+.t2Comparison h3 { margin: 0 0 12px; }
+.t2Comparison p { font-size: 13px; line-height: 1.6; }
+.t2Scroll { overflow-x: auto; }
+.t2Comparison table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.t2Comparison th, .t2Comparison td { padding: 12px; text-align: left; border-bottom: 1px solid #e1e9ef; white-space: nowrap; }
+.t2Comparison th { background: #edf4f8; }
+.t2Comparison input { margin-right: 8px; }

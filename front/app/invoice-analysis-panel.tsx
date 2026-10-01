@@ -1,5 +1,7 @@
 "use client";
 
+import { buildT2Comparison, type PowerStrategy } from "./lib/t2-power";
+import { T2PowerComparison } from "./t2-power-comparison";
 import { useMemo, useState, useEffect } from "react";
 import { MeterObservationEditor } from "./meter-observations";
 import { MeterDocuments } from "./meter-documents";
@@ -36,6 +38,7 @@ type Line = {
   net_amount?: number;
 };
 type Meter = {
+  current_tariff_code?: string;
   id: string;
   tracking_code?: string;
   meter_number?: string;
@@ -50,6 +53,8 @@ type Meter = {
   sites?: { name?: string; address?: string };
 };
 type Invoice = {
+  resolved_power_factor?: number;
+  power_factor_penalized?: boolean;
   id: string;
   meter_id: string;
   invoice_number?: string;
@@ -68,6 +73,7 @@ type Invoice = {
   subtotal?: number;
   net_taxable?: number;
   vat_amount?: number;
+  vat_perception_amount?: number;
   previous_debt_amount?: number;
   meters?: Meter;
   invoice_measurements?: Measurement[];
@@ -129,8 +135,6 @@ type AdvancedTariffHistoryPoint = {
     unit_price?: number | null;
     net_amount: number;
   }>;
-  available?: boolean;
-  reason?: string | null;
 };
 type AdvancedTariffHistoryResponse = {
   meter_id: string;
@@ -292,7 +296,12 @@ const epenPowerQuarters = [
   { label: "Mayo–Julio", months: [5, 6, 7] },
   { label: "Agosto–Octubre", months: [8, 9, 10] },
 ];
-function buildPowerCurve(history: Invoice[]) {
+function buildPowerCurve(history: Invoice[], strategy: PowerStrategy = "conservative") {
+  const t2 = buildT2Comparison(history);
+  if (t2) {
+    const scenario = t2.scenarios.find(row => row.id === strategy)!;
+    return { ...t2, ...scenario, hasData: t2.complete };
+  }
   const valid = history
     .filter((i) => values(i).demand > 0)
     .sort((a, b) => periodOf(a).localeCompare(periodOf(b)));
@@ -402,9 +411,11 @@ export function calculateCanonicalSavings({
   assessment,
   tariffSavings,
   advancedTariffPoint,
+  powerStrategy = "conservative",
 }: {
   invoice: Invoice;
   history: Invoice[];
+  powerStrategy?: PowerStrategy;
   assessment?: TariffAssessment;
   tariffSavings: TariffSaving[];
   advancedTariffPoint?: {
@@ -412,7 +423,7 @@ export function calculateCanonicalSavings({
     monthly_saving?: number;
   };
 }) {
-  const curve = buildPowerCurve(history);
+  const curve = buildPowerCurve(history, powerStrategy);
   const monthNumber = Number(consumptionPeriod(invoice).slice(5, 7));
   const powerMonthly = Number(
     curve.rows.find((row) => row.monthNumber === monthNumber)?.saving || 0,
@@ -657,6 +668,11 @@ function InvoiceTrend({
           )?.proposalKw || 0,
         pfUnknownPenalized: values(invoice).pfUnknownPenalized,
         penalized: values(invoice).penalized,
+        // T2_EXCESS_BAR_V2
+        tariffCode: String(invoice.current_tariff_code || invoice.meters?.current_tariff_code || "").toUpperCase(),
+        excessKw: (invoice.invoice_lines || [])
+          .filter((line) => String(line.concept_code || "").toUpperCase() === "EXC")
+          .reduce((sum, line) => sum + Math.max(0, Number(line.quantity || 0)), 0),
       }));
   }, [rows, metric, proposals]);
 
@@ -706,6 +722,17 @@ function InvoiceTrend({
           const graphValue =
             metric === "pf" && d.pfUnknownPenalized ? 0.95 : d.value;
           const y = top + plotH - (graphValue / max) * plotH;
+          const isT2Demand = metric === "demand" && d.tariffCode.startsWith("T2");
+          const proposedExcessKw =
+            powerLine === "proposal" && d.proposed > 0
+              ? Math.max(0, Math.round(d.value - d.proposed))
+              : 0;
+          const currentExcessKw = d.excessKw > 0
+            ? d.excessKw
+            : Math.max(0, Math.round(d.value - d.contracted));
+          const t2ExcessKw =
+            powerLine === "proposal" ? proposedExcessKw : currentExcessKw;
+          const t2Excess = isT2Demand && t2ExcessKw > 0;
           return (
             <g
               className={`invoice-analysis-bar${metric === "pf" && ((d.value > 0 && d.value < 0.95) || d.pfUnknownPenalized) ? " bad-pf" : ""}${metric === "pf" && d.value >= 0.95 && !d.pfUnknownPenalized ? " good-pf" : ""}${metric === "pf" && d.pfUnknownPenalized ? " pf-unknown-penalty" : ""}${selectedPeriod === d.billingPeriod ? " selected" : ""}`}
@@ -718,11 +745,16 @@ function InvoiceTrend({
                 width={bw}
                 height={Math.max(2, top + plotH - y)}
                 rx="5"
+                style={t2Excess ? { fill: "#dc2626" } : undefined}
               >
                 <title>
                   {metric === "pf" && d.pfUnknownPenalized
                     ? `Consumo ${d.period} · Factura ${d.billingPeriod} · Penalización de factor de potencia · cos φ no informado`
-                    : `Consumo ${d.period} · Factura ${d.billingPeriod} · ${fmt(metric, d.value)}`}
+                    : t2Excess && powerLine === "proposal"
+                      ? `Consumo ${d.period} · Factura ${d.billingPeriod} · T2 · Demanda ${fmt(metric, d.value)} · Propuesta ${nf.format(d.proposed)} kW · EXC proyectado ${nf.format(t2ExcessKw)} kW`
+                      : t2Excess
+                        ? `Consumo ${d.period} · Factura ${d.billingPeriod} · T2 · Demanda ${fmt(metric, d.value)} · Contratada ${nf.format(d.contracted)} kW · Exceso ${nf.format(t2ExcessKw)} kW facturado con EXC`
+                        : `Consumo ${d.period} · Factura ${d.billingPeriod} · ${fmt(metric, d.value)}`}
                 </title>
               </rect>
               {(index % 3 === 0 || index === data.length - 1) && (
@@ -805,15 +837,27 @@ function InvoiceTrend({
       {metric === "demand" && (
         <div className="invoice-power-legend">
           {powerLine === "current" ? (
-            <span>
-              <i className="current" />
-              Contratada actual
-            </span>
+            <>
+              <span>
+                <i className="current" />
+                Contratada actual
+              </span>
+              <span>
+                <i style={{ background: "#dc2626" }} />
+                T2 con exceso de demanda facturado (EXC)
+              </span>
+            </>
           ) : (
-            <span>
-              <i className="proposal" />
-              Contratada propuesta · mes seleccionado marcado
-            </span>
+            <>
+              <span>
+                <i className="proposal" />
+                Contratada propuesta óptima · mes seleccionado marcado
+              </span>
+              <span>
+                <i style={{ background: "#dc2626" }} />
+                T2 con EXC proyectado bajo la propuesta
+              </span>
+            </>
           )}
         </div>
       )}
@@ -870,6 +914,8 @@ export function InvoiceAnalysisPanel({
   hideLocationEditor?: boolean;
 }) {
   const [metric, setMetric] = useState<Metric>("demand");
+  const [powerStrategy, setPowerStrategy] = useState<PowerStrategy>("conservative");
+  useEffect(() => setPowerStrategy("conservative"), [invoice.meter_id]);
   const [controlPageOpen, setControlPageOpen] = useState(false);
   const [powerLine, setPowerLine] = useState<"current" | "proposal">("current");
   const [advancedTariffHistory, setAdvancedTariffHistory] =
@@ -954,7 +1000,8 @@ export function InvoiceAnalysisPanel({
     ...powerLines.map((x) => Number(x.unit_price || 0)),
   );
   const excess = Math.max(0, v.contracted - v.demand);
-  const powerCurve = useMemo(() => buildPowerCurve(history), [history]);
+  const t2Comparison = useMemo(() => buildT2Comparison(history), [history]);
+  const powerCurve = useMemo(() => buildPowerCurve(history, powerStrategy), [history, powerStrategy]);
   const selectedMonthNumber = Number(consumptionPeriod(selected).slice(5, 7));
   const selectedPowerProposal = powerCurve.rows.find(
     (row) => row.monthNumber === selectedMonthNumber,
@@ -999,6 +1046,7 @@ export function InvoiceAnalysisPanel({
     assessment: selectedAssessment,
     tariffSavings,
     advancedTariffPoint,
+    powerStrategy,
   });
   const powerSaving = canonicalSaving.powerMonthly;
   const annualPowerSaving = canonicalSaving.powerAnnual;
@@ -1074,7 +1122,7 @@ export function InvoiceAnalysisPanel({
       "Reducción (kW)",
       "Tarifa potencia ($/kW)",
       "Ahorro neto ($)",
-      "Ahorro +30% ($)",
+      t2Comparison ? (t2Comparison.hasTaxes ? "Ahorro con IVA y percepción estimados ($)" : "Ahorro neto; impuestos no disponibles ($)") : "Ahorro +30% ($)",
     ];
     const rows = powerCurve.rows.map((row) => {
       const historical =
@@ -1189,6 +1237,9 @@ export function InvoiceAnalysisPanel({
               (row) => row.meter_id === selected.meter_id,
             )}
             powerProposals={controlPowerProposals}
+            t2Comparison={t2Comparison}
+            powerStrategy={powerStrategy}
+            onPowerStrategyChange={setPowerStrategy}
             currentTariff={selected.current_tariff_code}
             recommendedTariff={
               advancedTariffHistory?.recommended_tariff ||
@@ -1284,6 +1335,9 @@ export function InvoiceAnalysisPanel({
               (row) => row.meter_id === selected.meter_id,
             )}
             powerProposals={controlPowerProposals}
+            t2Comparison={t2Comparison}
+            powerStrategy={powerStrategy}
+            onPowerStrategyChange={setPowerStrategy}
             currentTariff={selected.current_tariff_code}
             recommendedTariff={
               advancedTariffHistory?.recommended_tariff ||
@@ -1298,6 +1352,7 @@ export function InvoiceAnalysisPanel({
           />
         )}
 
+        {t2Comparison && <T2PowerComparison model={t2Comparison} strategy={powerStrategy} onSelect={setPowerStrategy} />}
         {powerCurve.hasData && (
           <div className={styles.powerCurveSummary}>
             <div className={styles.powerMetric}>

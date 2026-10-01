@@ -82,3 +82,49 @@ def test_empty_nested_and_overlarge_archives_are_rejected():
         with zipfile.ZipFile(stream,'w') as z:
             for name,body in entries.items():z.writestr(name,body)
         with pytest.raises(ValueError):documents(stream.getvalue(),'batch.zip')
+
+
+def test_precise_demand_comes_from_meter_register():
+    text = TEXT.replace('-Registrada Única o en Pico: 0 kW', '-Registrada Única o en Pico: 22 kW')
+    text = text.replace('2223190  100,00  110,00  1  10  kWh',
+        '2223190  100,00  110,00  1  10  kWh\n2223190  0,00  22,20  1  22.2  kW')
+    measurement = parse_text(text, 'precise.pdf')['measurements'][0]
+    assert measurement['demand_kw'] == '22.2'
+    assert measurement['registered_demand_peak_kw'] == '22'
+
+
+def test_duplicate_pdf_reaches_atomic_repair_and_refresh(monkeypatch):
+    from types import SimpleNamespace
+    from app import pdf_import_jobs as jobs, energy_intelligence
+    parsed = parse_text(TEXT, 'existing.pdf')
+    calls = []
+    class FakeDB:
+        def table(self, table):
+            assert table == 'import_batches'
+            return self
+        def update(self, value):
+            calls.append(('batch', value))
+            return self
+        def eq(self, *args): return self
+        def execute(self): return SimpleNamespace(data={})
+        @property
+        def storage(self): return self
+        def from_(self, bucket): return self
+        def upload(self, *args): calls.append(('upload', args))
+        def rpc(self, name, args):
+            calls.append(('rpc', name))
+            return SimpleNamespace(execute=lambda: SimpleNamespace(data={'status':'updated'}))
+    existing = dict(parsed['invoice'], id='old')
+    monkeypatch.setattr(jobs, 'admin_db', FakeDB)
+    monkeypatch.setattr(jobs, 'documents', lambda *_: [('existing.pdf', b'pdf')])
+    monkeypatch.setattr(jobs, 'parse_pdf', lambda *_: parsed)
+    monkeypatch.setattr(jobs, 'choose_meter', lambda *_: ('meter', None))
+    monkeypatch.setattr(jobs, 'all_rows', lambda db, table, *args: [existing] if table == 'invoices' else [])
+    monkeypatch.setattr(energy_intelligence, 'refresh_energy_intelligence', lambda org: calls.append(('refresh', org)))
+    jobs.run_job('batch', 'org', 'existing.pdf', b'pdf')
+    assert ('rpc', 'import_epen_pdf') in calls
+    assert ('refresh', 'org') in calls
+    final = [value for name, value in calls if name == 'batch'][-1]
+    assert final['status'] == 'completed'
+    assert final['result']['updated'] == 1
+    assert final['result']['duplicates'] == 0

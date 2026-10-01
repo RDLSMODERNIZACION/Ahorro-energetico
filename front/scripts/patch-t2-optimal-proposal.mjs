@@ -4,7 +4,7 @@ const path = new URL("../app/invoice-analysis-panel.tsx", import.meta.url);
 let source = readFileSync(path, "utf8");
 const marker = "// T2_OPTIMAL_POWER_V3_QUARTERLY";
 
-if (source.includes(marker)) {
+if (source.includes("buildT2Comparison") || source.includes(marker)) {
   console.log("T2 quarterly optimal-power V3 already applied.");
   process.exit(0);
 }

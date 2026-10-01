@@ -31,8 +31,8 @@ test('proposal and shared savings use consumption month; tariff savings retain b
   const panel = readFileSync(new URL('../app/invoice-analysis-panel.tsx', import.meta.url), 'utf8');
   const logic = panel.slice(panel.indexOf('const powerMonthNames'), panel.indexOf('function xmlCell')).replace('export function', 'function');
   const output = ts.transpileModule(logic, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const { buildPowerCurve, calculateCanonicalSavings } = new Function('latestMonthlyDemands', 'consumptionPeriod', 'periodOf', 'values', 'contractedBands', 'const nf = new Intl.NumberFormat("es-AR");' + output + ';return {buildPowerCurve,calculateCanonicalSavings};')(
-    latestMonthlyDemands, consumptionPeriod, i => i.billing_period, i => ({ demand: measuredDemand(i) }), i => ({peak:i.contracted_kw_peak}),
+  const { buildPowerCurve, calculateCanonicalSavings } = new Function('buildT2Comparison', 'latestMonthlyDemands', 'consumptionPeriod', 'periodOf', 'values', 'contractedBands', 'const nf = new Intl.NumberFormat("es-AR");' + output + ';return {buildPowerCurve,calculateCanonicalSavings};')(
+    () => null, latestMonthlyDemands, consumptionPeriod, i => i.billing_period, i => ({ demand: measuredDemand(i) }), i => ({peak:i.contracted_kw_peak}),
   );
   const amounts = [502,510,432,456,432,446,432,422,429,484,466,480];
   const history = amounts.map((demand, index) => {

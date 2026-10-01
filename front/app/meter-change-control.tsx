@@ -1,5 +1,8 @@
 "use client";
 
+import { billingDemand, powerCost, quarters, type T2Comparison, type PowerStrategy } from "./lib/t2-power";
+import { consumptionPeriod } from "./lib/power-history";
+import { T2PowerComparison } from "./t2-power-comparison";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -20,6 +23,7 @@ export type MeterChangeControl = {
 type Invoice = {
   billing_period?: string;
   period_start: string;
+  period_end?: string;
   total_amount: number;
   contracted_kw_peak?: number;
   contracted_kw_off_peak?: number;
@@ -142,6 +146,9 @@ export function MeterChangeControlPanel({
   history,
   controls,
   powerProposals,
+  t2Comparison,
+  powerStrategy = "conservative",
+  onPowerStrategyChange,
   currentTariff,
   recommendedTariff,
   projectedTariffMonthlySaving = 0,
@@ -158,6 +165,9 @@ export function MeterChangeControlPanel({
   selectedPeriod: string;
   history: Invoice[];
   controls: MeterChangeControl[];
+  t2Comparison?: T2Comparison | null;
+  powerStrategy?: PowerStrategy;
+  onPowerStrategyChange?: (strategy: PowerStrategy) => void;
   powerProposals: Array<{
     month: string;
     monthNumber: number;
@@ -189,6 +199,7 @@ export function MeterChangeControlPanel({
     [editNotes, setEditNotes] = useState(""),
     [editStatus, setEditStatus] =
       useState<MeterChangeControl["status"]>("applied");
+  useEffect(() => setActualPowers({}), [powerStrategy, meterId]);
   const [selectedComparisonPeriod, setSelectedComparisonPeriod] = useState("");
   const [projectionMetric, setProjectionMetric] = useState<
     "saving" | "avoided_cost"
@@ -264,8 +275,8 @@ export function MeterChangeControlPanel({
   }, [history, valid]);
   function projectionOf(row: MeterChangeControl) {
     const stored = Number(
-      row.details?.projected_monthly_saving ||
-        row.details?.baseline_monthly_cost ||
+      row.details?.projected_monthly_saving ??
+        row.details?.baseline_monthly_cost ??
         0,
     );
     const recent = [...history]
@@ -281,7 +292,7 @@ export function MeterChangeControlPanel({
         ) / recent.length
       : 0;
     const monthly =
-      stored > 0
+      (row.details?.projected_monthly_saving != null || stored > 0)
         ? stored
         : row.change_type === "power_factor"
           ? reactiveAverage
@@ -434,9 +445,18 @@ export function MeterChangeControlPanel({
     period: string,
     invoice?: Invoice,
   ) {
-    if (!invoice) return 0;
+    if (!invoice || !["applied", "verified"].includes(row.status)) return 0;
     const projected = projectionOf(row).monthly;
     if (row.change_type === "contracted_power") {
+      if (row.details?.projection_basis && String(invoice.current_tariff_code || "").startsWith("T2")) {
+        const basis = row.details.projection_basis as {current_kw?:number;tax_multiplier?:number};
+        const demand = billingDemand(invoice);
+        const actual = Number(invoice.contracted_kw_peak);
+        const target = targetPowerFor(row, consumptionPeriod(invoice));
+        const price = Math.max(0,...(invoice.invoice_lines || []).filter(l=>["DEM","DEP"].includes(l.concept_code || "")).map(l=>Number(l.unit_price || 0)));
+        if (demand === null || !price || !Number.isFinite(actual) || !basis.current_kw || Math.abs(actual-target)>0.1) return 0;
+        return (powerCost(basis.current_kw,demand,price).total-powerCost(actual,demand,price).total)*Number(basis.tax_multiplier || 1);
+      }
       const target = targetPowerFor(row, period);
       return target > 0 &&
         Number(invoice.contracted_kw_peak || 0) <= target + 0.1
@@ -583,7 +603,7 @@ export function MeterChangeControlPanel({
       (invoice) => periodOf(invoice) === effectivePeriod,
     );
     const baselineMonthlyCost = Number(effectiveInvoice?.total_amount || 0);
-    const effectiveMonthNumber = Number(effectivePeriod.slice(5, 7));
+    const effectiveMonthNumber = Number((t2Comparison && effectiveInvoice ? consumptionPeriod(effectiveInvoice) : effectivePeriod).slice(5, 7));
     const effectivePowerRow = powerProposals.find(
       (row) => row.monthNumber === effectiveMonthNumber,
     );
@@ -602,10 +622,23 @@ export function MeterChangeControlPanel({
           .map((line) => Number(line.unit_price || 0)),
       ),
     );
-    const projectedPowerMonthlySaving =
+    const legacyProjectedPowerMonthlySaving =
       Math.max(0, Number(effectivePowerRow?.latestKw || 0) - effectivePowerKw) *
       latestPowerRate *
       1.3;
+    const t2Rows = t2Comparison?.scenarios.find(s => s.id === powerStrategy)?.rows || [];
+    if (type === "contracted_power" && t2Comparison) {
+      if (!t2Comparison.complete) { setError("Completá los datos para proyectar los doce meses antes de registrar potencia T2."); setSaving(false); return; }
+      for (const q of quarters) {
+        const powers = q.months.map(month => Number(actualPowers[month] ?? t2Rows[month-1]?.proposalKw));
+        if (powers.some(p => !Number.isFinite(p) || p < 10 || p >= 50) || powers.some(p => p !== powers[0])) {
+          setError("En T2, cada trimestre debe tener una única potencia de al menos 10 kW y menor que 50 kW."); setSaving(false); return;
+        }
+      }
+    }
+    const projectedPowerAnnualNet = t2Comparison ? t2Rows.reduce((sum,row) => sum + row.baselineCost - powerCost(Number(actualPowers[row.monthNumber] ?? row.proposalKw), row.demand || 0, t2Comparison.rate).total,0) : null;
+    const projectedPowerMonthlySaving = projectedPowerAnnualNet !== null && t2Comparison
+      ? projectedPowerAnnualNet * t2Comparison.taxMultiplier / 12 : legacyProjectedPowerMonthlySaving;
     const projectedReactiveMonthlySaving = baselineInvoices.length
       ? baselineInvoices.reduce(
           (sum, invoice) => sum + invoiceMetrics(invoice).reactive,
@@ -664,6 +697,9 @@ export function MeterChangeControlPanel({
               ),
             })),
             attachment,
+            power_strategy: t2Comparison ? powerStrategy : "legacy",
+            projection_basis: t2Comparison ? { current_kw: t2Comparison.currentKw, rate: t2Comparison.rate, rate_period: t2Comparison.ratePeriod, excess_multiplier: 1.5, tax_multiplier: t2Comparison.taxMultiplier, annual_saving_net: projectedPowerAnnualNet, months: t2Rows.map(row => {const contractedKw=Number(actualPowers[row.monthNumber] ?? row.proposalKw); return {month:row.monthNumber,demand:row.demand,contracted_kw:contractedKw,baseline_cost:row.baselineCost,...powerCost(contractedKw,row.demand || 0,t2Comparison.rate)};}) } : null,
+            projected_annual_saving: projectedPowerMonthlySaving * 12,
             projected_monthly_saving: projectedPowerMonthlySaving,
           }
         : type === "power_factor"
@@ -692,7 +728,7 @@ export function MeterChangeControlPanel({
         : type === "supply_deactivation"
           ? "Activo"
           : type === "contracted_power"
-            ? `${number.format(powerProposals.find((row) => row.monthNumber === Number(effectivePeriod.slice(5, 7)))?.latestKw || 0)} kW`
+            ? `${number.format(powerProposals.find((row) => row.monthNumber === effectiveMonthNumber)?.latestKw || 0)} kW`
             : previousValue;
     const resolvedNew =
       type === "tariff"
@@ -702,7 +738,7 @@ export function MeterChangeControlPanel({
           : type === "supply_deactivation"
             ? "Dado de baja"
             : type === "contracted_power"
-              ? `${number.format(Number(actualPowers[Number(effectivePeriod.slice(5, 7))] || powerProposals.find((row) => row.monthNumber === Number(effectivePeriod.slice(5, 7)))?.proposalKw || 0))} kW`
+              ? `${number.format(Number(actualPowers[effectiveMonthNumber] || powerProposals.find((row) => row.monthNumber === effectiveMonthNumber)?.proposalKw || 0))} kW`
               : newValue;
     const { error: insertError } = await supabase
       .from("meter_change_controls")
@@ -787,6 +823,7 @@ export function MeterChangeControlPanel({
                 ← Volver al análisis
               </button>
             </div>
+            {t2Comparison && onPowerStrategyChange && <T2PowerComparison model={t2Comparison} strategy={powerStrategy} onSelect={onPowerStrategyChange} />}
             <div className="improvement-workspace-tabs">
               <button
                 className={workspace === "register" ? "active" : ""}
@@ -818,7 +855,7 @@ export function MeterChangeControlPanel({
                 </div>
                 <form className="improvement-form" onSubmit={save}>
                   <label>
-                    Período efectivo
+                    Período efectivo de facturación
                     <input
                       type="month"
                       required
@@ -828,7 +865,7 @@ export function MeterChangeControlPanel({
                   </label>
                   {type === "contracted_power" && (
                     <>
-                    <p>Demanda máxima medida en los dos últimos registros anuales de cada mes. Se asigna al mes con más días del período de lectura; si faltan fechas válidas, se usa el período facturado.</p>
+                    <p>{t2Comparison ? "Los meses de la propuesta corresponden al consumo. Editar una potencia replica el valor a todo el trimestre EPEN; el período efectivo indica desde qué factura se registra la mejora." : "Demanda máxima medida en los dos últimos registros anuales de cada mes. Se asigna al mes con más días del período de lectura; si faltan fechas válidas, se usa el período facturado."}</p>
                     <div className="improvement-power-table">
                       <div className="improvement-power-head">
                         <span>Mes</span>
@@ -871,7 +908,7 @@ export function MeterChangeControlPanel({
                               onChange={(e) =>
                                 setActualPowers((values) => ({
                                   ...values,
-                                  [row.monthNumber]: e.target.value,
+                                  ...Object.fromEntries((t2Comparison ? quarters.find(q=>q.months.includes(row.monthNumber))!.months : [row.monthNumber]).map(month=>[month,e.target.value])),
                                 }))
                               }
                             />{" "}

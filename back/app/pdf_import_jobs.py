@@ -93,7 +93,7 @@ def start_job(org, user, filename, payload):
 
 def run_job(batch_id, org, filename, payload):
     db = admin_db()
-    result = {'imported':0,'duplicates':0,'rejected':0,'total':0,'processed':0,'details':[]}
+    result = {'imported':0,'updated':0,'duplicates':0,'rejected':0,'total':0,'processed':0,'details':[]}
     try:
         db.table('import_batches').update({'status':'processing'}).eq('id',batch_id).execute()
         files = documents(payload, filename)
@@ -110,7 +110,7 @@ def run_job(batch_id, org, filename, payload):
                 data = parse_pdf(content,name)
                 detail.update(invoice_number=data['invoice']['invoice_number'],period=data['invoice']['billing_period'])
                 status = duplicate_status(data,existing)
-                if status is None:
+                if status is None or status['status'] == 'duplicate':
                     meter_id, light_id = choose_meter(data,meters,lighting)
                     path = f"{org}/invoices/{data['invoice']['document_hash']}.pdf"
                     db.storage.from_('energy-documents').upload(path,content,{'content-type':'application/pdf','upsert':'true'})
@@ -123,15 +123,15 @@ def run_job(batch_id, org, filename, payload):
                 detail.update(status='rejected',message=str(exc))
             except Exception:
                 log.exception('Invoice import failed: batch=%s file=%s',batch_id,name)
-                detail.update(status='rejected',message='No se pudo guardar esta factura. Podés reintentar la carga; las registradas se omiten.')
-            field = 'imported' if detail['status']=='imported' else 'duplicates' if detail['status']=='duplicate' else 'rejected'
+                detail.update(status='rejected',message='No se pudo guardar esta factura. Podés reintentar la carga; las registradas se revisan sin duplicarlas.')
+            field = 'imported' if detail['status']=='imported' else 'updated' if detail['status']=='updated' else 'duplicates' if detail['status']=='duplicate' else 'rejected'
             result[field] += 1
             result['processed'] += 1
             result['details'].append(detail)
             db.table('import_batches').update({'result':result,'imported_rows':result['imported'],'rejected_rows':result['rejected']}).eq('id',batch_id).execute()
-        state = 'completed' if not result['rejected'] else 'partial' if result['imported'] or result['duplicates'] else 'failed'
+        state = 'completed' if not result['rejected'] else 'partial' if result['imported'] or result['updated'] or result['duplicates'] else 'failed'
         db.table('import_batches').update({'status':state,'result':result,'total_rows':result['total'],'completed_at':datetime.now(timezone.utc).isoformat(),'errors':[x for x in result['details'] if x['status'] in ('conflict','rejected')]}).eq('id',batch_id).execute()
-        if result['imported']:
+        if result['imported'] or result['updated']:
             from .energy_intelligence import refresh_energy_intelligence
             try:
                 refresh_energy_intelligence(org)

@@ -87,6 +87,8 @@ type InvoiceLine = {
   net_amount?: number;
 };
 type Invoice = {
+  resolved_power_factor?: number;
+  power_factor_penalized?: boolean;
   id: string;
   meter_id: string;
   invoice_number?: string;
@@ -2471,12 +2473,58 @@ function InvoiceTable({
                   <b>{number.format(x.demand)} kW</b>
                 </td>
                 <td>
-                  <b>{number.format(x.contracted)} kW</b>
-                  <small className={x.excess > 0 ? "danger" : "ok"}>
-                    {x.excess > 0
-                      ? `${number.format(x.excess)} kW de más`
-                      : "Sin potencia sobrante"}
-                  </small>
+                  {String(
+                    i.current_tariff_code || i.meters?.current_tariff_code || "",
+                  )
+                    .toUpperCase()
+                    .startsWith("T1") ? (
+                    <>
+                      <b>—</b>
+                      <small className="muted">No aplica en tarifa T1</small>
+                    </>
+                  ) : String(
+                      i.current_tariff_code || i.meters?.current_tariff_code || "",
+                    )
+                      .toUpperCase()
+                      .startsWith("T2") &&
+                    Math.max(
+                      0,
+                      ...(i.invoice_lines || [])
+                        .filter(
+                          (line) =>
+                            String(line.concept_code || "").toUpperCase() === "EXC",
+                        )
+                        .map((line) => Number(line.quantity || 0)),
+                      Math.max(0, x.demand - x.contracted),
+                    ) > 0 ? (
+                    <>
+                      <b>{number.format(x.contracted)} kW</b>
+                      <small className="danger">
+                        Exceso: {number.format(
+                          Math.max(
+                            0,
+                            ...(i.invoice_lines || [])
+                              .filter(
+                                (line) =>
+                                  String(line.concept_code || "").toUpperCase() ===
+                                  "EXC",
+                              )
+                              .map((line) => Number(line.quantity || 0)),
+                            Math.max(0, x.demand - x.contracted),
+                          ),
+                        )} kW
+                      </small>
+                    </>
+                  ) : (
+                    <>
+                      <b>{number.format(x.contracted)} kW</b>
+                      <small className={x.excess > 0 ? "danger" : "ok"}>
+                        {x.excess > 0
+                          ? `${number.format(x.excess)} kW de más`
+                          : "Sin potencia sobrante"}
+                      </small>
+                    </>
+                  )}
                 </td>
                 <td>
                   {x.pf ? (

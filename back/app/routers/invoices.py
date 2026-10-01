@@ -107,8 +107,8 @@ def _compact_invoice(invoice: dict) -> dict:
         compact_measurement = {
             "active_energy_kwh": sum(_num(row.get("active_energy_kwh")) for row in measurements),
             "reactive_energy_kvarh": sum(_num(row.get("reactive_energy_kvarh")) for row in measurements),
-            "demand_kw": max([_num(row.get("demand_kw")) for row in measurements] + [0.0]),
-            "registered_demand_peak_kw": max([_num(row.get("registered_demand_peak_kw")) for row in measurements] + [0.0]),
+            "demand_kw": max((_num(row["demand_kw"]) for row in measurements if row.get("demand_kw") is not None), default=None),
+            "registered_demand_peak_kw": max((_num(row["registered_demand_peak_kw"]) for row in measurements if row.get("registered_demand_peak_kw") is not None), default=None),
             "registered_demand_off_peak_kw": max([_num(row.get("registered_demand_off_peak_kw")) for row in measurements] + [0.0]),
             "power_factor": min(reported) if reported else None,
             "resolved_power_factor": min(resolved) if resolved else invoice.get("resolved_power_factor"),

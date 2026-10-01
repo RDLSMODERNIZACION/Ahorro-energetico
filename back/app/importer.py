@@ -82,7 +82,7 @@ def parse_csv(payload: bytes) -> list[dict]:
 def import_invoices(organization_id: str, user_id: str, filename: str, payload: bytes) -> dict:
     db = admin_db(); digest = hashlib.sha256(payload).hexdigest()
     existing = db.table("import_batches").select("id,status").eq("organization_id", organization_id).eq("file_hash", digest).execute()
-    if existing.data and existing.data[0]["status"] in ("pending", "processing", "completed"):
+    if existing.data and existing.data[0]["status"] in ("pending", "processing"):
         return {"duplicate": True, "batch": existing.data[0]}
     batch = ({"id": existing.data[0]["id"]} if existing.data else db.table("import_batches").insert({"organization_id": organization_id, "uploaded_by": user_id,
       "file_name": filename, "file_type": filename.rsplit(".",1)[-1].lower(), "file_hash": digest, "status": "processing"}).execute().data[0])
