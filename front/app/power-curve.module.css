@@ -30,3 +30,10 @@
 .t2Comparison th, .t2Comparison td { padding: 12px; text-align: left; border-bottom: 1px solid #e1e9ef; white-space: nowrap; }
 .t2Comparison th { background: #edf4f8; }
 .t2Comparison input { margin-right: 8px; }
+
+.proposalSaving{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px;padding:20px 24px;border:1px solid #bfd5e5;border-radius:12px;background:#edf5fa;color:#163342;}
+.proposalSaving>div{display:flex;flex-direction:column;gap:6px;}
+.proposalSaving span{font-size:13px;font-weight:600;}
+.proposalSaving strong{font-size:26px;color:#08507a;}
+.proposalSaving small,.proposalSaving p{font-size:12px;line-height:1.5;}
+@media(max-width:600px){.proposalSaving{grid-template-columns:1fr;padding:16px;}}

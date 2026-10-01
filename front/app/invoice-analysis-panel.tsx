@@ -1978,6 +1978,22 @@ export function InvoiceAnalysisPanel({
               proposals={powerCurve.rows}
             />
           )}
+          {metric === "demand" && powerLine === "proposal" && (
+            <div className={styles.proposalSaving} role="status">
+              <div>
+                <span>Ahorro anual estimado en potencia</span>
+                <strong>{powerCurve.hasData ? money.format(annualPowerSaving) : "Sin estimación"}</strong>
+                <small>{t2Comparison ? "Propuesta trimestral optimizada · incluye el costo de los excesos previstos." : "Según la curva de potencia propuesta."}</small>
+              </div>
+              {powerCurve.hasData ? (
+                <div>
+                  <span>Ahorro estimado · consumo {consumptionPeriod(selected)}</span>
+                  <strong>{money.format(powerSaving)}</strong>
+                  <small>{t2Comparison ? (t2Comparison.hasTaxes ? "Incluye IVA y percepción estimados de la factura." : "Importes netos; impuestos no disponibles.") : "Incluye un 30 % estimado de impuestos."}</small>
+                </div>
+              ) : <p>Faltan datos suficientes para estimar el ahorro de la propuesta.</p>}
+            </div>
+          )}
         </section>
         <div className="invoice-analysis-grid">
           <section className="invoice-analysis-panel">
