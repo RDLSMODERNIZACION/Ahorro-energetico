@@ -4,7 +4,7 @@ const p = new URL("../app/meter-change-control.tsx", import.meta.url);
 let s = readFileSync(p, "utf8");
 if (s.includes("AUDIT_CONSUMPTION_MONTH_V2")) process.exit(0);
 
-s = s.replace(
+if (!s.includes('import { consumptionPeriod }')) s = s.replace(
   'import { supabase } from "./lib/supabase";',
   'import { supabase } from "./lib/supabase";\nimport { consumptionPeriod } from "./lib/power-history";',
 );
