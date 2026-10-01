@@ -1,7 +1,6 @@
 "use client";
 
 import { buildT2Comparison, type PowerStrategy } from "./lib/t2-power";
-import { T2PowerComparison } from "./t2-power-comparison";
 import { useMemo, useState, useEffect } from "react";
 import { MeterObservationEditor } from "./meter-observations";
 import { MeterDocuments } from "./meter-documents";
@@ -296,7 +295,7 @@ const epenPowerQuarters = [
   { label: "Mayo–Julio", months: [5, 6, 7] },
   { label: "Agosto–Octubre", months: [8, 9, 10] },
 ];
-function buildPowerCurve(history: Invoice[], strategy: PowerStrategy = "conservative") {
+function buildPowerCurve(history: Invoice[], strategy: PowerStrategy = "quarterly") {
   const t2 = buildT2Comparison(history);
   if (t2) {
     const scenario = t2.scenarios.find(row => row.id === strategy)!;
@@ -411,7 +410,7 @@ export function calculateCanonicalSavings({
   assessment,
   tariffSavings,
   advancedTariffPoint,
-  powerStrategy = "conservative",
+  powerStrategy = "quarterly",
 }: {
   invoice: Invoice;
   history: Invoice[];
@@ -914,8 +913,8 @@ export function InvoiceAnalysisPanel({
   hideLocationEditor?: boolean;
 }) {
   const [metric, setMetric] = useState<Metric>("demand");
-  const [powerStrategy, setPowerStrategy] = useState<PowerStrategy>("conservative");
-  useEffect(() => setPowerStrategy("conservative"), [invoice.meter_id]);
+  const [powerStrategy, setPowerStrategy] = useState<PowerStrategy>("quarterly");
+  useEffect(() => setPowerStrategy("quarterly"), [invoice.meter_id]);
   const [controlPageOpen, setControlPageOpen] = useState(false);
   const [powerLine, setPowerLine] = useState<"current" | "proposal">("current");
   const [advancedTariffHistory, setAdvancedTariffHistory] =
@@ -1352,7 +1351,6 @@ export function InvoiceAnalysisPanel({
           />
         )}
 
-        {t2Comparison && <T2PowerComparison model={t2Comparison} strategy={powerStrategy} onSelect={setPowerStrategy} />}
         {powerCurve.hasData && (
           <div className={styles.powerCurveSummary}>
             <div className={styles.powerMetric}>

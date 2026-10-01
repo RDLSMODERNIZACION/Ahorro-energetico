@@ -2,7 +2,6 @@
 
 import { billingDemand, powerCost, quarters, type T2Comparison, type PowerStrategy } from "./lib/t2-power";
 import { consumptionPeriod } from "./lib/power-history";
-import { T2PowerComparison } from "./t2-power-comparison";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -147,7 +146,7 @@ export function MeterChangeControlPanel({
   controls,
   powerProposals,
   t2Comparison,
-  powerStrategy = "conservative",
+  powerStrategy = "quarterly",
   onPowerStrategyChange,
   currentTariff,
   recommendedTariff,
@@ -823,7 +822,6 @@ export function MeterChangeControlPanel({
                 ← Volver al análisis
               </button>
             </div>
-            {t2Comparison && onPowerStrategyChange && <T2PowerComparison model={t2Comparison} strategy={powerStrategy} onSelect={onPowerStrategyChange} />}
             <div className="improvement-workspace-tabs">
               <button
                 className={workspace === "register" ? "active" : ""}
